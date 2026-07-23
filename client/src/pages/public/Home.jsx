@@ -365,9 +365,9 @@ function HomeNav() {
                 </div>
               ) : (
                 <div className="pt-6 mt-4 border-t border-white/10">
-                  <a href="https://raxwo.net/lets-talk/" className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-[#20b2f5] text-white text-[16px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]">
+                  <Link to="/contact" onClick={() => setMobileOpen(false)} className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-[#20b2f5] text-white text-[16px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]">
                     Let's Talk <FiMessageSquare size={18} />
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>
@@ -435,9 +435,9 @@ export default function Home() {
                 <Link to="/booking" className="btn-primary btn-lg !rounded-xl w-full sm:w-auto justify-center">
                   Book a Service <FiArrowRight />
                 </Link>
-                <a href="https://raxwo.net/lets-talk/" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 !rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto transition-all">
+                <Link to="/booking" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 !rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto transition-all">
                   Get a Free Quote
-                </a>
+                </Link>
                 <Link to="/services" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10 hover:text-white !rounded-xl flex items-center justify-center w-full sm:w-auto">
                   View Our Services
                 </Link>

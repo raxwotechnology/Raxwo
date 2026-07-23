@@ -73,7 +73,7 @@ const LETTER_TYPES = [
   { value: 'renewal_notice', label: 'Renewal Notice', Icon: FiClock, accent: 'border-slate-200 hover:border-amber-300 hover:bg-amber-50/40', category: 'client' },
 
   // Shared
-  { value: 'service_agreement', label: 'Service agreement', Icon: FiShield, accent: 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/40', category: 'both' },
+  { value: 'service_agreement', label: 'Service Letter Agreement', Icon: FiShield, accent: 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/40', category: 'both' },
   { value: 'custom', label: 'Custom letter', Icon: FiEdit3, accent: 'border-slate-200 hover:border-slate-400 hover:bg-slate-50/80', category: 'both' },
 ]
 

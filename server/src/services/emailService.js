@@ -18,8 +18,8 @@ const buildEmailHTML = async (title, content) => {
   const companyName = settings.siteName || 'Raxwo Technology';
   const rawLogoUrl = (settings.logoUrl || '').trim();
   
-  // Gmail/Outlook strip base64 data URIs. Use a public absolute URL (or default live logo) for 100% email client compatibility
-  let logoSrc = 'https://raxwo.net/wp-content/uploads/2025/07/1-1-e1753477709460.png';
+  // Use robust absolute logo URL (defaulting to live site or APP_URL/raxwo-logo-final.png)
+  let logoSrc = `${APP_URL}/raxwo-logo-final.png`;
   if (/^https?:\/\//i.test(rawLogoUrl)) {
     logoSrc = rawLogoUrl;
   } else if (rawLogoUrl) {
@@ -32,7 +32,6 @@ const buildEmailHTML = async (title, content) => {
   const address = settings.contactAddress || 'Colombo, Sri Lanka';
   const website = settings.websiteUrl || APP_URL;
 
-  const headerBg = '#0B1F3A';
   const primaryColor = '#2563eb';
 
   return `<!DOCTYPE html>
@@ -43,14 +42,11 @@ const buildEmailHTML = async (title, content) => {
 <style>
   body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background-color: #f1f5f9; margin: 0; padding: 0; }
   .wrapper { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-  .header { background: linear-gradient(135deg, ${headerBg}, #1a3a6b); padding: 30px; text-align: center; }
-  .header img { max-height: 50px; margin-bottom: 15px; }
-  .header h1 { color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
   .body { padding: 40px 30px; line-height: 1.6; font-size: 16px; color: #334155; }
   .footer { background: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e2e8f0; }
   .footer p { margin: 5px 0; font-size: 13px; color: #64748b; }
   .footer a { color: ${primaryColor}; text-decoration: none; }
-  .btn { display: inline-block; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 24px 0; transition: background-color 0.3s; text-align: center; }
+  .btn { display: inline-block; background-color: ${primaryColor}; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 24px 0; transition: background-color 0.3s; text-align: center; }
   .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 24px 0; }
   .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
   .info-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
@@ -60,9 +56,9 @@ const buildEmailHTML = async (title, content) => {
 </head>
 <body>
   <div class="wrapper">
-    <div class="header">
-      ${logoSrc ? `<img src="${logoSrc}" alt="${companyName} Logo">` : ''}
-      <h1>${title}</h1>
+    <div style="background-color: #0F172A; background: linear-gradient(135deg, #0F172A, #1E293B); padding: 36px 24px; text-align: center; border-top-left-radius: 12px; border-top-right-radius: 12px;">
+      ${logoSrc ? `<img src="${logoSrc}" alt="${companyName}" width="180" style="max-height: 55px; width: auto; max-width: 200px; display: block; margin: 0 auto 16px auto; border: 0; outline: none;" />` : ''}
+      <h1 style="color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.3; font-family: 'Segoe UI', Arial, sans-serif; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.6);">${title}</h1>
     </div>
     <div class="body">
       ${content}
@@ -377,6 +373,22 @@ exports.sendRequestDecisionEmail = async (employeeEmail, employeeName, subject, 
     ${btnHtml('View My Requests', `${APP_URL}/developer/requests`)}
   `);
   await sendLoggedMail({ to: employeeEmail, subject: `Request ${label}: ${subject || 'Update'}`, html }, 'requests');
+};
+
+exports.sendProjectAssignmentEmail = async (employeeEmail, employeeName, projectTitle, projectStatus = 'Active', commission = 0) => {
+  if (!employeeEmail) return;
+  const html = await buildEmailHTML('Project Allocation Update', `
+    <p>Hi <strong>${employeeName || 'there'}</strong>,</p>
+    <p>You have been assigned to project: <strong>${projectTitle || 'Project'}</strong>.</p>
+    ${infoBoxHtml([
+      { label: 'Project', value: projectTitle || '—' },
+      { label: 'Status', value: String(projectStatus).replace(/_/g, ' ').toUpperCase() },
+      ...(commission ? [{ label: 'Commission Allocation', value: `LKR ${Number(commission).toLocaleString()}` }] : []),
+    ])}
+    <p>Sign in to your profile to view your project tasks and allocations.</p>
+    ${btnHtml('View My Projects', `${APP_URL}/developer/projects`)}
+  `);
+  await sendLoggedMail({ to: employeeEmail, subject: `Project Allocation: ${projectTitle || 'Update'}`, html }, 'projects');
 };
 
 exports.sendLoggedMail = sendLoggedMail;

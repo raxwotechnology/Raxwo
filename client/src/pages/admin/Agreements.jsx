@@ -23,13 +23,14 @@ const AGREEMENT_TYPES = [
   { value: 'client_project', label: 'Client Project Agreement' },
   { value: 'subscription_service', label: 'Subscription Service Agreement' },
   { value: 'invoice_payment', label: 'Invoice Payment Agreement' },
+  { value: 'employee_agreement', label: 'Employee Agreement' },
   { value: 'general', label: 'General Agreement' },
   { value: 'custom', label: 'Custom Agreement (blank shell)' },
 ]
 
 const EMPTY_SIG = () => ({
-  provider: { data: '', signerName: '' },
-  client: { data: '', signerName: '', label: 'Client / Counterparty' },
+  provider: { data: '', signerName: '', sideType: 'Service Provider' },
+  client: { data: '', signerName: '', label: 'Client / Counterparty', sideType: 'Client', subRole: 'Authorized Signatory' },
   witness: { name: '', data: '' },
   seal: { data: '' },
 })
@@ -354,10 +355,15 @@ export default function Agreements() {
       const iNo = invoices.find((i) => i._id === invoiceVal)?.invoiceNo || ''
 
       let t = ''
-      if (type === 'client_project' && pName) t = `Project Agreement: ${pName}`
+      if (type === 'employee_agreement') t = 'INTERNSHIP AGREEMENT'
+      else if (type === 'client_project' && pName) t = `Project Agreement: ${pName}`
       else if (type === 'invoice_payment' && iNo) t = `Payment Agreement: ${iNo}`
       else if (cName) t = `Agreement with ${cName}`
       if (t) setValue('title', t)
+
+      if (!watch('agreementDate')) {
+        setValue('agreementDate', new Date().toISOString().split('T')[0])
+      }
     }
   }, [type, clientVal, projectVal, invoiceVal, step, editing, clients, projects, invoices, setValue])
 
@@ -446,6 +452,7 @@ export default function Agreements() {
             <thead>
               <tr>
                 <th>Agreement</th>
+                <th>Party Type</th>
                 <th>Linked</th>
                 <th>Document</th>
                 <th>Approval</th>
@@ -454,37 +461,49 @@ export default function Agreements() {
               </tr>
             </thead>
             <tbody>
-              {agreements.map((agr) => (
-                <tr key={agr._id}>
-                  <td>
-                    <p className="font-semibold text-slate-800">{agr.title}</p>
-                    <p className="text-xs text-slate-500 font-mono">
-                      {agr.agreementNo} · {AGREEMENT_TYPES.find((t) => t.value === agr.agreementType)?.label || agr.agreementType}
-                    </p>
-                  </td>
-                  <td>
-                    <div className="flex flex-col gap-1">
-                      {agr.client && (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"/>
-                          {agr.client.name}
-                        </span>
+              {agreements.map((agr) => {
+                const isEmployeeParty = agr.agreementType === 'employee_agreement' || Boolean(agr.employee)
+                const linkedName = agr.employee?.name || agr.employee?.userId?.name || agr.client?.name || ''
+                const linkedRole = isEmployeeParty ? 'Intern' : 'Client'
+
+                return (
+                  <tr key={agr._id}>
+                    <td>
+                      <p className="font-semibold text-slate-800">{agr.title}</p>
+                      <p className="text-xs text-slate-500 font-mono">
+                        {agr.agreementNo} · {AGREEMENT_TYPES.find((t) => t.value === agr.agreementType)?.label || agr.agreementType}
+                      </p>
+                    </td>
+                    <td>
+                      {isEmployeeParty ? (
+                        <span className="badge badge-purple font-semibold text-[11px]">Employee / Intern</span>
+                      ) : (
+                        <span className="badge badge-blue font-semibold text-[11px]">Client / Counterparty</span>
                       )}
-                      {agr.project && (
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-500 truncate max-w-[180px]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0"/>
-                          {agr.project.title}
-                        </span>
-                      )}
-                      {agr.invoice && (
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"/>
-                          {agr.invoice.invoiceNo}
-                        </span>
-                      )}
-                      {!agr.client && !agr.project && !agr.invoice && <span className="text-slate-300 text-xs">—</span>}
-                    </div>
-                  </td>
+                    </td>
+                    <td>
+                      <div className="flex flex-col gap-1">
+                        {linkedName && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-800">
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isEmployeeParty ? 'bg-purple-500' : 'bg-blue-500'}`}/>
+                            {linkedName} ({linkedRole})
+                          </span>
+                        )}
+                        {agr.project && (
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-500 truncate max-w-[180px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0"/>
+                            {agr.project.title}
+                          </span>
+                        )}
+                        {agr.invoice && (
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"/>
+                            {agr.invoice.invoiceNo}
+                          </span>
+                        )}
+                        {!linkedName && !agr.project && !agr.invoice && <span className="text-slate-300 text-xs">—</span>}
+                      </div>
+                    </td>
                   <td>
                     <select
                       value={agr.status}
@@ -555,7 +574,8 @@ export default function Agreements() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )
+            })}
             </tbody>
           </table>
             </div>
@@ -908,56 +928,87 @@ export default function Agreements() {
                     </div>
 
                     <div className="w-full xl:w-80 shrink-0 space-y-4 border border-slate-200 rounded-xl p-4 bg-slate-50/80">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Digital signatures</p>
-                      <DocumentAssetPicker label="Provider signature (upload or saved)" value={{ data: signatures.provider.data }} onChange={(v) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data: v.data } }))} roleKey="hr" />
-                      <input
-                        className="form-input text-sm"
-                        placeholder="Provider signatory name (or title)"
-                        list="signatory-titles"
-                        value={signatures.provider.signerName}
-                        onChange={(e) => setSignatures((s) => ({ ...s, provider: { ...s.provider, signerName: e.target.value } }))}
-                      />
-                      <datalist id="signatory-titles">
-                        <option value="Director" />
-                        <option value="Authorized Signatory" />
-                        <option value="Manager" />
-                        <option value="HR" />
-                      </datalist>
-                      <SignaturePad
-                        label="Provider (draw)"
-                        value={signatures.provider.data}
-                        onChange={(data) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data } }))}
-                      />
-                      <input
-                        className="form-input text-sm"
-                        placeholder="Signature label (e.g. Client, Intern, Employee)"
-                        value={signatures.client.label || ''}
-                        onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, label: e.target.value } }))}
-                      />
-                      <input
-                        className="form-input text-sm"
-                        placeholder="Client / Counterparty signatory name"
-                        list="signatory-titles"
-                        value={signatures.client.signerName}
-                        onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, signerName: e.target.value } }))}
-                      />
-                      <SignaturePad
-                        label={signatures.client.label || "Client"}
-                        value={signatures.client.data}
-                        onChange={(data) => setSignatures((s) => ({ ...s, client: { ...s.client, data } }))}
-                      />
-                      <input
-                        className="form-input text-sm"
-                        placeholder="Witness name (optional)"
-                        value={signatures.witness.name}
-                        onChange={(e) => setSignatures((s) => ({ ...s, witness: { ...s.witness, name: e.target.value } }))}
-                      />
-                      <SignaturePad
-                        label="Witness (optional)"
-                        value={signatures.witness.data}
-                        onChange={(data) => setSignatures((s) => ({ ...s, witness: { ...s.witness, data } }))}
-                      />
-                      <DocumentAssetPicker label="Company seal" assetType="seal" value={{ data: signatures.seal?.data || '' }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))} />
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Digital Signatures & Roles</p>
+                      
+                      {/* Provider Side Setup */}
+                      <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
+                        <label className="text-xs font-bold text-slate-600">Provider Side</label>
+                        <select
+                          className="form-select text-xs py-1.5 w-full"
+                          value={signatures.provider?.sideType || 'Service Provider'}
+                          onChange={(e) => setSignatures((s) => ({ ...s, provider: { ...s.provider, sideType: e.target.value } }))}
+                        >
+                          <option value="Service Provider">Service Provider</option>
+                          <option value="Company">Company</option>
+                        </select>
+                        <DocumentAssetPicker label="Provider signature" value={{ data: signatures.provider.data }} onChange={(v) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data: v.data } }))} roleKey="hr" />
+                        <input
+                          className="form-input text-xs"
+                          placeholder="Provider Signatory Name / Title"
+                          value={signatures.provider.signerName}
+                          onChange={(e) => setSignatures((s) => ({ ...s, provider: { ...s.provider, signerName: e.target.value } }))}
+                        />
+                        <SignaturePad
+                          label="Provider (Draw)"
+                          value={signatures.provider.data}
+                          onChange={(data) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data } }))}
+                        />
+                      </div>
+
+                      {/* Counterparty Side Setup */}
+                      <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
+                        <label className="text-xs font-bold text-slate-600">Counterparty Side</label>
+                        <select
+                          className="form-select text-xs py-1.5 w-full"
+                          value={signatures.client?.sideType || 'Client'}
+                          onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, sideType: e.target.value, label: e.target.value === 'Employee / Intern' ? 'Employee / Intern' : 'Client' } }))}
+                        >
+                          <option value="Client">Client</option>
+                          <option value="Employee / Intern">Employee / Intern</option>
+                        </select>
+                        
+                        <label className="text-xs font-semibold text-slate-500 block pt-1">Sub-Role</label>
+                        <select
+                          className="form-select text-xs py-1.5 w-full"
+                          value={signatures.client?.subRole || 'Authorized Signatory'}
+                          onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, subRole: e.target.value } }))}
+                        >
+                          <option value="Director">Director</option>
+                          <option value="Authorized Signatory">Authorized Signatory</option>
+                          <option value="Manager">Manager</option>
+                          <option value="HR">HR</option>
+                          <option value="Intern">Intern</option>
+                          <option value="Employee">Employee</option>
+                        </select>
+
+                        <input
+                          className="form-input text-xs"
+                          placeholder="Counterparty Signatory Full Name"
+                          value={signatures.client.signerName}
+                          onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, signerName: e.target.value } }))}
+                        />
+                        <SignaturePad
+                          label={`${signatures.client?.sideType || 'Client'} (${signatures.client?.subRole || 'Signatory'})`}
+                          value={signatures.client.data}
+                          onChange={(data) => setSignatures((s) => ({ ...s, client: { ...s.client, data } }))}
+                        />
+                      </div>
+
+                      {/* Witness & Seal */}
+                      <div className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
+                        <input
+                          className="form-input text-xs"
+                          placeholder="Witness Name (Optional)"
+                          value={signatures.witness.name}
+                          onChange={(e) => setSignatures((s) => ({ ...s, witness: { ...s.witness, name: e.target.value } }))}
+                        />
+                        <SignaturePad
+                          label="Witness (Draw)"
+                          value={signatures.witness.data}
+                          onChange={(data) => setSignatures((s) => ({ ...s, witness: { ...s.witness, data } }))}
+                        />
+                        <DocumentAssetPicker label="Company Seal" assetType="seal" value={{ data: signatures.seal?.data || '' }} onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))} />
+                      </div>
                     </div>
                   </motion.div>
                 )}

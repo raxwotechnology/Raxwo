@@ -22,13 +22,13 @@ const STATIC_PRODUCTS = [
 export default function SoftwareProducts() {
   const [activeCategory, setActiveCategory] = useState('All')
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['public-products'],
     queryFn: () => api.get('/content/services').then(r => r.data),
   })
 
   const raw = (data?.services || []).filter(s => s.type === 'product')
-  const baseProducts = raw.length > 0 ? raw : STATIC_PRODUCTS
+  const baseProducts = isLoading ? [] : (raw.length > 0 ? raw : STATIC_PRODUCTS)
   const displayProducts = baseProducts.map(s => ({
     ...s,
     icon: ICON_MAP[s.icon] || FiPackage,
@@ -52,10 +52,10 @@ export default function SoftwareProducts() {
         <div className="container-max relative">
           <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="flex flex-col items-center">
             <span className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2">Software Products</span>
-            <h1 className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight">
+            <h1 className="text-2xl lg:text-4xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl">
               Our <span className="text-[#20b2f5]">Software Products</span>
             </h1>
-            <p className="text-white/80 max-w-2xl mx-auto text-xl leading-relaxed font-normal">
+            <p className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal">
               Ready-made, customizable ERP and business management systems built for Sri Lankan businesses.
             </p>
           </motion.div>

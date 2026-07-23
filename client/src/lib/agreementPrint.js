@@ -121,7 +121,7 @@ export function buildAgreementBodyHtml(opts) {
         ${headerHtml}
         ${refHtml}
         ${titleHtml}
-        <div class="agreement-content letter-body" style="font-family:Georgia,serif;font-size:11pt;line-height:1.6;color:#1e293b;">${bodyHtml || ''}</div>
+        <div class="agreement-content letter-body" style="font-size:11pt;line-height:1.6;color:#1e293b;">${bodyHtml || ''}</div>
         ${agreementSigsHtml}
         ${footerHtml}
       </div>
@@ -131,15 +131,26 @@ export function buildAgreementBodyHtml(opts) {
 }
 
 const AGREEMENT_PRINT_STYLES = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap');
   @page { size: A4; margin: 15mm 15mm; }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; }
+  body { margin: 0; padding: 0; background: #fff; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; }
   img { max-width: 100%; height: auto; }
   header { max-width: 100%; box-sizing: border-box; }
   ${LETTER_COMPACT_CSS}
-  .agreement-content h1, .agreement-content h2, .agreement-content h3 { font-family: system-ui, sans-serif; color: #0f172a; margin-top: 1.25em; margin-bottom: 0.5em; }
+  .agreement-content { font-family: inherit; }
+  .agreement-content h1, .agreement-content h2, .agreement-content h3 { color: #0f172a; margin-top: 1.25em; margin-bottom: 0.5em; }
   .agreement-content p { margin: 0 0 12px; }
   .agreement-content ul { margin: 0 0 12px 1.2em; }
+  .ql-font-sans-serif { font-family: 'Inter', sans-serif !important; }
+  .ql-font-serif { font-family: 'Georgia', serif !important; }
+  .ql-font-monospace { font-family: 'Monaco', 'Courier New', monospace !important; }
+  .ql-size-small { font-size: 0.75em !important; }
+  .ql-size-large { font-size: 1.5em !important; }
+  .ql-size-huge { font-size: 2.5em !important; }
+  .ql-align-center { text-align: center !important; }
+  .ql-align-right { text-align: right !important; }
+  .ql-align-justify { text-align: justify !important; }
   .letter-page-wrap { width: 100%; max-width: 100%; margin: 0 auto; box-sizing: border-box; }
   .letter-page-content { transform-origin: top center; width: 100%; box-sizing: border-box; }
   @media print {

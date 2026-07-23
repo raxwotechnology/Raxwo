@@ -28,15 +28,30 @@ export default function ClientBooking() {
   const [submitted, setSubmitted] = useState(false)
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm()
+  const [activeTab, setActiveTab] = useState('services') // 'services' | 'products'
 
-  const { data: servicesData } = useQuery({
+  const { data: servicesData, isLoading } = useQuery({
     queryKey: ['public-services-booking'],
     queryFn: () => api.get('/content/services').then(r => r.data),
   })
 
-  const services = Array.isArray(servicesData?.services) && servicesData.services.length > 0
-    ? servicesData.services.map(s => ({ label: s.title || 'Service', icon: s.icon || 'FiCpu', color: `from-[${s.colorFrom || '#2563eb'}] to-[${s.colorTo || '#1d4ed8'}]` }))
-    : STATIC_SERVICES
+  const rawServices = servicesData?.services || []
+
+  const servicesList = isLoading ? [] : (
+    rawServices.filter(s => s.type !== 'product').length > 0
+      ? rawServices.filter(s => s.type !== 'product').map(s => ({ label: s.title || 'Service', icon: s.icon || 'FiCpu', color: 'from-blue-500 to-blue-600', category: s.category || 'Service' }))
+      : STATIC_SERVICES
+  )
+
+  const productsList = isLoading ? [] : (
+    rawServices.filter(s => s.type === 'product').length > 0
+      ? rawServices.filter(s => s.type === 'product').map(s => ({ label: s.title || 'Software Product', icon: s.icon || 'FiLayers', color: 'from-purple-500 to-purple-600', category: s.category || 'Product' }))
+      : [
+          { label: 'Gymora ERP', icon: 'FiLayers', color: 'from-blue-600 to-indigo-600', category: 'ERP System' }
+        ]
+  )
+
+  const displayedItems = activeTab === 'services' ? servicesList : productsList
 
   const mutation = useMutation({
     mutationFn: (payload) => api.post('/bookings', payload).then(r => r.data),
@@ -83,7 +98,7 @@ export default function ClientBooking() {
     <div className="animate-fade-in">
       {/* Hero */}
       <ClientPageHeader 
-        title="Book a Service" 
+        title="Book a Service or Software Product" 
         subtitle="Tell us what you need — we'll put together a tailored proposal and connect you with the right team."
       />
 
@@ -105,26 +120,60 @@ export default function ClientBooking() {
             ))}
           </div>
 
-          {/* Step 0: Service Selection */}
+          {/* Step 0: Service vs Product Selection */}
           {step === 0 && (
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-              <h2 className="text-xl font-bold text-primary font-heading text-center mb-6">What do you need?</h2>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {services.map((s, idx) => {
-                  const Icon = SERVICE_ICONS[s.icon] || FiCpu
-                  return (
-                    <motion.button key={`${s.label}-${idx}`} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      onClick={() => { setSelectedService(s.label); setStep(1) }}
-                      className={`card p-4 sm:p-5 text-left border-2 transition-all duration-200 group ${selectedService === s.label ? 'border-secondary shadow-md' : 'border-transparent hover:border-secondary/40 hover:shadow-sm'}`}>
-                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-md`}>
-                        <Icon size={18} className="text-white sm:w-5 sm:h-5" />
-                      </div>
-                      <h3 className="font-bold text-primary font-heading text-[13px] sm:text-sm">{s.label}</h3>
-                      <p className="text-[11px] sm:text-xs text-slate-500 mt-1 flex items-center gap-1">Select <FiArrowRight size={10} /></p>
-                    </motion.button>
-                  )
-                })}
+              <h2 className="text-xl font-bold text-primary font-heading text-center mb-4">What do you need?</h2>
+              
+              {/* Category Tabs: Services vs Software Products */}
+              <div className="flex justify-center gap-3 mb-8">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('services')}
+                  className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                    activeTab === 'services'
+                      ? 'bg-secondary text-white shadow-md'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Services
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('products')}
+                  className={`px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                    activeTab === 'products'
+                      ? 'bg-secondary text-white shadow-md'
+                      : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Software Products
+                </button>
               </div>
+
+              {isLoading ? (
+                <div className="text-center py-12">
+                  <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" />
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {displayedItems.map((s, idx) => {
+                    const Icon = SERVICE_ICONS[s.icon] || FiCpu
+                    return (
+                      <motion.button key={`${s.label}-${idx}`} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        onClick={() => { setSelectedService(s.label); setStep(1) }}
+                        className={`card p-4 sm:p-5 text-left border-2 transition-all duration-200 group ${selectedService === s.label ? 'border-secondary shadow-md' : 'border-transparent hover:border-secondary/40 hover:shadow-sm'}`}>
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-md`}>
+                          <Icon size={18} className="text-white sm:w-5 sm:h-5" />
+                        </div>
+                        <span className="badge badge-blue text-[10px] mb-2">{s.category || (activeTab === 'products' ? 'Product' : 'Service')}</span>
+                        <h3 className="font-bold text-primary font-heading text-[13px] sm:text-sm">{s.label}</h3>
+                        <p className="text-[11px] sm:text-xs text-slate-500 mt-1 flex items-center gap-1">Select <FiArrowRight size={10} /></p>
+                      </motion.button>
+                    )
+                  })}
+                </div>
+              )}
             </motion.div>
           )}
 

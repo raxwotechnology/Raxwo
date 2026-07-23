@@ -441,6 +441,30 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
 <p>Date: ${today}</p>
     `.trim(),
 
+    employee_agreement: `
+<h2>INTERNSHIP & EMPLOYMENT AGREEMENT</h2>
+<p>This Agreement is entered into as of <strong>${today}</strong> between <strong>${companyLine}</strong> ("Company") and <strong>{{EmployeeName}}</strong> (Employee ID: <strong>{{EmployeeId}}</strong>), hereinafter referred to as the <em>Employee / Intern</em>.</p>
+
+<h3>1. Position & Role</h3>
+<p><strong>Designation / Role:</strong> {{Designation}}</p>
+<p><strong>Department:</strong> {{Department}}</p>
+<p><strong>Joined Date:</strong> {{JoinDate}}</p>
+
+<h3>2. Compensation & Remuneration</h3>
+<p><strong>Basic Salary / Allowance:</strong> {{Salary}}</p>
+
+<h3>3. Terms & Conditions</h3>
+<p>The Employee / Intern agrees to perform assigned tasks faithfully, observe company policies, maintain strict confidentiality of proprietary data, and protect intellectual property rights.</p>
+
+<h3>4. Governing Law</h3>
+<p>This agreement is governed by the laws of Sri Lanka.</p>
+
+<p>__________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__________________________</p>
+<p><strong>${companyName}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>{{EmployeeName}}</strong></p>
+<p>Company / Provider&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Employee / Intern</p>
+<p>Date: ${today}</p>
+    `.trim(),
+
     custom: buildCustomAgreementShell(companyName, companyAddress, companyPhone, companyEmail, clientName, today),
   };
 

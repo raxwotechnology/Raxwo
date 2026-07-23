@@ -208,7 +208,7 @@ export default function PublicLayout() {
             </div>
 
             <NavLink to="/careers" className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
-            <a href="https://raxwo.net/lets-talk/" className="px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap text-white/75 hover:text-white hover:bg-white/10">Let's Talk</a>
+            <NavLink to="/contact" className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Let's Talk</NavLink>
           </nav>
 
           <div className="hidden md:flex items-center gap-3 flex-shrink-0 ml-auto">

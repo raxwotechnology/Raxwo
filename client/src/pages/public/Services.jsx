@@ -140,14 +140,14 @@ export default function Services() {
   const currentTab = 'service' // Keep variable for any internal logic that might use it, but ignore for filtering
   const activeCategory = searchParams.get('category') || 'All'
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['public-services'],
     queryFn: () => api.get('/content/services').then((r) => r.data),
   })
 
   const raw = data?.services || []
   const fetchedTabServices = raw.filter(s => s.type !== 'product')
-  const allTabServices = fetchedTabServices.length > 0 ? fetchedTabServices : STATIC_SERVICES
+  const allTabServices = isLoading ? [] : (fetchedTabServices.length > 0 ? fetchedTabServices : STATIC_SERVICES)
 
   const displayServices = allTabServices.map((s) => ({
     ...s,
@@ -187,10 +187,10 @@ export default function Services() {
             className="flex flex-col items-center"
           >
             <span className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2">What We Offer</span>
-            <h1 className="text-3xl lg:text-5xl font-bold text-white font-heading mb-6 tracking-tight">
-              Our <span className="text-[#20b2f5]">Services & Software Products</span>
+            <h1 className="text-2xl lg:text-4xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl">
+              Our <span className="text-[#20b2f5]">Services</span>
             </h1>
-            <p className="text-white/80 max-w-2xl mx-auto text-xl md:text-2xl leading-relaxed font-normal">
+            <p className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal">
               Premium software development services tailored for businesses in Sri Lanka and beyond.
             </p>
           </motion.div>

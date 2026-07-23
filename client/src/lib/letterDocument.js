@@ -43,7 +43,7 @@ export function buildLetterheadHtml(company, { forPrint = true, siteSettings } =
 
   return `
     <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:24px;border-bottom:2px solid #e2e8f0;margin-bottom:32px;position:relative;">
-      <div style="position:absolute;bottom:-2px;left:0;width:33%;height:2px;background:linear-gradient(90deg, #0284c7, #38bdf8);"></div>
+      <div style="position:absolute;bottom:-2px;left:0;width:100%;height:2px;background:linear-gradient(90deg, #0284c7, #38bdf8);"></div>
       <div style="display:flex;align-items:center;gap:20px;min-width:0">
         <div style="flex-shrink:0">${logoHtml}</div>
         <div>

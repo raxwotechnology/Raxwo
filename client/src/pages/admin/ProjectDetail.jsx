@@ -273,23 +273,35 @@ export default function ProjectDetail() {
                   {p.salaryAllocations?.length === 0 ? (
                     <tr><td colSpan={3} className="p-8 text-center text-slate-400">No team commissions defined for this project.</td></tr>
                   ) : (
-                    p.salaryAllocations?.map((alloc, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-slate-800">{alloc.employeeName || alloc.employee?.name}</p>
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium text-purple-700">{(alloc.commission || 0).toLocaleString()}</td>
-                        <td className="px-6 py-4 text-center">
-                          {!p.invoice ? (
-                            <span className="badge badge-gray">No invoice</span>
-                          ) : isInvoiceFullyPaid(p.invoice) ? (
-                            <span className="badge badge-green">Paid</span>
-                          ) : (
-                            <span className="badge badge-yellow">Unpaid</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                    p.salaryAllocations?.map((alloc, i) => {
+                      const isResigned = alloc.employee?.status === 'resigned' || alloc.employee?.status === 'former' || alloc.employee?.userId?.status === 'resigned'
+                      const name = alloc.employeeName || alloc.employee?.userId?.name || alloc.employee?.name || 'Team Member'
+                      return (
+                        <tr key={i} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-slate-800">{name}</p>
+                              {isResigned && (
+                                <span className="badge badge-red text-[11px] font-semibold">Resigned</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right font-medium text-purple-700">{(alloc.commission || 0).toLocaleString()}</td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {isResigned && <span className="badge badge-red">Resigned</span>}
+                              {!p.invoice ? (
+                                <span className="badge badge-gray">No invoice</span>
+                              ) : isInvoiceFullyPaid(p.invoice) ? (
+                                <span className="badge badge-green">Paid</span>
+                              ) : (
+                                <span className="badge badge-yellow">Unpaid</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
               </table>

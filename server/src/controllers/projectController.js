@@ -17,7 +17,8 @@ const {
 const POPULATE = [
   { path: 'client', select: 'name email avatar phone' },
   { path: 'projectManager', select: 'name email avatar' },
-  { path: 'assignedEmployees', select: 'name email avatar' },
+  { path: 'assignedEmployees', select: 'name email avatar status' },
+  { path: 'salaryAllocations.employee', populate: { path: 'userId', select: 'name email avatar status' } },
   { path: 'branch', select: 'name' },
   { path: 'invoice', select: 'invoiceNo total totalPaid totalAdvances remainingBalance status dueDate payments currency' },
   { path: 'linkedInvoices', select: 'invoiceNo total totalPaid remainingBalance status dueDate currency' },

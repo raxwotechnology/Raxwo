@@ -4,7 +4,7 @@ const agreementSchema = new mongoose.Schema({
   // ── Type ──────────────────────────────────────────────────────────────────
   agreementType: {
     type: String,
-    enum: ['client_project', 'subscription_service', 'invoice_payment', 'general', 'custom'],
+    enum: ['client_project', 'subscription_service', 'invoice_payment', 'employee_agreement', 'general', 'custom'],
     required: true,
     default: 'general',
   },
