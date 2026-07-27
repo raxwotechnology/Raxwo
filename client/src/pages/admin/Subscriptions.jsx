@@ -65,6 +65,10 @@ export default function AdminSubscriptions() {
   const [selectedSub, setSelectedSub] = useState(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [analyticsViewMode, setAnalyticsViewMode] = useState('monthly') // 'monthly' | 'overall'
   const [search, setSearch] = useState('')
   const [selectedSubIds, setSelectedSubIds] = useState([])
   const [bulkSending, setBulkSending] = useState(false)
@@ -79,7 +83,7 @@ export default function AdminSubscriptions() {
 
   const emptyForm = {
     client: '', project: '', branch: '', title: '', description: '', subscriptionType: 'custom', customServiceType: '',
-    amount: '', billingFrequency: 'monthly', billingDay: 1,
+    amount: '3000', billingFrequency: 'monthly', billingDay: 1,
     reminderDaysBefore: '5',
     status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active',
     paymentMethod: 'cash', bankAccount: '',
@@ -89,7 +93,7 @@ export default function AdminSubscriptions() {
   const f = (k) => (v) => setForm(p => ({ ...p, [k]: v }))
 
   const [paymentForm, setPaymentForm] = useState({
-    amount: '', method: 'cash', bankAccount: '', reference: '', note: '',
+    amount: '3000', method: 'cash', bankAccount: '', reference: '', note: '',
     chequeNumber: '', chequeDate: '', chequeBank: '', chequeDrawer: '', date: new Date().toISOString().split('T')[0]
   })
   const [agreementForm, setAgreementForm] = useState({ title: '', type: 'service', validFrom: '', validUntil: '', notes: '', file: null })
@@ -105,8 +109,15 @@ export default function AdminSubscriptions() {
     queryFn: () => api.get('/auth/users').then(r => r.data)
   })
   const { data: overviewData } = useQuery({
-    queryKey: ['admin-billing-overview', branchFilter],
-    queryFn: () => api.get(`/subscriptions/billing-overview${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data)
+    queryKey: ['admin-billing-overview', branchFilter, selectedMonth, startDate, endDate],
+    queryFn: () => {
+      const q = new URLSearchParams()
+      if (branchFilter) q.append('branch', branchFilter)
+      if (selectedMonth && !startDate) q.append('month', selectedMonth)
+      if (startDate) q.append('startDate', startDate)
+      if (endDate) q.append('endDate', endDate)
+      return api.get(`/subscriptions/billing-overview?${q.toString()}`).then(r => r.data)
+    }
   })
   const { data: bankData } = useQuery({
     queryKey: ['bank-accounts'],
@@ -376,19 +387,106 @@ export default function AdminSubscriptions() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Monthly Revenue', value: `LKR ${(overview.totalMRR || 0).toLocaleString()}`, cls: 'kpi-blue' },
-          { label: 'Total Overdue', value: `LKR ${(overview.totalOverdue || 0).toLocaleString()}`, cls: 'kpi-red' },
-          { label: 'Total Collected', value: `LKR ${(overview.totalCollected || 0).toLocaleString()}`, cls: 'kpi-green' },
-          { label: 'Active Subs', value: overview.activeCount || 0, cls: 'kpi-navy' },
-        ].map(({ label, value, cls }) => (
-          <div key={label} className={`kpi-card ${cls}`}>
-            <p className="text-xs uppercase text-slate-500 font-medium">{label}</p>
-            <p className="text-2xl font-bold text-primary mt-1">{value}</p>
+      {/* Date Range & Monthly Filter Control Bar */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${analyticsViewMode === 'monthly' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            onClick={() => setAnalyticsViewMode('monthly')}
+          >
+            Monthly Filtered View
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${analyticsViewMode === 'overall' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+            onClick={() => setAnalyticsViewMode('overall')}
+          >
+            Overall Totals View
+          </button>
+        </div>
+
+        {/* Date / Month Picker Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Month:</span>
+            <input
+              type="month"
+              className="form-select !py-1 !px-2 text-xs w-36 font-semibold"
+              value={selectedMonth}
+              onChange={(e) => {
+                setSelectedMonth(e.target.value)
+                setStartDate('')
+                setEndDate('')
+              }}
+            />
           </div>
-        ))}
+
+          <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+            <span className="text-xs font-semibold text-slate-500">Range:</span>
+            <input
+              type="date"
+              className="form-input !py-1 !px-2 text-xs w-32 font-medium"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              placeholder="Start"
+            />
+            <span className="text-slate-400 text-xs">–</span>
+            <input
+              type="date"
+              className="form-input !py-1 !px-2 text-xs w-32 font-medium"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              placeholder="End"
+            />
+          </div>
+
+          {(startDate || endDate || selectedMonth !== new Date().toISOString().slice(0, 7)) && (
+            <button
+              type="button"
+              className="text-xs font-bold text-slate-400 hover:text-slate-600 underline ml-1"
+              onClick={() => {
+                setSelectedMonth(new Date().toISOString().slice(0, 7))
+                setStartDate('')
+                setEndDate('')
+              }}
+            >
+              Reset
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* KPI Cards — Categorized Figures */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {analyticsViewMode === 'monthly' ? (
+          [
+            { label: 'Monthly Collected', value: `LKR ${(overview.monthlyCollected || 0).toLocaleString()}`, cls: 'kpi-green', sub: selectedMonth ? `Month: ${selectedMonth}` : 'Current Month' },
+            { label: 'Pending Payments', value: `LKR ${(overview.pendingPayments || 0).toLocaleString()}`, cls: 'kpi-blue', sub: 'Expected Balance' },
+            { label: 'Overdue Payments', value: `LKR ${(overview.overduePayments || 0).toLocaleString()}`, cls: 'kpi-red', sub: 'Past Due Date' },
+            { label: 'Total Collected', value: `LKR ${(overview.totalCollected || 0).toLocaleString()}`, cls: 'kpi-navy', sub: 'Overall Revenue' },
+          ].map(({ label, value, cls, sub }) => (
+            <div key={label} className={`kpi-card ${cls}`}>
+              <p className="text-xs uppercase text-slate-500 font-medium">{label}</p>
+              <p className="text-2xl font-bold text-primary mt-1">{value}</p>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">{sub}</p>
+            </div>
+          ))
+        ) : (
+          [
+            { label: 'Monthly MRR', value: `LKR ${(overview.totalMRR || 0).toLocaleString()}`, cls: 'kpi-blue', sub: 'Monthly Recurring' },
+            { label: 'Total Overdue', value: `LKR ${(overview.totalOverdue || 0).toLocaleString()}`, cls: 'kpi-red', sub: 'All Outstanding' },
+            { label: 'Total Collected', value: `LKR ${(overview.totalCollected || 0).toLocaleString()}`, cls: 'kpi-green', sub: 'All-time Income' },
+            { label: 'Active Subs', value: overview.activeCount || 0, cls: 'kpi-navy', sub: 'Active Contracts' },
+          ].map(({ label, value, cls, sub }) => (
+            <div key={label} className={`kpi-card ${cls}`}>
+              <p className="text-xs uppercase text-slate-500 font-medium">{label}</p>
+              <p className="text-2xl font-bold text-primary mt-1">{value}</p>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">{sub}</p>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Client Payment Summaries — Premium Redesign */}
@@ -778,8 +876,47 @@ export default function AdminSubscriptions() {
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2"><FiDollarSign size={12} />Billing Details</p>
               <div className="grid sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label">Monthly Amount (LKR) *</label>
-                  <input type="number" className="form-input" value={form.amount} onChange={e => f('amount')(e.target.value)} min="0" placeholder="0" />
+                  <label className="form-label flex items-center justify-between">
+                    <span>Monthly Amount (LKR) *</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const presets = [3000, 5000, 10000]
+                        const cur = Number(form.amount) || 0
+                        const idx = presets.indexOf(cur)
+                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
+                        f('amount')(String(nextVal))
+                      }}
+                      className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
+                      title="Click to auto-fill default amount (3,000 / 5,000 / 10,000 LKR)"
+                    >
+                      <FiDollarSign size={11} /> Auto-fill
+                    </button>
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const presets = [3000, 5000, 10000]
+                        const cur = Number(form.amount) || 0
+                        const idx = presets.indexOf(cur)
+                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
+                        f('amount')(String(nextVal))
+                      }}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1 rounded hover:bg-slate-100"
+                      title="Click Dollar mark to auto-fill default amount"
+                    >
+                      <FiDollarSign size={15} />
+                    </button>
+                    <input
+                      type="number"
+                      className="form-input !pl-8"
+                      value={form.amount}
+                      onChange={e => f('amount')(e.target.value)}
+                      min="0"
+                      placeholder="3000"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="form-label">Billing Frequency</label>
@@ -920,8 +1057,41 @@ export default function AdminSubscriptions() {
                 <p className="text-slate-500">Remaining Balance: <span className="font-bold text-red-500">LKR {selectedSub.remainingBalance?.toLocaleString()}</span></p>
               </div>
               <div>
-                <label className="form-label">Payment Amount (LKR) *</label>
-                <input type="number" className="form-input" value={paymentForm.amount} onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value }))} min="1" />
+                <label className="form-label flex items-center justify-between">
+                  <span>Payment Amount (LKR) *</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const def = selectedSub?.remainingBalance || 3000
+                      setPaymentForm(p => ({ ...p, amount: String(def) }))
+                    }}
+                    className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
+                    title="Click to auto-fill amount"
+                  >
+                    <FiDollarSign size={11} /> Auto-fill
+                  </button>
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const def = selectedSub?.remainingBalance || 3000
+                      setPaymentForm(p => ({ ...p, amount: String(def) }))
+                    }}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1 rounded hover:bg-slate-100"
+                    title="Click Dollar mark to auto-fill default amount"
+                  >
+                    <FiDollarSign size={15} />
+                  </button>
+                  <input
+                    type="number"
+                    className="form-input !pl-8"
+                    value={paymentForm.amount}
+                    onChange={e => setPaymentForm(p => ({ ...p, amount: e.target.value }))}
+                    min="1"
+                    placeholder="3000"
+                  />
+                </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>

@@ -116,23 +116,15 @@ import ClientDashboard from './pages/client/Dashboard'
 // Guard components
 const ProtectedRoute = ({ children, roles }) => {
   const { isAuthenticated, user } = useAuthStore()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!isAuthenticated) return <Navigate to="/" replace />
   if (roles && !roles.includes(user?.role)) return <Navigate to="/unauthorized" replace />
   return children
 }
 
 const GuestRoute = ({ children }) => {
-  const { isAuthenticated, user } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   if (isAuthenticated) {
-    const redirect = {
-      admin: '/admin',
-      manager: '/manager',
-      developer: '/developer',
-      designer: '/designer',
-      marketing: '/marketing',
-      client: '/my-dashboard',
-    }
-    return <Navigate to={redirect[user?.role] || '/'} replace />
+    return <Navigate to="/" replace />
   }
   return children
 }

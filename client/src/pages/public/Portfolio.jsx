@@ -104,7 +104,7 @@ export default function Portfolio() {
             transition={{ delay: 0.7, type: 'spring' }}
             className="flex flex-wrap justify-center gap-8 mt-12 bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10 shadow-2xl max-w-4xl mx-auto"
           >
-            {[['120+', 'Happy Clients'], ['50+', 'Projects Delivered'], ['15+', 'Countries Served'], ['99%', 'Client Satisfaction']].map(([n, l], i) => (
+            {[['250+', 'Happy Clients'], ['150+', 'Projects Delivered'], ['35+', 'Team Members'], ['7+', 'Years in Business']].map(([n, l], i) => (
               <motion.div 
                 key={l} 
                 initial={{ opacity: 0, y: 20 }}

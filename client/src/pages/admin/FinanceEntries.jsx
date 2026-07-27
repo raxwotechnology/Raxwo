@@ -387,8 +387,46 @@ export default function FinanceEntries() {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Amount (LKR) *</label>
-                  <input type="number" className="form-input" value={form.amount} onChange={e=>f('amount',Number(e.target.value||0))} placeholder="0.00"/>
+                  <label className="form-label flex items-center justify-between">
+                    <span>Amount (LKR) *</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const presets = [3000, 5000, 10000]
+                        const cur = Number(form.amount) || 0
+                        const idx = presets.indexOf(cur)
+                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
+                        f('amount', nextVal)
+                      }}
+                      className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
+                      title="Click to auto-fill default amount (3,000 / 5,000 / 10,000 LKR)"
+                    >
+                      <FiDollarSign size={11} /> Auto-fill
+                    </button>
+                  </label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const presets = [3000, 5000, 10000]
+                        const cur = Number(form.amount) || 0
+                        const idx = presets.indexOf(cur)
+                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
+                        f('amount', nextVal)
+                      }}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1 rounded hover:bg-slate-100"
+                      title="Click Dollar mark to auto-fill default amount"
+                    >
+                      <FiDollarSign size={15} />
+                    </button>
+                    <input
+                      type="number"
+                      className="form-input !pl-8"
+                      value={form.amount || ''}
+                      onChange={e => f('amount', Number(e.target.value || 0))}
+                      placeholder="3000.00"
+                    />
+                  </div>
                 </div>
               </div>
               {form.category==='Other' && (

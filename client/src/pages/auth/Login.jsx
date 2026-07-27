@@ -62,14 +62,14 @@ export default function Login() {
 
           <div className="grid grid-cols-2 gap-4 mt-10">
             {[
-              { num: '50+', label: 'Projects Delivered' },
-              { num: '120+', label: 'Satisfied Clients' },
+              { num: '150+', label: 'Projects Delivered' },
+              { num: '250+', label: 'Satisfied Clients' },
               { num: '35+', label: 'Team Members' },
-              { num: '5+', label: 'Years Experience' },
+              { num: '7+', label: 'Years Experience' },
             ].map(s => (
-              <div key={s.label} className="glass-card p-4">
+              <div key={s.label} className="glass-card p-4 border border-white/10 hover:border-[#20b2f5]/40 transition-all">
                 <p className="text-3xl font-bold text-[#20b2f5] font-heading">{s.num}</p>
-                <p className="text-white/60 text-sm mt-1">{s.label}</p>
+                <p className="text-white/70 text-sm font-medium mt-1">{s.label}</p>
               </div>
             ))}
           </div>

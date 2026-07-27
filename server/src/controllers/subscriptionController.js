@@ -548,9 +548,7 @@ exports.sendHistory = async (req, res, next) => {
 // ── BILLING OVERVIEW (admin dashboard) ────────────────
 exports.getBillingOverview = async (req, res, next) => {
   try {
-    const { branch } = req.query;
-    // We shouldn't filter by branch strictly if branch is missing. 
-    // And if branch is 'undefined' or 'null', handle it
+    const { branch, month, startDate, endDate } = req.query;
     let subMatch = { status: { $in: ['active', 'overdue'] }, client: { $ne: null } };
     if (branch && branch !== 'undefined' && branch !== 'null') {
       subMatch.branch = branch;
@@ -560,17 +558,40 @@ exports.getBillingOverview = async (req, res, next) => {
       .populate('client', 'name email')
       .populate('project', 'title');
 
+    const now = new Date();
+
+    // Determine target period for monthly isolation
+    let rangeStart, rangeEnd;
+    if (startDate && endDate) {
+      rangeStart = new Date(startDate);
+      rangeEnd = new Date(endDate);
+      rangeEnd.setHours(23, 59, 59, 999);
+    } else if (month) {
+      const [y, m] = month.split('-').map(Number);
+      if (y && m) {
+        rangeStart = new Date(y, m - 1, 1, 0, 0, 0);
+        rangeEnd = new Date(y, m, 0, 23, 59, 59, 999);
+      }
+    }
+    if (!rangeStart || !rangeEnd || isNaN(rangeStart.getTime())) {
+      rangeStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+      rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+
     let totalMRR = 0;
     let totalOverdue = 0;
     let totalCollected = 0;
+    let monthlyCollected = 0;
+    let pendingPayments = 0;
+    let overduePayments = 0;
     let overdueCount = 0;
-    const now = new Date();
 
     const clientSummaries = {};
 
     subs.forEach((s) => {
       let amount = s.amount || 0;
       let totalPaid = s.totalPaid || 0;
+
       // Monthly Recurring Revenue
       let monthlyEquiv = amount;
       if (s.billingFrequency === 'quarterly') monthlyEquiv = amount / 3;
@@ -589,11 +610,31 @@ exports.getBillingOverview = async (req, res, next) => {
       }
       const remaining = Math.max(0, dynamicBilled - totalPaid);
 
-      if (overdue > 0 || remaining > 0 && overdue > 0) {
+      if (overdue > 0 || (remaining > 0 && overdue > 0)) {
         totalOverdue += remaining;
+        overduePayments += remaining;
         overdueCount++;
       }
-      totalCollected += totalPaid;
+      if (remaining > 0) {
+        pendingPayments += remaining;
+      }
+
+      // Calculate total & monthly collected from payment records
+      (s.payments || []).forEach((p) => {
+        const pAmt = p.amount || 0;
+        totalCollected += pAmt;
+        if (p.paidAt) {
+          const pd = new Date(p.paidAt);
+          if (pd >= rangeStart && pd <= rangeEnd) {
+            monthlyCollected += pAmt;
+          }
+        }
+      });
+
+      // Fallback if payments array is empty but totalPaid > 0
+      if ((!s.payments || s.payments.length === 0) && totalPaid > 0) {
+        totalCollected += totalPaid;
+      }
 
       // Skip orphaned subscriptions (client was deleted) from client grouping
       if (!s.client || !s.client._id) return;
@@ -667,24 +708,31 @@ exports.getBillingOverview = async (req, res, next) => {
       typeDist[label] = (typeDist[label] || 0) + 1;
     });
 
-      const result = {
-        totalMRR: Math.round(totalMRR),
-        totalOverdue: Math.round(totalOverdue),
-        totalCollected: Math.round(totalCollected),
-        overdueCount,
-        activeCount: subs.filter(s => s.status === 'active').length,
-        totalSubscriptions: subs.length,
-        clientSummaries: Object.values(clientSummaries),
-        hostingRenewals,
-        monthlyRevenue,
-        typeDist: Object.entries(typeDist).map(([name, value]) => ({ name, value })),
-      };
+    const result = {
+      totalMRR: Math.round(totalMRR),
+      totalOverdue: Math.round(totalOverdue),
+      totalCollected: Math.round(totalCollected),
+      monthlyCollected: Math.round(monthlyCollected),
+      pendingPayments: Math.round(pendingPayments),
+      overduePayments: Math.round(overduePayments),
+      overdueCount,
+      activeCount: subs.filter(s => s.status === 'active').length,
+      totalSubscriptions: subs.length,
+      clientSummaries: Object.values(clientSummaries),
+      hostingRenewals,
+      monthlyRevenue,
+      typeDist: Object.entries(typeDist).map(([name, value]) => ({ name, value })),
+      selectedPeriod: {
+        startDate: rangeStart.toISOString().split('T')[0],
+        endDate: rangeEnd.toISOString().split('T')[0],
+      },
+    };
 
-      res.json({
-        success: true,
-        overview: result,
-      });
-    } catch (err) { next(err); }
+    res.json({
+      success: true,
+      overview: result,
+    });
+  } catch (err) { next(err); }
 };
 
 // ── CHECK & UPDATE OVERDUE (cron-like) ────────────────
