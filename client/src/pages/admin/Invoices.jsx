@@ -275,7 +275,11 @@ export default function AdminInvoices() {
         setValue('items', lineItems)
         setValue('currency', q.currency || 'LKR')
         setValue('exchangeRateToLKR', suggestedExchangeToLKR(q.currency || 'LKR'))
-        if (q.branch) setValue('branch', q.branch?._id || q.branch)
+        if (q.validUntil) {
+          try {
+            setValue('dueDate', new Date(q.validUntil).toISOString().split('T')[0])
+          } catch {}
+        }
         if (q.project) {
           setValue('project', q.project?._id || q.project)
           const pr = projects.find((p) => String(p._id) === String(q.project?._id || q.project))

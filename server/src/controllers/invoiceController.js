@@ -150,7 +150,7 @@ exports.createInvoice = async (req, res, next) => {
       ...quotationData,
       branch: (branch || (quotationDoc && quotationDoc.branch)) || undefined,
       invoiceDate: invoiceDate || new Date(),
-      dueDate: dueDate || undefined,
+      dueDate: dueDate || (quotationDoc && quotationDoc.validUntil) || undefined,
       items: calcedItems,
       subtotal,
       globalDiscountType,

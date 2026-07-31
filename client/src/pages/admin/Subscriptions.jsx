@@ -988,23 +988,7 @@ export default function AdminSubscriptions() {
               <p className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2"><FiDollarSign size={12} />Billing Details</p>
               <div className="grid sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="form-label flex items-center justify-between">
-                    <span>Monthly Amount (LKR) *</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const presets = [3000, 5000, 10000]
-                        const cur = Number(form.amount) || 0
-                        const idx = presets.indexOf(cur)
-                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
-                        f('amount')(String(nextVal))
-                      }}
-                      className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
-                      title="Click to auto-fill default amount (3,000 / 5,000 / 10,000 LKR)"
-                    >
-                      <FiDollarSign size={11} /> Auto-fill
-                    </button>
-                  </label>
+                  <label className="form-label">Monthly Amount (LKR) *</label>
                   <div className="relative">
                     <button
                       type="button"
@@ -1028,6 +1012,23 @@ export default function AdminSubscriptions() {
                       min="0"
                       placeholder="3000"
                     />
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const presets = [3000, 5000, 10000]
+                        const cur = Number(form.amount) || 0
+                        const idx = presets.indexOf(cur)
+                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
+                        f('amount')(String(nextVal))
+                      }}
+                      className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
+                      title="Click to auto-fill default amount (3,000 / 5,000 / 10,000 LKR)"
+                    >
+                      <FiDollarSign size={11} /> Auto-fill
+                    </button>
+                    <span className="text-slate-400 font-medium">(3k / 5k / 10k)</span>
                   </div>
                 </div>
                 <div>

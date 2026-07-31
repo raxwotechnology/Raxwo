@@ -181,6 +181,7 @@ exports.createSubscription = async (req, res, next) => {
     const payload = { ...req.body };
     if (payload.branch === '') payload.branch = null;
     if (payload.project === '') payload.project = null;
+    if (!payload.subscriptionNo) delete payload.subscriptionNo;
 
     // Ensure valid client
     const client = await User.findById(payload.client);

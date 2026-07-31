@@ -133,11 +133,25 @@ const subscriptionSchema = new mongoose.Schema({
 
 // Auto-generate subscription number
 subscriptionSchema.pre('save', async function (next) {
-  if (!this.subscriptionNo) {
-    const count = await mongoose.model('Subscription').countDocuments();
-    this.subscriptionNo = `SUB-${new Date().getFullYear()}-${String(count + 1).padStart(4, '0')}`;
+  if (this.subscriptionNo) return next();
+  try {
+    const SubscriptionModel = mongoose.model('Subscription');
+    const year = new Date().getFullYear();
+    const baseCount = await SubscriptionModel.countDocuments();
+    for (let i = 0; i < 5000; i++) {
+      const candidate = `SUB-${year}-${String(baseCount + 1 + i).padStart(4, '0')}`;
+      const filter = { subscriptionNo: candidate };
+      if (this._id) filter._id = { $ne: this._id };
+      const clash = await SubscriptionModel.findOne(filter).select('_id').lean();
+      if (!clash) {
+        this.subscriptionNo = candidate;
+        return next();
+      }
+    }
+    return next(new Error('Could not allocate a unique subscription number'));
+  } catch (e) {
+    return next(e);
   }
-  next();
 });
 
 // Virtual: remaining balance

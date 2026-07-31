@@ -326,6 +326,7 @@ exports.convertToInvoice = async (req, res, next) => {
       bankAccount: quotation.bankAccount,
       bankBranch: quotation.bankBranch || '',
       branch: quotation.branch,
+      dueDate: quotation.validUntil || undefined,
       status: 'unpaid',
       createdBy: req.user._id,
     });
