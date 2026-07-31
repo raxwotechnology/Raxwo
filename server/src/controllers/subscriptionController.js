@@ -563,9 +563,17 @@ exports.getBillingOverview = async (req, res, next) => {
     // Determine target period for monthly isolation
     let rangeStart, rangeEnd;
     if (startDate && endDate) {
-      rangeStart = new Date(startDate);
-      rangeEnd = new Date(endDate);
-      rangeEnd.setHours(23, 59, 59, 999);
+      const [sy, sm, sd] = startDate.split('-').map(Number);
+      const [ey, em, ed] = endDate.split('-').map(Number);
+      if (sy && sm && sd && ey && em && ed) {
+        rangeStart = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+        rangeEnd = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+      } else {
+        rangeStart = new Date(startDate);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd = new Date(endDate);
+        rangeEnd.setHours(23, 59, 59, 999);
+      }
     } else if (month) {
       const [y, m] = month.split('-').map(Number);
       if (y && m) {

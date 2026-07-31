@@ -28,7 +28,10 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // If 401 is triggered by password verification modal, do NOT clear token or redirect
+    const isVerifyPasswordRequest = error.config?.url?.includes('/auth/verify-password')
+    
+    if (error.response?.status === 401 && !isVerifyPasswordRequest) {
       // Check if we are already logged out intentionally
       const stored = localStorage.getItem('raxwo-auth')
       let hasToken = false

@@ -23,6 +23,19 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
 }
 
+function getReminderState(sub) {
+  if (!sub || !sub.nextDueDate) return { isInReminder: false, isOverdue: false, daysUntilDue: 0 }
+  const due = new Date(sub.nextDueDate)
+  due.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const daysUntilDue = Math.round((due - today) / 86400000)
+  const reminderDays = Number(sub.reminderDaysBefore) || 0
+  const isOverdue = (sub.overdueDays > 0) || (daysUntilDue < 0 && sub.remainingBalance > 0)
+  const isInReminder = !isOverdue && reminderDays > 0 && daysUntilDue >= 0 && daysUntilDue <= reminderDays && sub.remainingBalance > 0
+  return { isInReminder, isOverdue, daysUntilDue }
+}
+
 export default function ClientSubscriptions() {
   const qc = useQueryClient()
   const [selectedSub, setSelectedSub] = useState(null)
@@ -126,22 +139,24 @@ export default function ClientSubscriptions() {
             className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
           >
             {subs.map(sub => {
-              const isOverdue = sub.overdueDays > 0;
+              const { isInReminder, isOverdue, daysUntilDue } = getReminderState(sub);
               const hasBalance = sub.remainingBalance > 0;
 
               return (
                 <motion.div 
                   key={sub._id} 
                   variants={itemVariants}
-                  className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 relative"
+                  className={`bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 relative ${
+                    isOverdue ? 'border-red-200' : isInReminder ? 'border-amber-300 ring-2 ring-amber-400/20' : 'border-slate-100'
+                  }`}
                 >
                   {/* Top Color Accent */}
-                  <div className={`h-1.5 w-full ${isOverdue ? 'bg-red-500' : 'bg-primary'}`} />
+                  <div className={`h-1.5 w-full ${isOverdue ? 'bg-red-500' : isInReminder ? 'bg-amber-500' : 'bg-primary'}`} />
                   
                   <div className="p-5 sm:p-6 flex-1 flex flex-col">
                     <div className="flex justify-between items-start mb-4 gap-3">
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           <span className="text-[10px] font-bold text-secondary uppercase tracking-widest bg-secondary/10 px-2 py-0.5 rounded-full shrink-0">
                             {sub.typeLabel}
                           </span>
@@ -151,13 +166,20 @@ export default function ClientSubscriptions() {
                           {sub.title}
                         </h3>
                       </div>
-                      <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                        sub.status === 'active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
-                        sub.status === 'overdue' ? 'bg-red-50 text-red-600 border border-red-100' : 
-                        'bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}>
-                        {sub.status}
-                      </span>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                          sub.status === 'active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
+                          sub.status === 'overdue' ? 'bg-red-50 text-red-600 border border-red-100' : 
+                          'bg-slate-100 text-slate-600 border border-slate-200'
+                        }`}>
+                          {sub.status}
+                        </span>
+                        {isInReminder && (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
+                            Due in {daysUntilDue}d
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {sub.description && (
@@ -167,30 +189,38 @@ export default function ClientSubscriptions() {
                     )}
 
                     {/* Financial Block */}
-                    <div className="bg-slate-50/70 rounded-xl p-4 space-y-3 mb-5 border border-slate-100/50">
+                    <div className={`rounded-xl p-4 space-y-3 mb-5 border ${
+                      isOverdue ? 'bg-red-50/50 border-red-100' : isInReminder ? 'bg-amber-50/60 border-amber-200' : 'bg-slate-50/70 border-slate-100/50'
+                    }`}>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-medium text-slate-500">Monthly Amount</span>
                         <span className="text-sm font-bold text-slate-800">LKR {sub.amount?.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-medium text-slate-500">Next Due Date</span>
-                        <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                          <FiClock className="text-primary opacity-70" /> 
+                        <span className={`text-sm font-bold flex items-center gap-1.5 ${isInReminder ? 'text-amber-800 font-extrabold' : 'text-slate-800'}`}>
+                          <FiClock className={isInReminder ? 'text-amber-600' : 'text-primary opacity-70'} /> 
                           {new Date(sub.nextDueDate).toLocaleDateString()}
                         </span>
                       </div>
                       <div className="h-px w-full bg-slate-200/60 my-2" />
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-medium text-slate-500">Balance Due</span>
-                        <span className={`text-base font-black ${hasBalance ? 'text-red-500' : 'text-emerald-500 flex items-center gap-1'}`}>
+                        <span className={`text-base font-black ${hasBalance ? 'text-red-600' : 'text-emerald-500 flex items-center gap-1'}`}>
                           {!hasBalance && <FiCheckCircle size={14} />}
                           LKR {sub.remainingBalance?.toLocaleString()}
                         </span>
                       </div>
                       {isOverdue && (
-                        <div className="mt-2 bg-red-50 text-red-600 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-red-100">
-                          <FiAlertCircle size={14} className="shrink-0" /> 
-                          <span>Payment is {sub.overdueDays} days overdue!</span>
+                        <div className="mt-2 bg-red-100 text-red-700 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-red-200">
+                          <FiAlertCircle size={14} className="shrink-0 text-red-600" /> 
+                          <span>Payment is {sub.overdueDays || 1} days overdue!</span>
+                        </div>
+                      )}
+                      {isInReminder && (
+                        <div className="mt-2 bg-amber-100 text-amber-900 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-amber-300">
+                          <FiAlertCircle size={14} className="shrink-0 text-amber-700" /> 
+                          <span>Payment Reminder: Due in {daysUntilDue} day(s)!</span>
                         </div>
                       )}
                     </div>

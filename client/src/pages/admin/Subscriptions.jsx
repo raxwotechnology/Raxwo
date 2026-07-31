@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
@@ -14,6 +14,19 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import ExportBar from '../../components/ui/ExportBar'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
+
+function getReminderState(sub) {
+  if (!sub || !sub.nextDueDate) return { isInReminder: false, isOverdue: false, daysUntilDue: 0 }
+  const due = new Date(sub.nextDueDate)
+  due.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const daysUntilDue = Math.round((due - today) / 86400000)
+  const reminderDays = Number(sub.reminderDaysBefore) || 0
+  const isOverdue = (sub.overdueDays > 0) || (daysUntilDue < 0 && sub.remainingBalance > 0)
+  const isInReminder = !isOverdue && reminderDays > 0 && daysUntilDue >= 0 && daysUntilDue <= reminderDays && sub.remainingBalance > 0
+  return { isInReminder, isOverdue, daysUntilDue }
+}
 
 /* ─── Reusable Portal Modal ─────────────────────────────── */
 function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-3xl' }) {
@@ -163,6 +176,15 @@ export default function AdminSubscriptions() {
       allSelected ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]
     ))
   }
+  const [paymentTab, setPaymentTab] = useState('all') // 'all' | 'paid' | 'unpaid' | 'overdue'
+
+  useEffect(() => {
+    api.post('/subscriptions/process-overdue').then(() => {
+      qc.invalidateQueries({ queryKey: ['admin-subscriptions'] })
+      qc.invalidateQueries({ queryKey: ['admin-billing-overview'] })
+    }).catch(() => {})
+  }, [qc])
+
   const bulkSend = async (methods) => {
     if (!selectedSubIds.length) return toast.error('Select at least one subscription')
     setBulkSending(true)
@@ -176,11 +198,32 @@ export default function AdminSubscriptions() {
       setBulkSending(false)
     }
   }
-  const filteredSubs = subs.filter(s =>
-    s.title?.toLowerCase().includes(search.toLowerCase()) ||
-    s.subscriptionNo?.toLowerCase().includes(search.toLowerCase()) ||
-    s.client?.name?.toLowerCase().includes(search.toLowerCase())
-  )
+
+  const filteredSubs = subs.filter(s => {
+    const matchesSearch =
+      s.title?.toLowerCase().includes(search.toLowerCase()) ||
+      s.subscriptionNo?.toLowerCase().includes(search.toLowerCase()) ||
+      s.client?.name?.toLowerCase().includes(search.toLowerCase())
+    if (!matchesSearch) return false
+
+    const hasBalance = (s.remainingBalance || 0) > 0
+    const { isOverdue } = getReminderState(s)
+
+    if (paymentTab === 'paid') return !hasBalance
+    if (paymentTab === 'unpaid') return hasBalance && !isOverdue
+    if (paymentTab === 'overdue') return isOverdue
+    return true
+  })
+
+  const countPaid = subs.filter(s => (s.remainingBalance || 0) <= 0).length
+  const countUnpaid = subs.filter(s => {
+    const { isOverdue } = getReminderState(s)
+    return (s.remainingBalance || 0) > 0 && !isOverdue
+  }).length
+  const countOverdue = subs.filter(s => {
+    const { isOverdue } = getReminderState(s)
+    return isOverdue
+  }).length
 
   /* Mutations */
   const saveMut = useMutation({
@@ -662,8 +705,46 @@ export default function AdminSubscriptions() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Table & Filtering */}
       <div className="card">
+        {/* Payment Status Category Tabs */}
+        <div className="px-4 pt-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 bg-slate-50/50">
+          <div className="flex items-center gap-1.5 bg-slate-200/60 p-1 rounded-xl flex-wrap">
+            <button
+              type="button"
+              onClick={() => setPaymentTab('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentTab === 'all' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            >
+              All ({subs.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentTab('paid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${paymentTab === 'paid' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-50'}`}
+            >
+              <FiCheck size={13} /> Paid ({countPaid})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentTab('unpaid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${paymentTab === 'unpaid' ? 'bg-amber-500 text-white shadow-sm' : 'text-amber-700 hover:bg-amber-50'}`}
+            >
+              <FiAlertCircle size={13} /> Pending / Unpaid ({countUnpaid})
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaymentTab('overdue')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${paymentTab === 'overdue' ? 'bg-red-600 text-white shadow-sm' : 'text-red-700 hover:bg-red-50'}`}
+            >
+              <FiAlertCircle size={13} /> Overdue ({countOverdue})
+            </button>
+          </div>
+
+          <div className="text-xs font-medium text-slate-500">
+            Showing <strong className="text-slate-800">{filteredSubs.length}</strong> subscription(s)
+          </div>
+        </div>
+
         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 items-center">
           <div className="relative flex-1">
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
@@ -685,68 +766,81 @@ export default function AdminSubscriptions() {
         {/* Mobile View */}
         <div className="sm:hidden space-y-4 p-4">
           {isLoading && <div className="text-center py-10"><div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></div>}
-          {!isLoading && filteredSubs.map(s => (
-            <div key={s._id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <span className="badge badge-navy font-mono text-[10px] tracking-tight">{s.subscriptionNo}</span>
-                  <p className="font-bold text-slate-800 mt-1 truncate">{s.title}</p>
-                  <p className="text-xs text-slate-500 truncate">{s.client?.name}</p>
+          {!isLoading && filteredSubs.map(s => {
+            const { isInReminder, isOverdue, daysUntilDue } = getReminderState(s)
+            const hasBalance = (s.remainingBalance || 0) > 0
+
+            return (
+              <div key={s._id} className={`bg-white rounded-2xl border shadow-sm p-4 space-y-3 ${isOverdue ? 'border-red-300 bg-red-50/20' : isInReminder ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="badge badge-navy font-mono text-[10px] tracking-tight">{s.subscriptionNo}</span>
+                    <p className="font-bold text-slate-800 mt-1 truncate">{s.title}</p>
+                    <p className="text-xs text-slate-500 truncate">{s.client?.name}</p>
+                  </div>
+                  <div className="flex flex-col items-end shrink-0 gap-1">
+                    <span className={`badge capitalize text-[10px] px-2 py-0.5 ${s.status === 'active' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{s.status}</span>
+                    {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-md">{s.overdueDays || 1}d overdue</span>}
+                    {isInReminder && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md">Due in {daysUntilDue}d</span>}
+                  </div>
                 </div>
-                <div className="flex flex-col items-end shrink-0 gap-1">
-                  <span className={`badge capitalize text-[10px] px-2 py-0.5 ${s.status === 'active' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{s.status}</span>
-                  {s.overdueDays > 0 && <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md">{s.overdueDays}d overdue</span>}
+                <div className="grid grid-cols-2 gap-2 text-sm bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Amount</p>
+                    <p className="font-semibold text-slate-800">LKR {s.amount?.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Frequency</p>
+                    <p className="font-medium text-slate-700 capitalize">{s.billingFrequency === 'monthly' ? 'Monthly' : s.billingFrequency}</p>
+                  </div>
+                  <div className="col-span-2 flex items-center justify-between border-t border-slate-200/60 pt-2 mt-1">
+                     <p className="text-[11px] text-slate-500 font-medium">Due: <span className="font-bold text-slate-700">{new Date(s.nextDueDate).toLocaleDateString()}</span></p>
+                     {hasBalance ? (
+                       <p className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isOverdue ? 'text-red-700 bg-red-100' : isInReminder ? 'text-red-600 bg-red-50 border border-red-200' : 'text-red-500 bg-red-50'}`}>
+                         Bal: LKR {s.remainingBalance?.toLocaleString()}
+                       </p>
+                     ) : (
+                       <p className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                         <FiCheck size={10} /> Paid
+                       </p>
+                     )}
+                  </div>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
+                    <FiEye size={16} />
+                    <span className="text-[10px] font-semibold">View</span>
+                  </button>
+                  <button onClick={() => openPayment(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors">
+                    <FiDollarSign size={16} />
+                    <span className="text-[10px] font-semibold">Pay</span>
+                  </button>
+                  <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors">
+                    <FiList size={16} />
+                    <span className="text-[10px] font-semibold">Logs</span>
+                  </button>
+                  <button onClick={() => openAgreement(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
+                    <FiFileText size={16} />
+                    <span className="text-[10px] font-semibold">Docs</span>
+                  </button>
+                  <button onClick={() => openEdit(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
+                    <FiEdit2 size={16} />
+                    <span className="text-[10px] font-semibold">Edit</span>
+                  </button>
+                  <button type="button" onClick={() => requestDeleteSub(s._id)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-colors">
+                    <FiTrash2 size={16} />
+                    <span className="text-[10px] font-semibold">Delete</span>
+                  </button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-sm bg-slate-50/80 p-3 rounded-xl border border-slate-100">
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Amount</p>
-                  <p className="font-semibold text-slate-800">LKR {s.amount?.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-0.5">Frequency</p>
-                  <p className="font-medium text-slate-700 capitalize">{s.billingFrequency === 'monthly' ? 'Monthly' : s.billingFrequency}</p>
-                </div>
-                <div className="col-span-2 flex items-center justify-between border-t border-slate-200/60 pt-2 mt-1">
-                   <p className="text-[11px] text-slate-500 font-medium">Due: <span className="font-bold text-slate-700">{new Date(s.nextDueDate).toLocaleDateString()}</span></p>
-                   {s.remainingBalance > 0 && <p className="text-[11px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded-full">Bal: LKR {s.remainingBalance?.toLocaleString()}</p>}
-                </div>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
-                  <FiEye size={16} />
-                  <span className="text-[10px] font-semibold">View</span>
-                </button>
-                <button onClick={() => openPayment(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors">
-                  <FiDollarSign size={16} />
-                  <span className="text-[10px] font-semibold">Pay</span>
-                </button>
-                <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors">
-                  <FiList size={16} />
-                  <span className="text-[10px] font-semibold">Logs</span>
-                </button>
-                <button onClick={() => openAgreement(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
-                  <FiFileText size={16} />
-                  <span className="text-[10px] font-semibold">Docs</span>
-                </button>
-                <button onClick={() => openEdit(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
-                  <FiEdit2 size={16} />
-                  <span className="text-[10px] font-semibold">Edit</span>
-                </button>
-                <button type="button" onClick={() => requestDeleteSub(s._id)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-colors">
-                  <FiTrash2 size={16} />
-                  <span className="text-[10px] font-semibold">Delete</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
           {!isLoading && filteredSubs.length === 0 && <div className="text-center py-8 text-slate-400 text-sm font-medium">No subscriptions found.</div>}
         </div>
 
         <div className="hidden sm:block table-container">
-
           <table className="table">
             <thead>
               <tr>
@@ -762,43 +856,61 @@ export default function AdminSubscriptions() {
               {isLoading && (
                 <tr><td colSpan="6" className="text-center py-10"><div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></td></tr>
               )}
-              {!isLoading && filteredSubs.map(s => (
-                <tr key={s._id}>
-                  <td>
-                    <p className="font-semibold text-slate-800">{s.title}</p>
-                    <p className="text-xs text-slate-400">{s.subscriptionNo} · {s.typeLabel}</p>
-                    {s.project && <p className="text-xs text-blue-500 mt-0.5 flex items-center gap-1"><FiLink size={10} />{s.project.title}</p>}
-                  </td>
-                  <td>
-                    <p className="font-medium text-slate-800">{s.client?.name}</p>
-                    <p className="text-xs text-slate-400">{s.client?.email}</p>
-                  </td>
-                  <td>
-                    <p className="font-medium text-slate-800">LKR {s.amount?.toLocaleString()}<span className="text-slate-400 text-xs">/{s.billingFrequency === 'monthly' ? 'mo' : s.billingFrequency}</span></p>
-                    <p className="text-xs text-red-500 mt-0.5">Bal: LKR {s.remainingBalance?.toLocaleString()}</p>
-                    <p className="text-xs text-slate-400">Due: {new Date(s.nextDueDate).toLocaleDateString()}</p>
-                  </td>
-                  <td>
-                    <span className={`badge ${s.status === 'active' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{s.status}</span>
-                    {s.overdueDays > 0 && <p className="text-xs text-red-500 mt-0.5">{s.overdueDays}d overdue</p>}
-                  </td>
-                  <td>
-                    {s.hostingDetails?.domainName
-                      ? <div><p className="text-sm font-medium">{s.hostingDetails.domainName}</p>{s.hostingDetails.expiryDate && <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><FiServer size={10} />Exp: {new Date(s.hostingDetails.expiryDate).toLocaleDateString()}</p>}</div>
-                      : <span className="text-slate-300">—</span>}
-                  </td>
-                  <td>
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100" title="View"><FiEye size={14} /></button>
-                      <button onClick={() => openPayment(s)} className="p-1.5 rounded-lg text-green-500 hover:bg-green-50" title="Record Payment"><FiDollarSign size={14} /></button>
-                      <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50" title="Payment History"><FiList size={14} /></button>
-                      <button onClick={() => openAgreement(s)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50" title="Add Agreement"><FiFileText size={14} /></button>
-                      <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100" title="Edit"><FiEdit2 size={14} /></button>
-                      <button type="button" onClick={() => requestDeleteSub(s._id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500" title="Delete"><FiTrash2 size={14} /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {!isLoading && filteredSubs.map(s => {
+                const { isInReminder, isOverdue, daysUntilDue } = getReminderState(s)
+                const hasBalance = (s.remainingBalance || 0) > 0
+
+                return (
+                  <tr key={s._id} className={isOverdue ? 'bg-red-50/20' : isInReminder ? 'bg-amber-50/20' : ''}>
+                    <td>
+                      <p className="font-semibold text-slate-800">{s.title}</p>
+                      <p className="text-xs text-slate-400">{s.subscriptionNo} · {s.typeLabel}</p>
+                      {s.project && <p className="text-xs text-blue-500 mt-0.5 flex items-center gap-1"><FiLink size={10} />{s.project.title}</p>}
+                    </td>
+                    <td>
+                      <p className="font-medium text-slate-800">{s.client?.name}</p>
+                      <p className="text-xs text-slate-400">{s.client?.email}</p>
+                    </td>
+                    <td>
+                      <p className="font-medium text-slate-800">LKR {s.amount?.toLocaleString()}<span className="text-slate-400 text-xs">/{s.billingFrequency === 'monthly' ? 'mo' : s.billingFrequency}</span></p>
+                      {hasBalance ? (
+                        <p className={`text-xs font-bold mt-0.5 inline-flex items-center gap-1 ${isOverdue ? 'text-red-600' : isInReminder ? 'text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200' : 'text-red-500'}`}>
+                          Bal: LKR {s.remainingBalance?.toLocaleString()}
+                        </p>
+                      ) : (
+                        <p className="text-xs font-semibold text-emerald-600 mt-0.5 flex items-center gap-1"><FiCheck size={12} /> Paid</p>
+                      )}
+                      <p className="text-xs text-slate-400">Due: {new Date(s.nextDueDate).toLocaleDateString()}</p>
+                    </td>
+                    <td>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`badge ${s.status === 'active' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{s.status}</span>
+                        {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">{s.overdueDays || 1}d overdue</span>}
+                        {isInReminder && (
+                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <FiAlertCircle size={10} /> Due in {daysUntilDue}d
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      {s.hostingDetails?.domainName
+                        ? <div><p className="text-sm font-medium">{s.hostingDetails.domainName}</p>{s.hostingDetails.expiryDate && <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><FiServer size={10} />Exp: {new Date(s.hostingDetails.expiryDate).toLocaleDateString()}</p>}</div>
+                        : <span className="text-slate-300">—</span>}
+                    </td>
+                    <td>
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100" title="View"><FiEye size={14} /></button>
+                        <button onClick={() => openPayment(s)} className="p-1.5 rounded-lg text-green-500 hover:bg-green-50" title="Record Payment"><FiDollarSign size={14} /></button>
+                        <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50" title="Payment History"><FiList size={14} /></button>
+                        <button onClick={() => openAgreement(s)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50" title="Add Agreement"><FiFileText size={14} /></button>
+                        <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100" title="Edit"><FiEdit2 size={14} /></button>
+                        <button type="button" onClick={() => requestDeleteSub(s._id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500" title="Delete"><FiTrash2 size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
               {!isLoading && filteredSubs.length === 0 && (
                 <tr><td colSpan="6" className="text-center py-12 text-slate-400">No subscriptions found.</td></tr>
               )}
@@ -946,6 +1058,18 @@ export default function AdminSubscriptions() {
                   </select>
                 </div>
               </div>
+
+              {form.billingDay && form.reminderDaysBefore && Number(form.reminderDaysBefore) > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5 mt-3 shadow-xs">
+                  <FiAlertCircle className="shrink-0 text-amber-600 mt-0.5" size={16} />
+                  <div>
+                    <p className="font-bold text-amber-900">Billing &amp; Visual Alert Active</p>
+                    <p className="mt-0.5 text-amber-800 leading-relaxed">
+                      Due date is set to day <strong>{form.billingDay}</strong> of each cycle. System will trigger a visual highlight and notification alert <strong>{form.reminderDaysBefore} days</strong> before due (around day <strong>{Math.max(1, Number(form.billingDay) - Number(form.reminderDaysBefore))}</strong> of the month).
+                    </p>
+                  </div>
+                </div>
+              )}
               
               {/* Payment Info for New Subscription */}
               {!selectedSub && (
