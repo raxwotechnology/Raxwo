@@ -929,111 +929,113 @@ export default function AdminSubscriptions() {
             </button>
           </>}
         >
-          <div className="space-y-5">
-            {/* Basic Info */}
-            <div className="grid sm:grid-cols-2 gap-4">
-              <div>
-                <label className="form-label">Client *</label>
-                <SearchableSelect
-                  value={form.client}
-                  onChange={(v) => f('client')(v)}
-                  loadOptions={lookupLoaders.clients()}
-                  placeholder="Search client…"
-                  initialLabel={selectedSub?.client?.name || ''}
-                />
-                {clients.length === 0 && <p className="text-xs text-amber-500 mt-1">No client accounts found. Create a client first.</p>}
-              </div>
-              <div>
-                <label className="form-label">Branch (Optional)</label>
-                <select className="form-select" value={form.branch} onChange={e => f('branch')(e.target.value)}>
-                  <option value="">No Branch</option>
-                  {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="form-label">Service Type *</label>
-                <select className="form-select" value={form.subscriptionType} onChange={e => f('subscriptionType')(e.target.value)}>
-                  <option value="website_maintenance">Website Maintenance</option>
-                  <option value="app_maintenance">App Maintenance</option>
-                  <option value="hosting_domain">Hosting &amp; Domain</option>
-                  <option value="social_media_facebook">Facebook Management</option>
-                  <option value="social_media_instagram">Instagram Management</option>
-                  <option value="social_media_tiktok">TikTok Marketing</option>
-                  <option value="social_media_management">Social Media Management</option>
-                  <option value="content_management">Content Management</option>
-                  <option value="technical_support">Technical Support</option>
-                  <option value="bug_fixing">Bug Fixing</option>
-                  <option value="seo_marketing">SEO &amp; Marketing</option>
-                  <option value="custom">Custom Service</option>
-                </select>
-              </div>
-              {form.subscriptionType === 'custom' && (
-                <div>
-                  <label className="form-label">Custom Service Type *</label>
-                  <input type="text" className="form-input" value={form.customServiceType} onChange={e => f('customServiceType')(e.target.value)} placeholder="e.g. Graphic Design" />
+          <div className="space-y-6">
+            {/* General & Service Info */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                  <FiList size={14} />
                 </div>
-              )}
-              <div className="sm:col-span-2">
-                <label className="form-label">Subscription Title *</label>
-                <input type="text" className="form-input" value={form.title} onChange={e => f('title')(e.target.value)} placeholder="e.g. Monthly Website Maintenance – Raxwo Client" />
+                <h3 className="text-sm font-bold text-slate-800 tracking-tight">Service &amp; Client Details</h3>
               </div>
-              <div className="sm:col-span-2">
-                <label className="form-label">Description</label>
-                <textarea className="form-input" rows="2" value={form.description} onChange={e => f('description')(e.target.value)} placeholder="What does this subscription cover?" />
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="form-label font-medium text-slate-700">Client *</label>
+                  <SearchableSelect
+                    value={form.client}
+                    onChange={(v) => f('client')(v)}
+                    loadOptions={lookupLoaders.clients()}
+                    placeholder="Search client…"
+                    initialLabel={selectedSub?.client?.name || ''}
+                  />
+                  {clients.length === 0 && <p className="text-xs text-amber-500 mt-1">No client accounts found. Create a client first.</p>}
+                </div>
+                <div>
+                  <label className="form-label font-medium text-slate-700">Branch (Optional)</label>
+                  <select className="form-select" value={form.branch} onChange={e => f('branch')(e.target.value)}>
+                    <option value="">No Branch / Global</option>
+                    {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label font-medium text-slate-700">Service Type *</label>
+                  <select className="form-select font-medium" value={form.subscriptionType} onChange={e => f('subscriptionType')(e.target.value)}>
+                    <option value="website_maintenance">Website Maintenance</option>
+                    <option value="app_maintenance">App Maintenance</option>
+                    <option value="hosting_domain">Hosting &amp; Domain</option>
+                    <option value="social_media_facebook">Facebook Management</option>
+                    <option value="social_media_instagram">Instagram Management</option>
+                    <option value="social_media_tiktok">TikTok Marketing</option>
+                    <option value="social_media_management">Social Media Management</option>
+                    <option value="content_management">Content Management</option>
+                    <option value="technical_support">Technical Support</option>
+                    <option value="bug_fixing">Bug Fixing</option>
+                    <option value="seo_marketing">SEO &amp; Marketing</option>
+                    <option value="custom">Custom Service</option>
+                  </select>
+                </div>
+                {form.subscriptionType === 'custom' && (
+                  <div>
+                    <label className="form-label font-medium text-slate-700">Custom Service Type *</label>
+                    <input type="text" className="form-input" value={form.customServiceType} onChange={e => f('customServiceType')(e.target.value)} placeholder="e.g. Graphic Design" />
+                  </div>
+                )}
+                <div className="sm:col-span-2">
+                  <label className="form-label font-medium text-slate-700">Subscription Title *</label>
+                  <input type="text" className="form-input font-semibold text-slate-800" value={form.title} onChange={e => f('title')(e.target.value)} placeholder="e.g. Monthly Website Maintenance – Client Name" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="form-label font-medium text-slate-700">Description</label>
+                  <textarea className="form-input text-xs" rows="2" value={form.description} onChange={e => f('description')(e.target.value)} placeholder="Scope of work, included deliverables, or contract terms…" />
+                </div>
               </div>
             </div>
 
-            {/* Billing */}
-            <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2"><FiDollarSign size={12} />Billing Details</p>
-              <div className="grid sm:grid-cols-3 gap-4">
+            {/* Billing Details */}
+            <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-200/60 pb-3">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                  <FiDollarSign size={14} />
+                </div>
+                <h3 className="text-sm font-bold text-slate-800 tracking-tight">Billing &amp; Frequency</h3>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-4 items-start">
                 <div>
-                  <label className="form-label">Monthly Amount (LKR) *</label>
+                  <label className="form-label font-medium text-slate-700">Monthly Amount (LKR) *</label>
                   <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const presets = [3000, 5000, 10000]
-                        const cur = Number(form.amount) || 0
-                        const idx = presets.indexOf(cur)
-                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
-                        f('amount')(String(nextVal))
-                      }}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-600 transition-colors p-1 rounded hover:bg-slate-100"
-                      title="Click Dollar mark to auto-fill default amount"
-                    >
-                      <FiDollarSign size={15} />
-                    </button>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded pointer-events-none">
+                      LKR
+                    </span>
                     <input
                       type="number"
-                      className="form-input !pl-8"
+                      className="form-input !pl-14 font-bold text-slate-800"
                       value={form.amount}
                       onChange={e => f('amount')(e.target.value)}
                       min="0"
                       placeholder="3000"
                     />
                   </div>
-                  <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const presets = [3000, 5000, 10000]
-                        const cur = Number(form.amount) || 0
-                        const idx = presets.indexOf(cur)
-                        const nextVal = idx >= 0 && idx < presets.length - 1 ? presets[idx + 1] : presets[0]
-                        f('amount')(String(nextVal))
-                      }}
-                      className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
-                      title="Click to auto-fill default amount (3,000 / 5,000 / 10,000 LKR)"
-                    >
-                      <FiDollarSign size={11} /> Auto-fill
-                    </button>
-                    <span className="text-slate-400 font-medium">(3k / 5k / 10k)</span>
+                  <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-semibold text-slate-400">Presets:</span>
+                    {[3000, 5000, 10000, 15000, 25000].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => f('amount')(String(preset))}
+                        className={`px-2 py-0.5 text-[11px] font-bold rounded-md transition-all ${
+                          Number(form.amount) === preset
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 border border-slate-200/80 shadow-2xs'
+                        }`}
+                      >
+                        {preset.toLocaleString()}
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div>
-                  <label className="form-label">Billing Frequency</label>
-                  <select className="form-select" value={form.billingFrequency} onChange={e => f('billingFrequency')(e.target.value)}>
+                  <label className="form-label font-medium text-slate-700">Billing Frequency</label>
+                  <select className="form-select font-medium" value={form.billingFrequency} onChange={e => f('billingFrequency')(e.target.value)}>
                     <option value="monthly">Monthly</option>
                     <option value="quarterly">Quarterly</option>
                     <option value="semi_annual">Semi-Annual</option>
@@ -1041,17 +1043,20 @@ export default function AdminSubscriptions() {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Billing Day (1–31)</label>
-                  <input type="number" className="form-input" value={form.billingDay} onChange={e => f('billingDay')(e.target.value)} min="1" max="31" />
+                  <label className="form-label font-medium text-slate-700">Billing Day (1–31)</label>
+                  <input type="number" className="form-input font-medium" value={form.billingDay} onChange={e => f('billingDay')(e.target.value)} min="1" max="31" />
+                  <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
+                    Due on the {Number(form.billingDay) === 1 ? '1st' : Number(form.billingDay) === 2 ? '2nd' : Number(form.billingDay) === 3 ? '3rd' : `${form.billingDay || 1}th`} of each cycle
+                  </p>
                 </div>
                 <div>
-                  <label className="form-label">Reminder (days before due)</label>
-                  <input type="number" className="form-input" value={form.reminderDaysBefore} onChange={e => f('reminderDaysBefore')(e.target.value)} min="0" max="90" placeholder="e.g. 5" />
-                  <p className="text-[11px] text-slate-500 mt-1">Admins get a notification on that day. Leave empty to disable.</p>
+                  <label className="form-label font-medium text-slate-700">Reminder (days before due)</label>
+                  <input type="number" className="form-input font-medium" value={form.reminderDaysBefore} onChange={e => f('reminderDaysBefore')(e.target.value)} min="0" max="90" placeholder="e.g. 5" />
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">Admin alert lead time</p>
                 </div>
                 <div>
-                  <label className="form-label">Status</label>
-                  <select className="form-select" value={form.status} onChange={e => f('status')(e.target.value)}>
+                  <label className="form-label font-medium text-slate-700">Status</label>
+                  <select className="form-select font-medium" value={form.status} onChange={e => f('status')(e.target.value)}>
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
                     <option value="overdue">Overdue</option>
@@ -1061,12 +1066,12 @@ export default function AdminSubscriptions() {
               </div>
 
               {form.billingDay && form.reminderDaysBefore && Number(form.reminderDaysBefore) > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5 mt-3 shadow-xs">
+                <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-3.5 text-xs text-amber-900 flex items-start gap-2.5 mt-3 shadow-2xs">
                   <FiAlertCircle className="shrink-0 text-amber-600 mt-0.5" size={16} />
                   <div>
-                    <p className="font-bold text-amber-900">Billing &amp; Visual Alert Active</p>
+                    <p className="font-bold text-amber-900">Billing Alert Active</p>
                     <p className="mt-0.5 text-amber-800 leading-relaxed">
-                      Due date is set to day <strong>{form.billingDay}</strong> of each cycle. System will trigger a visual highlight and notification alert <strong>{form.reminderDaysBefore} days</strong> before due (around day <strong>{Math.max(1, Number(form.billingDay) - Number(form.reminderDaysBefore))}</strong> of the month).
+                      Due date is set to day <strong>{form.billingDay}</strong> of each cycle. Notification alert triggers <strong>{form.reminderDaysBefore} days</strong> prior.
                     </p>
                   </div>
                 </div>
@@ -1074,55 +1079,65 @@ export default function AdminSubscriptions() {
               
               {/* Payment Info for New Subscription */}
               {!selectedSub && (
-                <div className="grid sm:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
-                  <div>
-                    <label className="form-label">Initial Payment Method</label>
-                    <select className="form-select" value={form.paymentMethod} onChange={e => f('paymentMethod')(e.target.value)}>
-                      <option value="cash">Cash</option>
-                      <option value="card">Card</option>
-                      <option value="bank_transfer">Bank transfer</option>
-                      <option value="cheque">Cheque</option>
-                      <option value="online_transfer">Online transfer</option>
-                      <option value="payhere">PayHere</option>
-                      <option value="manual">Other / manual</option>
-                    </select>
-                    <p className="text-[11px] text-slate-500 mt-1">This will record the first payment automatically.</p>
-                  </div>
-                  {['bank_transfer', 'payhere', 'card', 'online_transfer'].includes(form.paymentMethod) && (
+                <div className="pt-3 border-t border-slate-200/80">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
+                    <FiCheck size={13} className="text-emerald-600" /> Initial Payment Setup
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="form-label">Bank account (money received to)</label>
-                      <select className="form-select" value={form.bankAccount} onChange={(e) => f('bankAccount')(e.target.value)}>
-                        <option value="">Select bank account…</option>
-                        {bankAccounts.map((b) => (
-                          <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>
-                        ))}
+                      <label className="form-label font-medium text-slate-700">Initial Payment Method</label>
+                      <select className="form-select font-medium" value={form.paymentMethod} onChange={e => f('paymentMethod')(e.target.value)}>
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="bank_transfer">Bank transfer</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="online_transfer">Online transfer</option>
+                        <option value="payhere">PayHere</option>
+                        <option value="manual">Other / manual</option>
                       </select>
-                      <p className="text-[11px] text-slate-500 mt-1">Updates account balance automatically.</p>
+                      <p className="text-[11px] text-slate-500 mt-1 font-medium">Records initial payment automatically</p>
                     </div>
-                  )}
+                    {['bank_transfer', 'payhere', 'card', 'online_transfer'].includes(form.paymentMethod) && (
+                      <div>
+                        <label className="form-label font-medium text-slate-700">Bank Account</label>
+                        <select className="form-select font-medium" value={form.bankAccount} onChange={(e) => f('bankAccount')(e.target.value)}>
+                          <option value="">Select bank account…</option>
+                          {bankAccounts.map((b) => (
+                            <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>
+                          ))}
+                        </select>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Updates account balance automatically</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Hosting (conditional) */}
             {showHosting && (
-              <div className="bg-blue-50/60 border border-blue-100 rounded-xl p-4 space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-blue-700 flex items-center gap-2"><FiServer size={12} />Hosting &amp; Domain (Optional)</p>
+              <div className="bg-blue-50/50 border border-blue-200/70 rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center gap-2 border-b border-blue-100 pb-3">
+                  <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                    <FiServer size={14} />
+                  </div>
+                  <h3 className="text-sm font-bold text-blue-950 tracking-tight">Hosting &amp; Domain Information</h3>
+                </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">Domain Name</label>
+                    <label className="form-label font-medium text-blue-900">Domain Name</label>
                     <input type="text" className="form-input" value={form.domainName} onChange={e => f('domainName')(e.target.value)} placeholder="example.com" />
                   </div>
                   <div>
-                    <label className="form-label">Hosting Provider</label>
+                    <label className="form-label font-medium text-blue-900">Hosting Provider</label>
                     <input type="text" className="form-input" value={form.provider} onChange={e => f('provider')(e.target.value)} placeholder="AWS, Hostinger…" />
                   </div>
                   <div>
-                    <label className="form-label">cPanel / Login URL</label>
+                    <label className="form-label font-medium text-blue-900">cPanel / Login URL</label>
                     <input type="url" className="form-input" value={form.hostingUrl} onChange={e => f('hostingUrl')(e.target.value)} placeholder="https://…" />
                   </div>
                   <div>
-                    <label className="form-label">Expiry Date</label>
+                    <label className="form-label font-medium text-blue-900">Expiry Date</label>
                     <input type="date" className="form-input" value={form.expiryDate} onChange={e => f('expiryDate')(e.target.value)} />
                   </div>
                 </div>
@@ -1131,32 +1146,37 @@ export default function AdminSubscriptions() {
 
             {/* Social Media Links (conditional) */}
             {showSocialMedia && (
-              <div className="bg-pink-50/60 border border-pink-100 rounded-xl p-4 space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-pink-700 flex items-center gap-2">Social Media Links</p>
+              <div className="bg-pink-50/50 border border-pink-200/70 rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center gap-2 border-b border-pink-100 pb-3">
+                  <div className="w-7 h-7 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xs">
+                    <FiUsers size={14} />
+                  </div>
+                  <h3 className="text-sm font-bold text-pink-950 tracking-tight">Social Media Handles</h3>
+                </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="form-label">Facebook URL</label>
-                    <input type="url" className="form-input" value={form.socialMediaLinks.facebook} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, facebook: e.target.value } }))} placeholder="https://facebook.com/..." />
+                    <label className="form-label font-medium text-slate-700">Facebook URL</label>
+                    <input type="url" className="form-input text-xs" value={form.socialMediaLinks.facebook} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, facebook: e.target.value } }))} placeholder="https://facebook.com/..." />
                   </div>
                   <div>
-                    <label className="form-label">Instagram URL</label>
-                    <input type="url" className="form-input" value={form.socialMediaLinks.instagram} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, instagram: e.target.value } }))} placeholder="https://instagram.com/..." />
+                    <label className="form-label font-medium text-slate-700">Instagram URL</label>
+                    <input type="url" className="form-input text-xs" value={form.socialMediaLinks.instagram} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, instagram: e.target.value } }))} placeholder="https://instagram.com/..." />
                   </div>
                   <div>
-                    <label className="form-label">TikTok URL</label>
-                    <input type="url" className="form-input" value={form.socialMediaLinks.tiktok} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, tiktok: e.target.value } }))} placeholder="https://tiktok.com/@..." />
+                    <label className="form-label font-medium text-slate-700">TikTok URL</label>
+                    <input type="url" className="form-input text-xs" value={form.socialMediaLinks.tiktok} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, tiktok: e.target.value } }))} placeholder="https://tiktok.com/@..." />
                   </div>
                   <div>
-                    <label className="form-label">YouTube URL</label>
-                    <input type="url" className="form-input" value={form.socialMediaLinks.youtube} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, youtube: e.target.value } }))} placeholder="https://youtube.com/..." />
+                    <label className="form-label font-medium text-slate-700">YouTube URL</label>
+                    <input type="url" className="form-input text-xs" value={form.socialMediaLinks.youtube} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, youtube: e.target.value } }))} placeholder="https://youtube.com/..." />
                   </div>
                   <div>
-                    <label className="form-label">LinkedIn URL</label>
-                    <input type="url" className="form-input" value={form.socialMediaLinks.linkedin} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, linkedin: e.target.value } }))} placeholder="https://linkedin.com/in/..." />
+                    <label className="form-label font-medium text-slate-700">LinkedIn URL</label>
+                    <input type="url" className="form-input text-xs" value={form.socialMediaLinks.linkedin} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, linkedin: e.target.value } }))} placeholder="https://linkedin.com/in/..." />
                   </div>
                   <div>
-                    <label className="form-label">Twitter/X URL</label>
-                    <input type="url" className="form-input" value={form.socialMediaLinks.twitter} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, twitter: e.target.value } }))} placeholder="https://x.com/..." />
+                    <label className="form-label font-medium text-slate-700">Twitter/X URL</label>
+                    <input type="url" className="form-input text-xs" value={form.socialMediaLinks.twitter} onChange={e => setForm(p => ({ ...p, socialMediaLinks: { ...p.socialMediaLinks, twitter: e.target.value } }))} placeholder="https://x.com/..." />
                   </div>
                 </div>
               </div>
