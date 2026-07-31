@@ -220,7 +220,7 @@ export default function PublicLayout() {
                     className="relative w-10 h-10 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15 flex items-center justify-center transition-colors"
                   >
                     <FiBell size={17} className="text-white" />
-                    {unreadCount > 0 ? <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-semibold">{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
+                    {unreadCount > 0 ? <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border-2 border-white shadow-xs leading-none z-10">{unreadCount > 9 ? '9+' : unreadCount}</span> : null}
                   </button>
                   <AnimatePresence>
                     {notifOpen ? (

@@ -392,7 +392,7 @@ export default function DashboardLayout({ role }) {
               >
                 <FiBell size={18} className="text-gray-600" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold border-2 border-white">
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border-2 border-white shadow-xs leading-none z-10">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}

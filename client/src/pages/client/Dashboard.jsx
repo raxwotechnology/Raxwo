@@ -18,7 +18,7 @@ const QuickAction = ({ to, icon: Icon, label, color, badge }) => (
     <div className="w-10 h-10 rounded-xl bg-current/10 flex items-center justify-center group-hover:scale-110 transition-transform relative">
       <Icon size={20} className="text-current" />
       {badge > 0 && (
-        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">{badge > 9 ? '9+' : badge}</span>
+        <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-4 px-1 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border border-white leading-none z-10">{badge > 9 ? '9+' : badge}</span>
       )}
     </div>
     <span className="text-xs font-semibold text-slate-700">{label}</span>
