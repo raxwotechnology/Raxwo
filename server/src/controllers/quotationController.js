@@ -301,6 +301,16 @@ exports.convertToInvoice = async (req, res, next) => {
 
     const invNo = await generateAutoInvoiceNo('INV');
 
+    const siteSettings = await SiteSetting.findOne().lean().catch(() => null);
+    const roleProfile = siteSettings?.signatures?.[quotation.directorRole] || null;
+    const qSealData = quotation.showSeal !== false
+      ? (quotation.directorSealUrl || roleProfile?.url || siteSettings?.sealUrl || '')
+      : '';
+    const qAuthorizerName = quotation.directorName || roleProfile?.label || siteSettings?.quotationDirectorName || '';
+    const qAuthorizerTitle = quotation.directorRole
+      ? (quotation.directorRole.charAt(0).toUpperCase() + quotation.directorRole.slice(1))
+      : 'Authorized Signatory';
+
     const clientId = quotation.client?._id || quotation.client;
     const invoice = new Invoice({
       client: clientId,
@@ -328,6 +338,17 @@ exports.convertToInvoice = async (req, res, next) => {
       branch: quotation.branch,
       dueDate: quotation.validUntil || undefined,
       status: 'unpaid',
+      signatures: {
+        authorizer: {
+          data: '',
+          name: qAuthorizerName,
+          title: qAuthorizerTitle,
+        },
+        seal: {
+          data: qSealData,
+          note: '',
+        },
+      },
       createdBy: req.user._id,
     });
     await invoice.save();

@@ -361,197 +361,203 @@ export default function AdminProjects() {
 
       {/* Create/Edit Modal */}
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto" style={{ zIndex: 99999 }}>
           <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[94vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] sm:max-h-[92vh] flex flex-col my-auto overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-white shrink-0">
               <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Project' : 'New Project'}</h3>
-              <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
+              <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
-              {/* Basic Info */}
-              <div>
-                <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiFolder size={14}/> Basic Information</h4>
-                <div className="space-y-3">
-                  <div><label className="form-label">Project Title *</label>
-                    <input {...register('title', {required: true})} className="form-input" placeholder="e.g. ERP System for XYZ Company"/></div>
-                  <div><label className="form-label">Description *</label>
-                    <textarea {...register('description', {required: !editing})} rows={2} className="form-input resize-none" placeholder="Project scope and objectives"/></div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div><label className="form-label">Client</label>
-                      <input type="hidden" {...register('client')} />
-                      <SearchableSelect
-                        value={watchedClient || ''}
-                        onChange={(v, opt) => {
-                          setValue('client', v, { shouldDirty: true })
-                          setClientSelectLabel(opt?.label || '')
-                        }}
-                        loadOptions={loadClientOptions}
-                        placeholder="Search client…"
-                        clearable
-                        initialLabel={clientSelectLabel}
-                      />
-                      {watchedClient && selectedClientData && (
-                        <div className="mt-2 flex items-center gap-2.5 p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                          {selectedClientData.avatar ? (
-                            <img src={mediaUrl(selectedClientData.avatar)} alt="" className="w-7 h-7 rounded-full object-cover border border-slate-300" onError={(e) => { e.target.style.display = 'none' }} />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
-                              <FiUser size={14} />
+            <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-5 custom-scrollbar">
+                {/* Basic Info */}
+                <div>
+                  <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiFolder size={14}/> Basic Information</h4>
+                  <div className="space-y-3">
+                    <div><label className="form-label">Project Title *</label>
+                      <input {...register('title', {required: true})} className="form-input" placeholder="e.g. ERP System for XYZ Company"/></div>
+                    <div><label className="form-label">Description *</label>
+                      <textarea {...register('description', {required: !editing})} rows={2} className="form-input resize-none" placeholder="Project scope and objectives"/></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2 lg:col-span-1"><label className="form-label">Client</label>
+                        <input type="hidden" {...register('client')} />
+                        <SearchableSelect
+                          value={watchedClient || ''}
+                          onChange={(v, opt) => {
+                            setValue('client', v, { shouldDirty: true })
+                            setClientSelectLabel(opt?.label || '')
+                          }}
+                          loadOptions={loadClientOptions}
+                          placeholder="Search client…"
+                          clearable
+                          initialLabel={clientSelectLabel}
+                        />
+                        {watchedClient && selectedClientData && (
+                          <div className="mt-2 flex items-center gap-2.5 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                            {selectedClientData.avatar ? (
+                              <img src={mediaUrl(selectedClientData.avatar)} alt="" className="w-7 h-7 rounded-full object-cover border border-slate-300" onError={(e) => { e.target.style.display = 'none' }} />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
+                                <FiUser size={14} />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{selectedClientData.name}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{selectedClientData.email || 'Client'}</p>
                             </div>
-                          )}
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate">{selectedClientData.name}</p>
-                            <p className="text-[10px] text-slate-500 truncate">{selectedClientData.email || 'Client'}</p>
                           </div>
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-400 mt-1">Leave empty for internal / no client</p>
-                    </div>
-                    <div className="sm:col-span-3">
-                      <label className="form-label">Client invoices (optional)</label>
-                      {!watchedClient ? (
-                        <p className="text-sm text-slate-400 py-2">Select a client to load their invoices.</p>
-                      ) : clientInvoices.length === 0 ? (
-                        <p className="text-sm text-slate-400 py-2">No invoices found for this client.</p>
-                      ) : (
-                        <div className="border border-gray-100 rounded-xl max-h-40 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
-                          {clientInvoices.map((inv) => {
-                            const checked = linkedInvoices.includes(String(inv._id))
-                            const pay = invoicePaymentDisplay(inv)
-                            return (
-                              <label key={inv._id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer ${checked ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
-                                <input type="checkbox" checked={checked} onChange={() => toggleInvoice(inv._id)} className="w-4 h-4 accent-secondary" />
-                                <span className="flex-1 text-sm font-medium text-gray-800">{inv.invoiceNo}</span>
-                                <span className={`badge text-[10px] ${pay.badgeClass}`}>{pay.label}</span>
-                                <span className="text-xs text-gray-500">{(inv.currency || 'LKR')} {(inv.remainingBalance ?? 0).toLocaleString()}</span>
-                              </label>
-                            )
-                          })}
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-400 mt-1">Only invoices for the selected client can be linked. The first selected invoice sets the project deadline.</p>
-                    </div>
-                    <div><label className="form-label">Service Type</label>
-                      <select {...register('serviceType')} className="form-select">
-                        {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
-                      </select></div>
-                    <div><label className="form-label">Branch</label>
-                      <select {...register('branch')} className="form-select">
-                        <option value="">No branch</option>
-                        {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                      </select></div>
-                    <div><label className="form-label">Status</label>
-                      <select {...register('status')} className="form-select">
-                        {['planning','active','on_hold','completed','completed_payment_pending','paid_completed','overdue','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</option>)}
-                      </select></div>
-                    <div><label className="form-label">Priority</label>
-                      <select {...register('priority')} className="form-select">
-                        {['low','medium','high','critical'].map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
-                      </select></div>
-                    <div><label className="form-label">Project Manager</label>
-                      <select {...register('projectManager')} className="form-select">
-                        <option value="">Select manager</option>
-                        {employees.filter(e => ['manager','admin'].includes(e.userId?.role)).map(e => (
-                          <option key={e._id} value={e.userId?._id}>{e.userId?.name}</option>
-                        ))}
-                      </select></div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div><label className="form-label">Start Date</label>
-                      <input {...register('startDate')} type="date" className="form-input"/></div>
-                    <div><label className="form-label">Deadline</label>
-                      <input {...register('deadline')} type="date" className="form-input"/></div>
-                    <div><label className="form-label">Budget (LKR) *</label>
-                      <input {...register('budget', {valueAsNumber: true})} type="number" placeholder="0" className="form-input"/></div>
-                  </div>
-                  <div><label className="form-label">Progress ({progressValue}%)</label>
-                    <input {...register('progress', {valueAsNumber: true})} type="range" min={0} max={100} className="w-full accent-secondary"/></div>
-                </div>
-              </div>
-
-              <hr className="border-gray-100"/>
-
-              <div>
-                <h4 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2"><FiUsers size={14}/> Team & Commissions</h4>
-                <p className="text-xs text-gray-400 mb-3">Assign employees — basic salary is shown from employee records (not editable). Set commission for each selected member.</p>
-                <div className="grid grid-cols-[1fr_120px_120px] gap-2 px-4 py-2 bg-gray-50 border border-gray-100 rounded-t-xl text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  <span>Employee</span>
-                  <span>Basic salary (LKR)</span>
-                  <span>Commission (LKR) *</span>
-                </div>
-                <div className="border border-t-0 border-gray-100 rounded-b-xl overflow-hidden max-h-72 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
-                  {employees.map(emp => {
-                    const isSelected = selectedTeam.includes(emp.userId?._id)
-                    const isResigned = ['resigned', 'former'].includes(emp.status) || emp.userId?.status === 'resigned'
-                    const alloc = commissionAllocations.find((a) => String(a.employeeId) === String(emp._id))
-                    return (
-                      <div key={emp._id} className={`grid grid-cols-[1fr_120px_120px] gap-2 items-center px-4 py-2.5 ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
-                        <label className="flex items-center gap-3 cursor-pointer min-w-0">
-                          <input type="checkbox" checked={isSelected} onChange={() => toggleTeamMember(emp)} className="w-4 h-4 accent-secondary shrink-0" />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-medium text-gray-800 truncate">{emp.userId?.name}</p>
-                              {isResigned && <span className="badge badge-red text-[10px] font-bold shrink-0">Resigned</span>}
-                            </div>
-                            <p className="text-xs text-gray-400 truncate">{emp.designation} · {emp.employeeNo}</p>
-                          </div>
-                        </label>
-                        {isSelected ? (
-                          <>
-                            <input
-                              type="text"
-                              readOnly
-                              className="form-input bg-slate-50 text-slate-700 cursor-not-allowed"
-                              value={Number(alloc?.amount ?? emp.basicSalary ?? 0).toLocaleString()}
-                              title="Basic salary from employee record (read-only)"
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              className="form-input"
-                              placeholder="0"
-                              value={alloc?.commission ?? ''}
-                              onChange={(e) => updateCommission(emp._id, e.target.value)}
-                            />
-                          </>
+                        )}
+                        <p className="text-xs text-slate-400 mt-1">Leave empty for internal / no client</p>
+                      </div>
+                      <div className="sm:col-span-2 lg:col-span-3">
+                        <label className="form-label">Client invoices (optional)</label>
+                        {!watchedClient ? (
+                          <p className="text-sm text-slate-400 py-2">Select a client to load their invoices.</p>
+                        ) : clientInvoices.length === 0 ? (
+                          <p className="text-sm text-slate-400 py-2">No invoices found for this client.</p>
                         ) : (
-                          <>
-                            <span className="text-xs text-gray-300 text-center">—</span>
-                            <span className="text-xs text-gray-300 text-center">—</span>
-                          </>
+                          <div className="border border-gray-100 rounded-xl max-h-40 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
+                            {clientInvoices.map((inv) => {
+                              const checked = linkedInvoices.includes(String(inv._id))
+                              const pay = invoicePaymentDisplay(inv)
+                              return (
+                                <label key={inv._id} className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer ${checked ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
+                                  <input type="checkbox" checked={checked} onChange={() => toggleInvoice(inv._id)} className="w-4 h-4 accent-secondary" />
+                                  <span className="flex-1 text-sm font-medium text-gray-800">{inv.invoiceNo}</span>
+                                  <span className={`badge text-[10px] ${pay.badgeClass}`}>{pay.label}</span>
+                                  <span className="text-xs text-gray-500">{(inv.currency || 'LKR')} {(inv.remainingBalance ?? 0).toLocaleString()}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        )}
+                        <p className="text-xs text-slate-400 mt-1">Only invoices for the selected client can be linked. The first selected invoice sets the project deadline.</p>
+                      </div>
+                      <div><label className="form-label">Service Type</label>
+                        <select {...register('serviceType')} className="form-select">
+                          {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select></div>
+                      <div><label className="form-label">Branch</label>
+                        <select {...register('branch')} className="form-select">
+                          <option value="">No branch</option>
+                          {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                        </select></div>
+                      <div><label className="form-label">Status</label>
+                        <select {...register('status')} className="form-select">
+                          {['planning','active','on_hold','completed','completed_payment_pending','paid_completed','overdue','cancelled'].map(s => <option key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</option>)}
+                        </select></div>
+                      <div><label className="form-label">Priority</label>
+                        <select {...register('priority')} className="form-select">
+                          {['low','medium','high','critical'].map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
+                        </select></div>
+                      <div><label className="form-label">Project Manager</label>
+                        <select {...register('projectManager')} className="form-select">
+                          <option value="">Select manager</option>
+                          {employees.filter(e => ['manager','admin'].includes(e.userId?.role)).map(e => (
+                            <option key={e._id} value={e.userId?._id}>{e.userId?.name}</option>
+                          ))}
+                        </select></div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div><label className="form-label">Start Date</label>
+                        <input {...register('startDate')} type="date" className="form-input"/></div>
+                      <div><label className="form-label">Deadline</label>
+                        <input {...register('deadline')} type="date" className="form-input"/></div>
+                      <div><label className="form-label">Budget (LKR) *</label>
+                        <input {...register('budget', {valueAsNumber: true})} type="number" placeholder="0" className="form-input"/></div>
+                    </div>
+                    <div><label className="form-label">Progress ({progressValue}%)</label>
+                      <input {...register('progress', {valueAsNumber: true})} type="range" min={0} max={100} className="w-full accent-secondary"/></div>
+                  </div>
+                </div>
+
+                <hr className="border-gray-100"/>
+
+                <div>
+                  <h4 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2"><FiUsers size={14}/> Team & Commissions</h4>
+                  <p className="text-xs text-gray-400 mb-3">Assign employees — basic salary is shown from employee records (not editable). Set commission for each selected member.</p>
+                  <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                    <div className="min-w-[500px]">
+                      <div className="grid grid-cols-[1fr_120px_120px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        <span>Employee</span>
+                        <span>Basic salary (LKR)</span>
+                        <span>Commission (LKR) *</span>
+                      </div>
+                      <div className="max-h-72 overflow-y-auto custom-scrollbar divide-y divide-gray-50">
+                        {employees.map(emp => {
+                          const isSelected = selectedTeam.includes(emp.userId?._id)
+                          const isResigned = ['resigned', 'former'].includes(emp.status) || emp.userId?.status === 'resigned'
+                          const alloc = commissionAllocations.find((a) => String(a.employeeId) === String(emp._id))
+                          return (
+                            <div key={emp._id} className={`grid grid-cols-[1fr_120px_120px] gap-2 items-center px-4 py-2.5 ${isSelected ? 'bg-blue-50/60' : 'hover:bg-gray-50'}`}>
+                              <label className="flex items-center gap-3 cursor-pointer min-w-0">
+                                <input type="checkbox" checked={isSelected} onChange={() => toggleTeamMember(emp)} className="w-4 h-4 accent-secondary shrink-0" />
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-sm font-medium text-gray-800 truncate">{emp.userId?.name}</p>
+                                    {isResigned && <span className="badge badge-red text-[10px] font-bold shrink-0">Resigned</span>}
+                                  </div>
+                                  <p className="text-xs text-gray-400 truncate">{emp.designation} · {emp.employeeNo}</p>
+                                </div>
+                              </label>
+                              {isSelected ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    className="form-input bg-slate-50 text-slate-700 cursor-not-allowed"
+                                    value={Number(alloc?.amount ?? emp.basicSalary ?? 0).toLocaleString()}
+                                    title="Basic salary from employee record (read-only)"
+                                  />
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    className="form-input"
+                                    placeholder="0"
+                                    value={alloc?.commission ?? ''}
+                                    onChange={(e) => updateCommission(emp._id, e.target.value)}
+                                  />
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-xs text-gray-300 text-center">—</span>
+                                  <span className="text-xs text-gray-300 text-center">—</span>
+                                </>
+                              )}
+                            </div>
+                          )
+                        })}
+                        {employees.length === 0 && (
+                          <div className="text-center py-6 text-gray-400 text-sm">No employees found</div>
                         )}
                       </div>
-                    )
-                  })}
-                  {employees.length === 0 && (
-                    <div className="text-center py-6 text-gray-400 text-sm">No employees found</div>
+                    </div>
+                  </div>
+                  {budget > 0 && selectedTeam.length > 0 && (
+                    <div className="mt-3 p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs space-y-2">
+                      <div className="flex justify-between text-gray-600">
+                        <span>Total commission allocated</span>
+                        <span className="font-bold text-purple-700">LKR {totalCommission.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-gray-500">
+                        <span>Remaining from budget</span>
+                        <span className={commissionRemaining < 0 ? 'text-red-600 font-semibold' : 'text-emerald-600 font-medium'}>
+                          LKR {commissionRemaining.toLocaleString()}
+                        </span>
+                      </div>
+                      {commissionRemaining < 0 && (
+                        <p className="text-red-600 text-[11px]">Commission total exceeds project budget.</p>
+                      )}
+                    </div>
+                  )}
+                  {selectedTeam.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-2">{selectedTeam.length} team member(s) — commission required for each</p>
                   )}
                 </div>
-                {budget > 0 && selectedTeam.length > 0 && (
-                  <div className="mt-3 p-3 bg-purple-50 rounded-xl border border-purple-100 text-xs space-y-2">
-                    <div className="flex justify-between text-gray-600">
-                      <span>Total commission allocated</span>
-                      <span className="font-bold text-purple-700">LKR {totalCommission.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-gray-500">
-                      <span>Remaining from budget</span>
-                      <span className={commissionRemaining < 0 ? 'text-red-600 font-semibold' : 'text-emerald-600 font-medium'}>
-                        LKR {commissionRemaining.toLocaleString()}
-                      </span>
-                    </div>
-                    {commissionRemaining < 0 && (
-                      <p className="text-red-600 text-[11px]">Commission total exceeds project budget.</p>
-                    )}
-                  </div>
-                )}
-                {selectedTeam.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-2">{selectedTeam.length} team member(s) — commission required for each</p>
-                )}
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 p-4 sm:p-6 border-t bg-white shrink-0">
                 <button type="button" onClick={closeModal} className="btn-ghost flex-1 justify-center">Cancel</button>
                 <button type="submit" disabled={createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
                   {createMut.isPending || updateMut.isPending ? <span className="spinner"/> : editing ? 'Save Changes' : 'Create Project'}

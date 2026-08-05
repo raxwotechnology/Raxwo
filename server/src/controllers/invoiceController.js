@@ -144,6 +144,32 @@ exports.createInvoice = async (req, res, next) => {
       ? Number(exchangeRateToLKR)
       : (resolvedCurrency === 'LKR' ? 1 : 1);
 
+    let signaturesPayload = req.body.signatures;
+    if (quotationDoc) {
+      const siteSettings = await SiteSetting.findOne().lean().catch(() => null);
+      const roleProfile = siteSettings?.signatures?.[quotationDoc.directorRole] || null;
+      const qSealData = quotationDoc.showSeal !== false
+        ? (quotationDoc.directorSealUrl || roleProfile?.url || siteSettings?.sealUrl || '')
+        : '';
+      const qAuthorizerName = quotationDoc.directorName || roleProfile?.label || siteSettings?.quotationDirectorName || '';
+      const qAuthorizerTitle = quotationDoc.directorRole
+        ? (quotationDoc.directorRole.charAt(0).toUpperCase() + quotationDoc.directorRole.slice(1))
+        : 'Authorized Signatory';
+      if (!signaturesPayload || (!signaturesPayload.seal?.data && !signaturesPayload.authorizer?.name)) {
+        signaturesPayload = {
+          authorizer: {
+            data: signaturesPayload?.authorizer?.data || '',
+            name: signaturesPayload?.authorizer?.name || qAuthorizerName,
+            title: signaturesPayload?.authorizer?.title || qAuthorizerTitle,
+          },
+          seal: {
+            data: signaturesPayload?.seal?.data || qSealData,
+            note: signaturesPayload?.seal?.note || '',
+          },
+        };
+      }
+    }
+
     const invoicePayload = {
       client,
       project: project || undefined,
@@ -172,7 +198,7 @@ exports.createInvoice = async (req, res, next) => {
       terms: req.body.terms || paymentTerms || (quotationDoc && quotationDoc.terms) || '',
       invoicePrefix: invoicePrefix || 'INV',
       status: 'unpaid',
-      signatures: req.body.signatures || undefined,
+      signatures: signaturesPayload || undefined,
       createdBy: req.user._id,
     };
     

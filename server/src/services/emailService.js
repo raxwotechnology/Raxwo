@@ -17,14 +17,25 @@ const buildEmailHTML = async (title, content) => {
 
   const companyName = settings.siteName || 'Raxwo Technology';
   const rawLogoUrl = (settings.logoUrl || '').trim();
-  
-  // Use robust absolute logo URL (defaulting to live site or APP_URL/raxwo-logo-final.png)
-  let logoSrc = `${APP_URL}/raxwo-logo-final.png`;
-  if (/^https?:\/\//i.test(rawLogoUrl)) {
-    logoSrc = rawLogoUrl;
-  } else if (rawLogoUrl) {
-    const rel = rawLogoUrl.startsWith('/') ? rawLogoUrl : `/${rawLogoUrl}`;
-    logoSrc = `${APP_URL}${rel}`;
+
+  let logoSrc = '';
+  if (rawLogoUrl) {
+    logoSrc = localFileToDataUri(rawLogoUrl);
+  }
+
+  if (!logoSrc) {
+    const publicBase = (settings.websiteUrl && /^https?:\/\//i.test(settings.websiteUrl))
+      ? settings.websiteUrl.replace(/\/$/, '')
+      : (process.env.PUBLIC_URL || (APP_URL && !APP_URL.includes('localhost') ? APP_URL : 'https://manage.raxwo.net'));
+
+    if (/^https?:\/\//i.test(rawLogoUrl)) {
+      logoSrc = rawLogoUrl;
+    } else if (rawLogoUrl) {
+      const rel = rawLogoUrl.startsWith('/') ? rawLogoUrl : `/${rawLogoUrl}`;
+      logoSrc = `${publicBase}${rel}`;
+    } else {
+      logoSrc = `${publicBase}/raxwo-logo-final.png`;
+    }
   }
 
   const contactEmail = settings.contactEmail || settings.adminEmail || 'contact@raxwo.net';

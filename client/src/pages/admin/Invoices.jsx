@@ -285,6 +285,26 @@ export default function AdminInvoices() {
           const pr = projects.find((p) => String(p._id) === String(q.project?._id || q.project))
           if (pr?.deadline) setValue('dueDate', new Date(pr.deadline).toISOString().split('T')[0], { shouldDirty: false })
         }
+        
+        const roleProfile = siteSettings.signatures?.[q.directorRole] || null
+        const qSealData = q.showSeal !== false 
+          ? (q.directorSealUrl || roleProfile?.url || siteSettings.sealUrl || '') 
+          : ''
+        const qAuthorizerName = q.directorName || roleProfile?.label || siteSettings.quotationDirectorName || ''
+        const qAuthorizerTitle = q.directorRole 
+          ? (q.directorRole.charAt(0).toUpperCase() + q.directorRole.slice(1)) 
+          : 'Authorized Signatory'
+        setSignatures({
+          authorizer: {
+            data: '',
+            name: qAuthorizerName,
+            title: qAuthorizerTitle,
+          },
+          seal: {
+            data: qSealData,
+            note: '',
+          },
+        })
       }
     }
   }
