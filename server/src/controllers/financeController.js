@@ -117,6 +117,7 @@ function mapPettyCashPaymentMethod(paymentType = '') {
     cash: 'Cash',
     bank_transfer: 'Bank Transfer',
     card: 'Card',
+    cheque: 'Cheque',
   };
   return map[paymentMethodKey(paymentType)] || 'Cash';
 }

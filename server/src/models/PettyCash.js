@@ -17,10 +17,12 @@ const pettyCashSchema = new mongoose.Schema({
   paidTo: { type: String, default: '' },          // person or vendor (for OUT)
   paymentType: {
     type: String,
-    enum: ['cash', 'bank_transfer', 'card'],
+    enum: ['cash', 'bank_transfer', 'card', 'cheque'],
     default: 'cash',
   },
   bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
+  chequeNumber: { type: String, default: '' },
+  linkedCheque: { type: mongoose.Schema.Types.ObjectId, ref: 'Cheque' },
   referenceNumber: { type: String, default: '' },
   receiptUrl: { type: String, default: '' },
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },

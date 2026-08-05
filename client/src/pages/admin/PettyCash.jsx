@@ -15,7 +15,7 @@ const COLORS = ['#2563EB','#22C55E','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F9
 const CATEGORIES = ['office_supplies','travel','meals','utilities','maintenance','other','fund_top_up']
 const CAT_LABEL = { office_supplies:'Office Supplies', travel:'Travel', meals:'Meals', utilities:'Utilities', maintenance:'Maintenance', other:'Other', fund_top_up:'Fund Top-Up' }
 
-const EMPTY = { type:'out', amount:'', date: new Date().toISOString().split('T')[0], description:'', category:'other', paidTo:'', paymentType:'cash', referenceNumber:'' }
+const EMPTY = { type:'out', amount:'', date: new Date().toISOString().split('T')[0], description:'', category:'other', paidTo:'', paymentType:'cash', referenceNumber:'', chequeNumber:'', bankAccount:'' }
 
 export default function AdminPettyCash() {
   const qc = useQueryClient()
@@ -79,6 +79,8 @@ export default function AdminPettyCash() {
       ...t,
       date: new Date(t.date).toISOString().split('T')[0],
       branch: t.branch?._id || t.branch || '',
+      bankAccount: t.bankAccount?._id || t.bankAccount || '',
+      chequeNumber: t.chequeNumber || t.referenceNumber || '',
     })
     setModalMode('view')
     setShowModal(true)
@@ -89,6 +91,8 @@ export default function AdminPettyCash() {
       ...t,
       date: new Date(t.date).toISOString().split('T')[0],
       branch: t.branch?._id || t.branch || '',
+      bankAccount: t.bankAccount?._id || t.bankAccount || '',
+      chequeNumber: t.chequeNumber || t.referenceNumber || '',
     })
     setModalMode('edit')
     setShowModal(true)
@@ -358,13 +362,41 @@ export default function AdminPettyCash() {
                     <option value="cash">Cash</option>
                     <option value="card">Card</option>
                     <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cheque">Cheque</option>
                   </select>
                 </div>
               </div>
               
+              {form.paymentType === 'cheque' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-indigo-50/60 p-3 rounded-xl border border-indigo-100">
+                  <div>
+                    <label className="form-label text-indigo-700 font-semibold">Cheque Number *</label>
+                    <input
+                      className="form-input border-indigo-200 focus:border-indigo-500"
+                      disabled={modalMode==='view'}
+                      value={form.chequeNumber || form.referenceNumber || ''}
+                      onChange={e => setForm(s => ({ ...s, chequeNumber: e.target.value, referenceNumber: e.target.value }))}
+                      placeholder="e.g. CHQ-001234"
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label text-indigo-700 font-semibold">Bank Account *</label>
+                    <select
+                      className="form-select border-indigo-200 focus:border-indigo-500"
+                      disabled={modalMode==='view'}
+                      value={form.bankAccount || ''}
+                      onChange={e => setForm(s => ({ ...s, bankAccount: e.target.value }))}
+                    >
+                      <option value="">Select Bank Account</option>
+                      {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} — {b.accountNumber}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               {['bank_transfer', 'card'].includes(form.paymentType) && (
                 <div>
-                  <label className="form-label text-blue-600">Paying From Bank Account</label>
+                  <label className="form-label text-blue-600 font-semibold">Paying From Bank Account</label>
                   <select className="form-select border-blue-200" disabled={modalMode==='view'} value={form.bankAccount || ''} onChange={e=>setForm(s=>({...s,bankAccount:e.target.value}))}>
                     <option value="">Select Bank Account</option>
                     {bankAccounts.map(b => <option key={b._id} value={b._id}>{b.bankName} — {b.accountNumber}</option>)}
@@ -392,6 +424,10 @@ export default function AdminPettyCash() {
               {modalMode !== 'view' && (
                 <button onClick={() => { 
                   if (!form.amount || !form.description) { toast.error('Amount and description required'); return } 
+                  if (form.paymentType === 'cheque') {
+                    if (!form.chequeNumber && !form.referenceNumber) { toast.error('Cheque Number is required'); return }
+                    if (!form.bankAccount) { toast.error('Bank Account is required for Cheque payment'); return }
+                  }
                   if (modalMode === 'edit') {
                     updateMut.mutate(form)
                   } else {

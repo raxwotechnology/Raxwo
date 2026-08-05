@@ -546,10 +546,10 @@ export default function AdminQuotations() {
                   <div className="font-medium text-gray-800">{q.client?.name || '—'}</div>
                   <div className="text-xs text-gray-400">{q.client?.email}</div>
                 </td>
-                <td className="font-medium text-gray-800 max-w-[180px] truncate">{q.title || '—'}</td>
-                <td className="text-sm text-gray-600">{q.serviceType || 'Other'}</td>
-                <td className="font-bold text-gray-800">{formatMoney(q.total || 0, q.currency || 'LKR')}</td>
-                <td className="text-gray-500 text-xs">{q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-LK') : '—'}</td>
+                <td className="font-medium text-gray-800 min-w-[200px] whitespace-normal break-words">{q.title || '—'}</td>
+                <td className="text-sm text-gray-600 font-medium whitespace-nowrap">{q.serviceType || 'Other'}</td>
+                <td className="font-bold text-gray-800 whitespace-nowrap">{formatMoney(q.total || 0, q.currency || 'LKR')}</td>
+                <td className="text-sm text-gray-600 font-medium whitespace-nowrap">{q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-LK') : '—'}</td>
                 <td><span className={`badge capitalize ${STATUS_COLOR[q.status] || 'badge-gray'}`}>{q.status}</span></td>
                 <td>
                   <div className="flex gap-1">
