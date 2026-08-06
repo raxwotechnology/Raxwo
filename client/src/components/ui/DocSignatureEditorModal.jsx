@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FiX, FiCheck, FiUpload, FiMove, FiLayers, FiAlertCircle, FiFileText, FiPlus, FiTrash2, FiBookmark } from 'react-icons/fi'
+import { FiX, FiCheck, FiUpload, FiMove, FiLayers, FiAlertCircle, FiFileText, FiPlus, FiTrash2, FiBookmark, FiDownload } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { absoluteMediaUrl, mediaUrl } from '../../lib/media'
@@ -24,28 +24,21 @@ async function ensurePdfJs() {
 }
 
 // Render ALL pages of a PDF stacked vertically into a single HTMLImageElement
+// Returns { img, layouts: [{yStart, height, width}] } for PDF output splitting
 async function renderAllPdfPagesToImage(pdfUrlOrData) {
   await ensurePdfJs()
 
   let loadingTask
   if (typeof pdfUrlOrData === 'string' && pdfUrlOrData.startsWith('data:') && pdfUrlOrData.includes('base64,')) {
-    // Data URI — decode to Uint8Array so pdf.js gets clean bytes
     const commaIdx = pdfUrlOrData.indexOf('base64,') + 7
     let b64 = pdfUrlOrData.substring(commaIdx)
-    // Strip corrupt leading chars before the PDF magic bytes
     const pdfMagic = b64.indexOf('JVBERi')
     if (pdfMagic > 0) b64 = b64.substring(pdfMagic)
     const raw = atob(b64)
     const uint8Array = new Uint8Array(raw.length)
     for (let i = 0; i < raw.length; i++) uint8Array[i] = raw.charCodeAt(i)
     loadingTask = window.pdfjsLib.getDocument({ data: uint8Array })
-  } else if (typeof pdfUrlOrData === 'string' && pdfUrlOrData.startsWith('http')) {
-    // HTTP URL — fetch as ArrayBuffer to avoid CORS canvas taint
-    const resp = await fetch(pdfUrlOrData)
-    const buf = await resp.arrayBuffer()
-    loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buf) })
-  } else if (typeof pdfUrlOrData === 'string' && pdfUrlOrData.startsWith('/')) {
-    // Relative URL (same-origin /uploads/...) — fetch as ArrayBuffer
+  } else if (typeof pdfUrlOrData === 'string' && (pdfUrlOrData.startsWith('http') || pdfUrlOrData.startsWith('/'))) {
     const resp = await fetch(pdfUrlOrData)
     const buf = await resp.arrayBuffer()
     loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buf) })
@@ -58,7 +51,6 @@ async function renderAllPdfPagesToImage(pdfUrlOrData) {
   const PAGE_GAP = 12
   const SCALE = 2.0
 
-  // Render every page
   const pageCanvases = []
   for (let pageNum = 1; pageNum <= numPages; pageNum++) {
     const page = await pdf.getPage(pageNum)
@@ -70,33 +62,44 @@ async function renderAllPdfPagesToImage(pdfUrlOrData) {
     pageCanvases.push(pageCanvas)
   }
 
-  // Combine all pages into a single tall canvas
   const maxWidth = Math.max(...pageCanvases.map(c => c.width))
   const totalHeight = pageCanvases.reduce((sum, c) => sum + c.height + PAGE_GAP, -PAGE_GAP)
+
+  // Track page boundaries in combined canvas coords for PDF splitting
+  const layouts = []
+  let yOffset = 0
+  for (const pc of pageCanvases) {
+    layouts.push({ yStart: yOffset, height: pc.height, width: pc.width })
+    yOffset += pc.height + PAGE_GAP
+  }
+
   const combined = document.createElement('canvas')
   combined.width = maxWidth
   combined.height = totalHeight
   const ctx = combined.getContext('2d')
   ctx.fillStyle = '#e5e7eb'
   ctx.fillRect(0, 0, maxWidth, totalHeight)
-  let yOffset = 0
+  yOffset = 0
   for (const pc of pageCanvases) {
     ctx.drawImage(pc, Math.floor((maxWidth - pc.width) / 2), yOffset)
     yOffset += pc.height + PAGE_GAP
   }
 
-  // Convert to HTMLImageElement (data URI — same-origin, no CORS taint)
   const img = new Image()
-  return new Promise((resolve, reject) => {
+  const imgPromise = new Promise((resolve, reject) => {
     img.onload = () => resolve(img)
     img.onerror = reject
     img.src = combined.toDataURL('image/png')
   })
+  await imgPromise
+  return { img, layouts }
 }
 
 export default function DocSignatureEditorModal({ request, onClose, onSuccess, defaultSignature, defaultSeal }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
+  const pageLayoutsRef = useRef([])   // [{yStart, height, width}] per PDF page in combined canvas
+  const isPdfDocRef = useRef(false)   // true if the loaded document is/was a PDF
 
   const [loading, setLoading] = useState(false)
   const [docLoading, setDocLoading] = useState(true)
@@ -204,8 +207,10 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
         // 1. Try PDF rendering (all pages stacked)
         if (isPdf || rawUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(target)) {
           try {
-            const renderedImg = await renderAllPdfPagesToImage(target)
+            const { img: renderedImg, layouts } = await renderAllPdfPagesToImage(target)
             setDocImage(renderedImg)
+            pageLayoutsRef.current = layouts
+            isPdfDocRef.current = true
             setDocLoading(false)
             return
           } catch (pdfErr) {
@@ -223,6 +228,8 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
             dImg.src = target
           })
           setDocImage(dImg)
+          pageLayoutsRef.current = []
+          isPdfDocRef.current = false
           setDocLoading(false)
           return
         } catch {
@@ -231,8 +238,10 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
 
         // 3. Last resort — attempt PDF render even if not detected as PDF (might be mis-typed)
         try {
-          const renderedImg = await renderAllPdfPagesToImage(target)
+          const { img: renderedImg, layouts } = await renderAllPdfPagesToImage(target)
           setDocImage(renderedImg)
+          pageLayoutsRef.current = layouts
+          isPdfDocRef.current = true
           setDocLoading(false)
           return
         } catch (finalErr) {
@@ -300,15 +309,20 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
     try {
       if (file.type === 'application/pdf') {
         const fileUrl = URL.createObjectURL(file)
-        const pdfImg = await renderPdfPageToImage(fileUrl)
+        const { img: pdfImg, layouts } = await renderAllPdfPagesToImage(fileUrl)
         setDocImage(pdfImg)
-        toast.success('Document loaded successfully!')
+        pageLayoutsRef.current = layouts
+        isPdfDocRef.current = true
+        URL.revokeObjectURL(fileUrl)
+        toast.success(`PDF loaded — ${layouts.length} page(s) rendered`)
       } else {
         const reader = new FileReader()
         reader.onload = (evt) => {
           const img = new Image()
           img.onload = () => {
             setDocImage(img)
+            pageLayoutsRef.current = []
+            isPdfDocRef.current = false
             toast.success('Document image loaded successfully!')
           }
           img.src = evt.target.result
@@ -317,6 +331,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
       }
     } catch (err) {
       toast.error('Failed to load selected document file')
+      console.error(err)
     } finally {
       setDocLoading(false)
     }
@@ -408,6 +423,47 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
     toast.success('Stamp removed from document')
   }
 
+  // Build a signed PDF using jsPDF — one PDF page per original PDF page
+  const buildSignedPdf = async (canvas) => {
+    const layouts = pageLayoutsRef.current
+    // Lazy-load jsPDF from the bundle
+    const { default: jsPDF } = await import('jspdf')
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' })
+    const A4_W = pdf.internal.pageSize.getWidth()
+    const A4_H = pdf.internal.pageSize.getHeight()
+
+    for (let i = 0; i < layouts.length; i++) {
+      const { yStart, height, width } = layouts[i]
+
+      // Slice this page out of the combined signed canvas
+      const pageCanvas = document.createElement('canvas')
+      pageCanvas.width = canvas.width
+      pageCanvas.height = height
+      pageCanvas.getContext('2d').drawImage(
+        canvas,
+        0, yStart, canvas.width, height,   // source rect
+        0, 0, canvas.width, height          // dest rect
+      )
+
+      if (i > 0) pdf.addPage('a4', 'portrait')
+
+      // Fit page proportionally inside A4
+      const srcAspect = width / height
+      const a4Aspect = A4_W / A4_H
+      let drawW = A4_W, drawH = A4_H, drawX = 0, drawY = 0
+      if (srcAspect > a4Aspect) {
+        drawH = A4_W / srcAspect
+        drawY = (A4_H - drawH) / 2
+      } else {
+        drawW = A4_H * srcAspect
+        drawX = (A4_W - drawW) / 2
+      }
+
+      pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', drawX, drawY, drawW, drawH)
+    }
+    return pdf
+  }
+
   // Save Finalized Signed Document
   const handleFinalize = async () => {
     if (placedStamps.length === 0) {
@@ -430,11 +486,21 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
         ctx.restore()
       })
 
-      // Convert canvas to Blob/File
-      const dataUrl = canvas.toDataURL('image/png')
-      const res = await fetch(dataUrl)
-      const blob = await res.blob()
-      const signedFile = new File([blob], `Signed_${request.requestRef}.png`, { type: 'image/png' })
+      let signedFile
+      const layouts = pageLayoutsRef.current
+
+      if (isPdfDocRef.current && layouts.length > 0) {
+        // ── PDF original → output as proper multi-page PDF ──────────────────
+        const pdf = await buildSignedPdf(canvas)
+        const pdfBlob = pdf.output('blob')
+        signedFile = new File([pdfBlob], `Signed_${request.requestRef}.pdf`, { type: 'application/pdf' })
+      } else {
+        // ── Image original → output as PNG ──────────────────────────────────
+        const dataUrl = canvas.toDataURL('image/png')
+        const res = await fetch(dataUrl)
+        const blob = await res.blob()
+        signedFile = new File([blob], `Signed_${request.requestRef}.png`, { type: 'image/png' })
+      }
 
       const stampsMetaData = placedStamps.map(s => ({
         id: s.id,
@@ -462,6 +528,38 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
       toast.error(err.response?.data?.message || 'Failed to finalize signature')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Local PDF preview download (without uploading to server)
+  const handleLocalPdfDownload = async () => {
+    const canvas = canvasRef.current
+    if (!canvas || !docImage) return toast.error('No document loaded')
+    try {
+      // Redraw with stamps
+      const ctx = canvas.getContext('2d')
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.drawImage(docImage, 0, 0, canvas.width, canvas.height)
+      placedStamps.forEach(s => {
+        if (!s.imgObj) return
+        ctx.save(); ctx.globalAlpha = s.opacity ?? 1
+        ctx.drawImage(s.imgObj, s.x, s.y, s.width, s.height)
+        ctx.restore()
+      })
+      const layouts = pageLayoutsRef.current
+      if (layouts.length > 0) {
+        const pdf = await buildSignedPdf(canvas)
+        pdf.save(`Preview_${request.requestRef}.pdf`)
+      } else {
+        const { default: jsPDF } = await import('jspdf')
+        const pdf = new jsPDF({ unit: 'px', format: [canvas.width / 2, canvas.height / 2] })
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, canvas.width / 2, canvas.height / 2)
+        pdf.save(`Preview_${request.requestRef}.pdf`)
+      }
+      toast.success('PDF preview downloaded!')
+    } catch (err) {
+      toast.error('Failed to generate PDF preview')
+      console.error(err)
     }
   }
 
@@ -674,9 +772,16 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
                   <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
-                    <FiCheck size={18} /> Apply Signature & Finalize
+                    <FiCheck size={18} /> Apply Signature & Save to Server
                   </>
                 )}
+              </button>
+              <button
+                onClick={handleLocalPdfDownload}
+                disabled={loading}
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+              >
+                <FiDownload size={14} /> Download PDF Preview (Local)
               </button>
               <button
                 onClick={onClose}
