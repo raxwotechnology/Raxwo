@@ -2,6 +2,7 @@ const SignatureRequest = require('../models/SignatureRequest');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 const SiteSetting = require('../models/SiteSetting');
+const SavedStamp = require('../models/SavedStamp');
 const { createNotification } = require('../services/notificationService');
 const { sendMail } = require('../utils/mailer');
 const { toRelativeUploadUrl } = require('../utils/uploadsPath');
@@ -198,7 +199,13 @@ exports.signAndFinalize = async (req, res, next) => {
     sigReq.signedByName = req.user.name;
     sigReq.signedByRole = req.user.role;
     sigReq.signedAt = new Date();
-    if (stampsMeta) sigReq.stampsMeta = stampsMeta;
+    if (stampsMeta) {
+      try {
+        sigReq.stampsMeta = typeof stampsMeta === 'string' ? JSON.parse(stampsMeta) : stampsMeta;
+      } catch (e) {
+        sigReq.stampsMeta = stampsMeta;
+      }
+    }
 
     await sigReq.save();
 
@@ -326,6 +333,99 @@ exports.saveStamps = async (req, res, next) => {
       signatureUrl: user.signatureUrl,
       sealUrl: user.sealUrl
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 8. Get all Saved Stamps List for Logged-in Admin / Owner
+exports.getSavedStampsList = async (req, res, next) => {
+  try {
+    const stamps = await SavedStamp.find({ user: req.user._id }).sort({ createdAt: -1 });
+    res.json({ success: true, count: stamps.length, stamps });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 9. Create a new Saved Stamp (Signature or Seal)
+exports.createSavedStamp = async (req, res, next) => {
+  try {
+    const { title, type, isDefault } = req.body;
+    let imageUrl = req.body.imageUrl || '';
+
+    if (req.file) {
+      imageUrl = toRelativeUploadUrl(req.file.path || req.file.filename);
+    }
+
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, message: 'Stamp image file or URL is required' });
+    }
+
+    const stampType = type || 'signature';
+
+    if (isDefault === 'true' || isDefault === true) {
+      await SavedStamp.updateMany({ user: req.user._id, type: stampType }, { isDefault: false });
+    }
+
+    const stamp = await SavedStamp.create({
+      user: req.user._id,
+      title: title || (stampType === 'seal' ? 'Company Seal' : 'Official Signature'),
+      type: stampType,
+      imageUrl,
+      isDefault: isDefault === 'true' || isDefault === true
+    });
+
+    res.status(201).json({ success: true, message: 'Stamp saved to library', stamp });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 10. Update Saved Stamp (Title, Image, Default status)
+exports.updateSavedStamp = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, type, isDefault } = req.body;
+
+    const stamp = await SavedStamp.findOne({ _id: id, user: req.user._id });
+    if (!stamp) {
+      return res.status(404).json({ success: false, message: 'Stamp not found' });
+    }
+
+    if (title) stamp.title = title;
+    if (type) stamp.type = type;
+
+    if (isDefault !== undefined) {
+      const defBool = isDefault === 'true' || isDefault === true;
+      stamp.isDefault = defBool;
+      if (defBool) {
+        await SavedStamp.updateMany({ user: req.user._id, type: stamp.type, _id: { $ne: stamp._id } }, { isDefault: false });
+      }
+    }
+
+    if (req.file) {
+      stamp.imageUrl = toRelativeUploadUrl(req.file.path || req.file.filename);
+    } else if (req.body.imageUrl) {
+      stamp.imageUrl = req.body.imageUrl;
+    }
+
+    await stamp.save();
+    res.json({ success: true, message: 'Stamp updated successfully', stamp });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 11. Delete Saved Stamp
+exports.deleteSavedStamp = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const stamp = await SavedStamp.findOneAndDelete({ _id: id, user: req.user._id });
+    if (!stamp) {
+      return res.status(404).json({ success: false, message: 'Stamp not found' });
+    }
+    res.json({ success: true, message: 'Stamp deleted from library' });
   } catch (err) {
     next(err);
   }

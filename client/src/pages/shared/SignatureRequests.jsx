@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   FiFileText, FiPlus, FiFilter, FiSearch, FiCheckCircle, FiClock, FiXCircle,
-  FiDownload, FiEdit3, FiShield, FiUpload, FiAlertCircle, FiUser, FiCalendar, FiCheck, FiX, FiRefreshCw
+  FiDownload, FiEdit3, FiShield, FiUpload, FiAlertCircle, FiUser, FiCalendar, FiCheck, FiX, FiRefreshCw, FiTrash2, FiBookmark
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
@@ -49,13 +49,14 @@ export default function SignatureRequests() {
     file: null
   })
 
-  // Saved Stamps State (Admin / Owner)
-  const [stampsState, setStampsState] = useState({
-    signatureUrl: '',
-    sealUrl: '',
-    sigFile: null,
-    sealFile: null
+  // Add Stamp Form State (Admin / Owner Library)
+  const [newStampForm, setNewStampForm] = useState({
+    title: '',
+    type: 'signature',
+    isDefault: false,
+    file: null
   })
+  const [editingStamp, setEditingStamp] = useState(null)
 
   // Fetch Requests Query
   const { data: requestsData, isLoading, refetch } = useQuery({
@@ -71,18 +72,19 @@ export default function SignatureRequests() {
     }
   })
 
-  // Fetch Saved Admin/Owner Stamps Query
-  const { data: stampsData } = useQuery({
-    queryKey: ['saved-stamps'],
+  // Fetch Saved Stamps List Query
+  const { data: savedStampsData, refetch: refetchSavedStamps } = useQuery({
+    queryKey: ['saved-stamps-list'],
     queryFn: async () => {
       if (!isManagement) return null
-      const res = await api.get('/signature-requests/stamps')
+      const res = await api.get('/signature-requests/saved-stamps')
       return res.data
     },
     enabled: isManagement
   })
 
   const requests = requestsData?.requests || []
+  const savedStamps = savedStampsData?.stamps || []
 
   // Submit Request Mutation (Employee)
   const submitMut = useMutation({
@@ -110,32 +112,47 @@ export default function SignatureRequests() {
     }
   })
 
-  // Save Stamps Mutation (Admin / Owner)
-  const saveStampsMut = useMutation({
+  // Add Stamp to Library Mutation
+  const addStampMut = useMutation({
     mutationFn: async (formData) => {
-      const res = await api.post('/signature-requests/stamps', formData, {
+      const res = await api.post('/signature-requests/saved-stamps', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       })
       return res.data
     },
     onSuccess: () => {
-      toast.success('Signature & Seal stamps saved successfully!')
-      setShowStampsModal(false)
-      queryClient.invalidateQueries(['saved-stamps'])
+      toast.success('Stamp added to your library!')
+      setNewStampForm({ title: '', type: 'signature', isDefault: false, file: null })
+      queryClient.invalidateQueries(['saved-stamps-list'])
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to save stamps')
+      toast.error(err.response?.data?.message || 'Failed to save stamp')
     }
   })
 
-  // Reject Request Mutation
+  // Delete Stamp Mutation
+  const deleteStampMut = useMutation({
+    mutationFn: async (id) => {
+      const res = await api.delete(`/signature-requests/saved-stamps/${id}`)
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Stamp deleted from library')
+      queryClient.invalidateQueries(['saved-stamps-list'])
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete stamp')
+    }
+  })
+
+  // Reject Request Mutation (Admin / Owner)
   const rejectMut = useMutation({
     mutationFn: async ({ id, rejectionReason }) => {
       const res = await api.put(`/signature-requests/${id}/reject`, { rejectionReason })
       return res.data
     },
     onSuccess: () => {
-      toast.success('Request rejected')
+      toast.success('Signature request rejected')
       setRejectingRequest(null)
       setRejectionReason('')
       queryClient.invalidateQueries(['signature-requests'])
@@ -145,411 +162,382 @@ export default function SignatureRequests() {
     }
   })
 
-  const handleSubmitForm = (e) => {
+  const handleSubmitRequest = (e) => {
     e.preventDefault()
-    if (!submitForm.title.trim()) return toast.error('Please enter a document title')
-    if (!submitForm.reason.trim()) return toast.error('Please specify the reason/purpose for request')
-    if (!submitForm.file) return toast.error('Please attach the document file')
-
-    const formData = new FormData()
-    formData.append('title', submitForm.title.trim())
-    formData.append('documentType', submitForm.documentType)
-    formData.append('reason', submitForm.reason.trim())
-    formData.append('urgency', submitForm.urgency)
-    formData.append('notes', submitForm.notes.trim())
-    formData.append('file', submitForm.file)
-
-    submitMut.mutate(formData)
+    if (!submitForm.title || !submitForm.reason || !submitForm.file) {
+      return toast.error('Please fill all required fields and upload document')
+    }
+    const fd = new FormData()
+    fd.append('title', submitForm.title)
+    fd.append('documentType', submitForm.documentType)
+    fd.append('reason', submitForm.reason)
+    fd.append('urgency', submitForm.urgency)
+    fd.append('notes', submitForm.notes)
+    fd.append('file', submitForm.file)
+    submitMut.mutate(fd)
   }
 
-  const handleSaveStamps = (e) => {
+  const handleAddStampToLibrary = (e) => {
     e.preventDefault()
-    const formData = new FormData()
-    if (stampsState.sigFile) formData.append('signature', stampsState.sigFile)
-    if (stampsState.sealFile) formData.append('seal', stampsState.sealFile)
-
-    saveStampsMut.mutate(formData)
+    if (!newStampForm.title || !newStampForm.file) {
+      return toast.error('Please enter stamp title and upload image file')
+    }
+    const fd = new FormData()
+    fd.append('title', newStampForm.title)
+    fd.append('type', newStampForm.type)
+    fd.append('isDefault', newStampForm.isDefault)
+    fd.append('image', newStampForm.file)
+    addStampMut.mutate(fd)
   }
+
+  // Get Default Signature and Seal for Editor
+  const defaultSig = savedStamps.find(s => s.type === 'signature' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'signature')?.imageUrl || ''
+  const defaultSeal = savedStamps.find(s => s.type === 'seal' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'seal')?.imageUrl || ''
 
   return (
-    <div className="space-y-8 p-6 max-w-7xl mx-auto">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200/80">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="badge bg-blue-100 text-blue-700 font-bold uppercase tracking-wider text-[10px]">
-              Digital Signature Workflow
-            </span>
-            <span className="badge bg-slate-100 text-slate-600 font-bold text-[10px]">
-              {requests.length} Requests
-            </span>
+    <div className="p-6 md:p-10 space-y-8 max-w-7xl mx-auto">
+      {/* ── Top Header ───────────────────────────────────────────────────────── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+        <div className="space-y-2 z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-full text-blue-300 text-xs font-semibold">
+            <FiShield size={14} /> Official E-Signature & Stamp Portal
           </div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-slate-800 font-heading mt-1">
-            Document Signature & Seal Requests
-          </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            {isManagement
-              ? 'Review, drag & drop signature & seal stamps, and finalize employee document approvals.'
-              : 'Submit your internship certificates, NOCs, agreements & letters for official signature & seal.'}
+          <h1 className="text-3xl font-extrabold tracking-tight">Document Signature Requests</h1>
+          <p className="text-sm text-slate-300 max-w-xl">
+            Upload document requests for official verification, track approval status, and manage verified digital signatures and company seals.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 z-10">
           {isManagement && (
             <button
               onClick={() => setShowStampsModal(true)}
-              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-2 transition-all"
+              className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/20 backdrop-blur-md flex items-center gap-2 transition-all"
             >
-              <FiShield size={16} className="text-slate-600" /> Manage Signature & Seal
+              <FiBookmark size={16} /> My Stamp Library ({savedStamps.length})
             </button>
           )}
 
           <button
             onClick={() => setShowSubmitModal(true)}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/20 flex items-center gap-2 transition-all"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-2xl shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all"
           >
-            <FiPlus size={16} /> Request Document Signature
+            <FiPlus size={16} /> Submit Document for Signature
           </button>
         </div>
       </div>
 
-      {/* Filter & Audit Bar (Especially for Admin / Owner) */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+      {/* ── Audit Filters & Search Bar ───────────────────────────────────────── */}
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <FiFilter size={14} /> Audit Filters & Search
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+            <FiFilter className="text-blue-600" /> Audit Filters & Search
           </h3>
-          <button onClick={() => refetch()} className="text-xs text-blue-600 hover:underline flex items-center gap-1 font-semibold">
-            <FiRefreshCw size={12} /> Refresh List
+          <button
+            onClick={() => {
+              setStatusFilter('All')
+              setCategoryFilter('All')
+              setUrgencyFilter('All')
+              setSearchTerm('')
+            }}
+            className="text-xs font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1"
+          >
+            <FiRefreshCw size={12} /> Reset Filters
           </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {/* Search Box */}
           <div className="relative">
-            <FiSearch className="absolute left-3 top-3 text-slate-400" size={16} />
+            <FiSearch className="absolute left-3.5 top-3 text-slate-400" size={15} />
             <input
               type="text"
-              placeholder="Search title, employee, ref..."
+              placeholder="Search title, ref, employee..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
             />
           </div>
-
-          {/* Category Filter */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white transition-all"
-          >
-            <option value="All">All Categories</option>
-            {DOC_TYPES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
 
           {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white transition-all"
+            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 focus:bg-white transition-all outline-none"
           >
-            <option value="All">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="signed">Signed</option>
-            <option value="rejected">Rejected</option>
+            <option value="All">Status: All</option>
+            <option value="Pending">Pending Approval</option>
+            <option value="Signed">Signed & Sealed</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+
+          {/* Category Filter */}
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 focus:bg-white transition-all outline-none"
+          >
+            <option value="All">Category: All</option>
+            {DOC_TYPES.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
           </select>
 
           {/* Urgency Filter */}
           <select
             value={urgencyFilter}
             onChange={(e) => setUrgencyFilter(e.target.value)}
-            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white transition-all"
+            className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 focus:bg-white transition-all outline-none"
           >
-            <option value="All">All Priorities</option>
-            <option value="normal">Normal</option>
-            <option value="urgent">Urgent Only</option>
+            <option value="All">Priority: All</option>
+            <option value="Normal">Normal Priority</option>
+            <option value="Urgent">Urgent</option>
           </select>
         </div>
       </div>
 
-      {/* Main Table / Grid */}
+      {/* ── Signature Requests Table ─────────────────────────────────────────── */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="text-base font-bold text-slate-800">
+            Document Requests ({requests.length})
+          </h2>
+        </div>
+
         {isLoading ? (
-          <div className="p-12 text-center text-slate-400">
-            <span className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin inline-block mb-2" />
-            <p className="text-xs font-semibold">Loading signature requests...</p>
+          <div className="p-12 text-center text-slate-400 space-y-3">
+            <span className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin inline-block" />
+            <p className="text-xs font-semibold">Fetching document requests...</p>
           </div>
-        ) : requests.length === 0 ? (
-          <div className="p-16 text-center">
-            <FiFileText size={48} className="mx-auto text-slate-300 mb-3" />
-            <h4 className="text-base font-bold text-slate-700">No Signature Requests Found</h4>
-            <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-              No signature requests match your filters. Click "Request Document Signature" to create one.
-            </p>
-          </div>
-        ) : (
+        ) : requests.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-5">Ref & Title</th>
-                  <th className="py-3.5 px-4">Requester</th>
-                  <th className="py-3.5 px-4">Category</th>
-                  <th className="py-3.5 px-4">Reason / Purpose</th>
-                  <th className="py-3.5 px-4">Priority</th>
-                  <th className="py-3.5 px-4">Status & Signer</th>
-                  <th className="py-3.5 px-5 text-right">Actions</th>
+                <tr className="bg-slate-50/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                  <th className="py-3.5 px-6">Ref & Title</th>
+                  <th className="py-3.5 px-6">Requester</th>
+                  <th className="py-3.5 px-6">Category</th>
+                  <th className="py-3.5 px-6">Reason for Request</th>
+                  <th className="py-3.5 px-6">Priority</th>
+                  <th className="py-3.5 px-6">Status</th>
+                  <th className="py-3.5 px-6 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
                 {requests.map((req) => (
-                  <tr key={req._id} className="hover:bg-slate-50/50 transition-colors">
+                  <tr key={req._id} className="hover:bg-slate-50/60 transition-colors">
                     {/* Ref & Title */}
-                    <td className="py-4 px-5">
-                      <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full inline-block mb-1">
-                        {req.requestRef}
-                      </span>
-                      <h4 className="font-bold text-slate-800 text-sm leading-snug">{req.title}</h4>
-                      <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                        <FiCalendar size={10} /> {new Date(req.createdAt).toLocaleDateString()}
-                      </span>
+                    <td className="py-4 px-6">
+                      <div className="space-y-0.5">
+                        <span className="font-mono text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                          {req.requestRef}
+                        </span>
+                        <p className="font-bold text-slate-900 text-sm leading-snug">{req.title}</p>
+                        <p className="text-[11px] text-slate-400">{new Date(req.createdAt).toLocaleDateString()}</p>
+                      </div>
                     </td>
 
                     {/* Requester */}
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-6">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[10px] shrink-0">
-                          <FiUser size={12} />
+                        <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs uppercase">
+                          {req.employeeName ? req.employeeName[0] : 'U'}
                         </div>
                         <div>
-                          <p className="font-bold text-slate-700">{req.employeeName || req.requester?.name || 'Employee'}</p>
-                          <span className="text-[10px] text-slate-400 capitalize">{req.employeeType || 'Permanent'}</span>
+                          <p className="font-bold text-slate-800">{req.employeeName}</p>
+                          <span className="text-[10px] text-slate-500 uppercase font-semibold">{req.employeeType}</span>
                         </div>
                       </div>
                     </td>
 
                     {/* Category */}
-                    <td className="py-4 px-4">
-                      <span className="badge bg-slate-100 text-slate-700 font-semibold text-[10px]">
+                    <td className="py-4 px-6">
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-[11px] font-semibold">
                         {req.documentType}
                       </span>
                     </td>
 
                     {/* Reason */}
-                    <td className="py-4 px-4 max-w-xs">
-                      <p className="text-slate-600 font-medium truncate" title={req.reason}>
+                    <td className="py-4 px-6 max-w-xs">
+                      <p className="text-slate-600 text-xs truncate" title={req.reason}>
                         {req.reason}
                       </p>
-                      {req.notes && (
-                        <p className="text-[10px] text-slate-400 italic truncate" title={req.notes}>
-                          Note: {req.notes}
-                        </p>
-                      )}
                     </td>
 
                     {/* Urgency */}
-                    <td className="py-4 px-4">
+                    <td className="py-4 px-6">
                       {req.urgency === 'urgent' ? (
-                        <span className="badge bg-red-100 text-red-700 font-bold text-[10px] flex items-center gap-1 w-fit">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full animate-pulse">
                           <FiAlertCircle size={10} /> URGENT
                         </span>
                       ) : (
-                        <span className="badge bg-slate-100 text-slate-500 font-medium text-[10px]">
-                          Normal
-                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500">Normal</span>
                       )}
                     </td>
 
-                    {/* Status & Signer */}
-                    <td className="py-4 px-4">
-                      {req.status === 'signed' && (
-                        <div>
-                          <span className="badge bg-emerald-100 text-emerald-700 font-bold text-[10px] flex items-center gap-1 w-fit mb-1">
-                            <FiCheckCircle size={10} /> Signed
+                    {/* Status */}
+                    <td className="py-4 px-6">
+                      {req.status === 'signed' ? (
+                        <div className="space-y-1">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                            <FiCheckCircle size={12} /> Signed & Sealed
                           </span>
-                          <p className="text-[10px] text-slate-500">
-                            By <strong>{req.signedByName || 'Admin'}</strong> ({req.signedByRole || 'admin'})
-                          </p>
-                          {req.signedAt && (
-                            <p className="text-[9px] text-slate-400">
-                              {new Date(req.signedAt).toLocaleDateString()}
-                            </p>
+                          {req.signedByName && (
+                            <p className="text-[10px] text-slate-400">By {req.signedByName}</p>
                           )}
                         </div>
-                      )}
-
-                      {req.status === 'pending' && (
-                        <span className="badge bg-amber-100 text-amber-700 font-bold text-[10px] flex items-center gap-1 w-fit">
-                          <FiClock size={10} /> Pending Review
+                      ) : req.status === 'rejected' ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+                          <FiXCircle size={12} /> Rejected
                         </span>
-                      )}
-
-                      {req.status === 'rejected' && (
-                        <div>
-                          <span className="badge bg-red-100 text-red-700 font-bold text-[10px] flex items-center gap-1 w-fit mb-1">
-                            <FiXCircle size={10} /> Rejected
-                          </span>
-                          <p className="text-[10px] text-red-500 italic max-w-[140px] truncate" title={req.rejectionReason}>
-                            {req.rejectionReason}
-                          </p>
-                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                          <FiClock size={12} /> Pending Review
+                        </span>
                       )}
                     </td>
 
                     {/* Actions */}
-                    <td className="py-4 px-5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Download Original Document */}
+                    <td className="py-4 px-6 text-right space-x-2">
+                      {req.status === 'signed' && req.signedDocUrl ? (
+                        <a
+                          href={mediaUrl(req.signedDocUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          download
+                          className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm inline-flex items-center gap-1.5 transition-all"
+                        >
+                          <FiDownload size={14} /> Download Signed
+                        </a>
+                      ) : isManagement && req.status === 'pending' ? (
+                        <>
+                          <button
+                            onClick={() => setActiveEditorRequest(req)}
+                            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm inline-flex items-center gap-1.5 transition-all"
+                          >
+                            <FiEdit3 size={14} /> Sign & Stamp
+                          </button>
+                          <button
+                            onClick={() => setRejectingRequest(req)}
+                            className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl inline-flex items-center gap-1 transition-all"
+                          >
+                            <FiX size={14} /> Decline
+                          </button>
+                        </>
+                      ) : (
                         <a
                           href={mediaUrl(req.originalDocUrl)}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"
-                          title="View Original Upload"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl inline-flex items-center gap-1"
                         >
-                          <FiFileText size={14} />
+                          <FiFileText size={12} /> View Doc
                         </a>
-
-                        {/* Signed Document Download */}
-                        {req.signedDocUrl && (
-                          <a
-                            href={mediaUrl(req.signedDocUrl)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1 text-[11px] transition-all shadow-sm"
-                          >
-                            <FiDownload size={12} /> Download Signed
-                          </a>
-                        )}
-
-                        {/* Sign & Stamp Action (Admin / Owner) */}
-                        {isManagement && req.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => setActiveEditorRequest(req)}
-                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-1 text-[11px] transition-all shadow-sm"
-                            >
-                              <FiEdit3 size={12} /> Sign & Stamp
-                            </button>
-                            <button
-                              onClick={() => setRejectingRequest(req)}
-                              className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all"
-                              title="Reject Request"
-                            >
-                              <FiX size={14} />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        ) : (
+          <div className="p-12 text-center text-slate-400 space-y-2">
+            <FiFileText size={32} className="mx-auto text-slate-300" />
+            <p className="text-sm font-semibold text-slate-600">No document signature requests found</p>
+            <p className="text-xs">Submit a new request or adjust filters to view documents.</p>
+          </div>
         )}
       </div>
 
-      {/* ── Submit Request Modal (Employee / Intern) ─────────────────────────── */}
+      {/* ── Submit Request Modal (Employee) ─────────────────────────────────── */}
       <AnimatePresence>
         {showSubmitModal && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-100"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-100"
             >
               <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50">
                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <FiFileText className="text-blue-600" /> Request Document Signature
+                  <FiFileText className="text-blue-600" /> New Document Signature Request
                 </h3>
                 <button onClick={() => setShowSubmitModal(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl">
                   <FiX size={20} />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmitForm} className="p-6 space-y-4">
+              <form onSubmit={handleSubmitRequest} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                    Document Title <span className="text-red-500">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Document Title *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Internship Completion Certificate"
+                    placeholder="e.g. Internship Certificate Verification"
                     value={submitForm.title}
                     onChange={(e) => setSubmitForm(p => ({ ...p, title: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                      Category
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Document Category
                     </label>
                     <select
                       value={submitForm.documentType}
                       onChange={(e) => setSubmitForm(p => ({ ...p, documentType: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white"
                     >
-                      {DOC_TYPES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      {DOC_TYPES.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                      Priority / Urgency
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                      Urgency / Priority
                     </label>
                     <select
                       value={submitForm.urgency}
                       onChange={(e) => setSubmitForm(p => ({ ...p, urgency: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white"
                     >
-                      <option value="normal">Normal</option>
-                      <option value="urgent">Urgent</option>
+                      <option value="normal">Normal Priority</option>
+                      <option value="urgent">🔴 Urgent Approval Needed</option>
                     </select>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                    Reason / Purpose for Request (හේතුව) <span className="text-red-500">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Reason for Request (හේතුව) *
                   </label>
                   <textarea
                     required
                     rows={3}
-                    placeholder="Explain why you need this document signed (e.g. Bank loan requirement, University internship submission, Visa application)"
+                    placeholder="Explain why this document needs official signature and seal..."
                     value={submitForm.reason}
                     onChange={(e) => setSubmitForm(p => ({ ...p, reason: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium resize-none focus:bg-white focus:border-blue-500"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium resize-none focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                    Attach Document File (PDF / Image) <span className="text-red-500">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Upload Document (PDF or Image) *
                   </label>
                   <input
                     type="file"
                     required
                     accept=".pdf,image/*"
                     onChange={(e) => setSubmitForm(p => ({ ...p, file: e.target.files?.[0] || null }))}
-                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                    Additional Notes (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Any specific instructions for signature placement"
-                    value={submitForm.notes}
-                    onChange={(e) => setSubmitForm(p => ({ ...p, notes: e.target.value }))}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
+                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                 </div>
 
@@ -575,7 +563,7 @@ export default function SignatureRequests() {
         )}
       </AnimatePresence>
 
-      {/* ── Saved Signature & Seal Management Modal (Admin / Owner) ──────────── */}
+      {/* ── Saved Stamps Library Manager Modal (Admin / Owner) ───────────────── */}
       <AnimatePresence>
         {showStampsModal && (
           <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
@@ -583,71 +571,93 @@ export default function SignatureRequests() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-100"
+              className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-100"
             >
               <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50">
                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <FiShield className="text-blue-600" /> Manage Default Signature & Seal
+                  <FiBookmark className="text-blue-600" /> My Stamp Library (අත්සන් හා මුද්‍රා කළමනාකරණය)
                 </h3>
                 <button onClick={() => setShowStampsModal(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl">
                   <FiX size={20} />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveStamps} className="p-6 space-y-6">
-                {/* Signature Image */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Default Signature Image
-                  </label>
-                  {stampsData?.signatureUrl && (
-                    <div className="w-36 h-20 border border-slate-200 rounded-2xl bg-white p-2 flex items-center justify-center shadow-xs mb-2">
-                      <img src={mediaUrl(stampsData.signatureUrl)} alt="Signature" className="max-h-full object-contain" />
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setStampsState(p => ({ ...p, sigFile: e.target.files?.[0] || null }))}
-                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                </div>
-
-                {/* Company Seal Image */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Default Company Seal Image
-                  </label>
-                  {stampsData?.sealUrl && (
-                    <div className="w-24 h-24 border border-slate-200 rounded-2xl bg-white p-2 flex items-center justify-center shadow-xs mb-2">
-                      <img src={mediaUrl(stampsData.sealUrl)} alt="Company Seal" className="max-h-full object-contain" />
-                    </div>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setStampsState(p => ({ ...p, sealFile: e.target.files?.[0] || null }))}
-                    className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowStampsModal(false)}
-                    className="px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl"
-                  >
-                    Cancel
-                  </button>
+              <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                {/* Add New Stamp to Library Form */}
+                <form onSubmit={handleAddStampToLibrary} className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-4">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <FiPlus className="text-blue-600" /> Add New Stamp to Library
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Stamp Title (e.g. Director Sig)"
+                      value={newStampForm.title}
+                      onChange={(e) => setNewStampForm(p => ({ ...p, title: e.target.value }))}
+                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium"
+                    />
+                    <select
+                      value={newStampForm.type}
+                      onChange={(e) => setNewStampForm(p => ({ ...p, type: e.target.value }))}
+                      className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold"
+                    >
+                      <option value="signature">Type: Signature ✒️</option>
+                      <option value="seal">Type: Company Seal 🏵️</option>
+                    </select>
+                    <input
+                      type="file"
+                      required
+                      accept="image/*"
+                      onChange={(e) => setNewStampForm(p => ({ ...p, file: e.target.files?.[0] || null }))}
+                      className="text-[11px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-700 font-medium"
+                    />
+                  </div>
                   <button
                     type="submit"
-                    disabled={saveStampsMut.isPending}
-                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2"
+                    disabled={addStampMut.isPending}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1.5 transition-all"
                   >
-                    {saveStampsMut.isPending ? 'Saving...' : 'Save Stamps'}
+                    {addStampMut.isPending ? 'Saving...' : 'Save Stamp to Library'}
                   </button>
+                </form>
+
+                {/* Saved Stamps List */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Saved Library Stamps ({savedStamps.length})
+                  </h4>
+                  {savedStamps.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {savedStamps.map((st) => (
+                        <div key={st._id} className="p-3 bg-white border border-slate-200 rounded-2xl flex items-center justify-between shadow-xs">
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 border border-slate-100 rounded-xl bg-slate-50 p-1 flex items-center justify-center">
+                              <img src={mediaUrl(st.imageUrl)} alt={st.title} className="max-h-full object-contain" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-800 text-xs">{st.title}</p>
+                              <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md">
+                                {st.type}
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => deleteStampMut.mutate(st._id)}
+                            disabled={deleteStampMut.isPending}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            title="Delete Stamp"
+                          >
+                            <FiTrash2 size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic text-center py-4">No saved stamps found in your library.</p>
+                  )}
                 </div>
-              </form>
+              </div>
             </motion.div>
           </div>
         )}
@@ -684,18 +694,16 @@ export default function SignatureRequests() {
         )}
       </AnimatePresence>
 
-      {/* ── Drag & Drop Editor Modal ──────────────────────────────────────────── */}
-      <AnimatePresence>
-        {activeEditorRequest && (
-          <DocSignatureEditorModal
-            request={activeEditorRequest}
-            defaultSignature={stampsData?.signatureUrl}
-            defaultSeal={stampsData?.sealUrl}
-            onClose={() => setActiveEditorRequest(null)}
-            onSuccess={() => refetch()}
-          />
-        )}
-      </AnimatePresence>
+      {/* ── Interactive Sign & Stamp Editor Modal ───────────────────────────── */}
+      {activeEditorRequest && (
+        <DocSignatureEditorModal
+          request={activeEditorRequest}
+          onClose={() => setActiveEditorRequest(null)}
+          onSuccess={() => refetch()}
+          defaultSignature={defaultSig}
+          defaultSeal={defaultSeal}
+        />
+      )}
     </div>
   )
 }

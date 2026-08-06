@@ -30,10 +30,7 @@ const signatureRequestSchema = new mongoose.Schema({
   signedByRole: { type: String, enum: ['', 'admin', 'owner', 'manager'], default: '' },
   signedAt: { type: Date },
   rejectionReason: { type: String },
-  stampsMeta: {
-    signature: { x: Number, y: Number, width: Number, height: Number, page: Number },
-    seal: { x: Number, y: Number, width: Number, height: Number, page: Number }
-  }
+  stampsMeta: { type: mongoose.Schema.Types.Mixed }
 }, { timestamps: true });
 
 signatureRequestSchema.pre('save', async function (next) {
