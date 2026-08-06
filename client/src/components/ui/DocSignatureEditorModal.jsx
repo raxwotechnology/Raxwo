@@ -1,9 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { FiX, FiCheck, FiUpload, FiMove, FiLayers, FiAlertCircle, FiFileText } from 'react-icons/fi'
-import toast from 'react-hot-toast'
-import api from '../../lib/api'
-import { mediaUrl } from '../../lib/media'
+import { absoluteMediaUrl, mediaUrl } from '../../lib/media'
 
 // PDF.js helper loader
 async function renderPdfPageToImage(pdfUrl) {
@@ -88,12 +83,43 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
     reader.readAsDataURL(file)
   }
 
+  // Load custom document file locally
+  const handleCustomDocUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setDocLoading(true)
+
+    try {
+      if (file.type === 'application/pdf') {
+        const fileUrl = URL.createObjectURL(file)
+        const pdfImg = await renderPdfPageToImage(fileUrl)
+        setDocImage(pdfImg)
+        toast.success('Document loaded successfully!')
+      } else {
+        const reader = new FileReader()
+        reader.onload = (evt) => {
+          const img = new Image()
+          img.onload = () => {
+            setDocImage(img)
+            toast.success('Document image loaded successfully!')
+          }
+          img.src = evt.target.result
+        }
+        reader.readAsDataURL(file)
+      }
+    } catch (err) {
+      toast.error('Failed to load selected document file')
+    } finally {
+      setDocLoading(false)
+    }
+  }
+
   // Load Document Image or PDF Pages & Default Stamps
   useEffect(() => {
     if (!request?.originalDocUrl) return
     setDocLoading(true)
 
-    const fullUrl = mediaUrl(request.originalDocUrl)
+    const fullUrl = absoluteMediaUrl(request.originalDocUrl)
     const isPdf = /\.pdf$/i.test(request.originalDocUrl) || /\.pdf$/i.test(fullUrl)
 
     const loadDocument = async () => {
@@ -113,7 +139,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
           setDocImage(dImg)
         }
       } catch (err) {
-        console.warn('Direct document load failed, generating high-res official document layout:', err)
+        console.warn('Direct document load failed:', err)
         // High resolution Official Document Canvas Template
         const fallbackCanvas = document.createElement('canvas')
         fallbackCanvas.width = 850
@@ -445,9 +471,24 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
               Ref: <span className="font-mono text-slate-700 font-bold">{request.requestRef}</span> | Requester: <span className="font-semibold text-slate-700">{request.employeeName} ({request.employeeType})</span>
             </p>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
-            <FiX size={20} />
-          </button>
+
+          <div className="flex items-center gap-3">
+            <a
+              href={absoluteMediaUrl(request.originalDocUrl)}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+            >
+              <FiFileText size={14} /> Open Original File
+            </a>
+            <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all border border-blue-200">
+              <FiUpload size={14} /> Replace/Load File
+              <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
+            </label>
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
+              <FiX size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Content Body */}

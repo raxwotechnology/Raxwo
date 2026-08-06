@@ -24,19 +24,28 @@ function uploadSubdir(name) {
 /** Store only `/uploads/...` in the database so any API host works with mediaUrl(). */
 function toRelativeUploadUrl(urlOrPath) {
   if (!urlOrPath || typeof urlOrPath !== 'string') return '';
-  const trimmed = urlOrPath.trim();
+  let trimmed = urlOrPath.trim().replace(/\\/g, '/');
   if (!trimmed) return '';
+
   try {
     if (/^https?:\/\//i.test(trimmed)) {
       const u = new URL(trimmed);
-      if (u.pathname.startsWith('/uploads/')) return u.pathname;
+      if (u.pathname.includes('/uploads/')) {
+        return u.pathname.substring(u.pathname.indexOf('/uploads/'));
+      }
     }
   } catch {
     /* ignore */
   }
-  if (trimmed.startsWith('/uploads/')) return trimmed;
-  if (trimmed.startsWith('uploads/')) return `/${trimmed}`;
-  return trimmed;
+
+  const idx = trimmed.indexOf('/uploads/');
+  if (idx !== -1) return trimmed.substring(idx);
+
+  const idx2 = trimmed.indexOf('uploads/');
+  if (idx2 !== -1) return '/' + trimmed.substring(idx2);
+
+  if (trimmed.startsWith('/')) return trimmed;
+  return `/uploads/documents/${path.basename(trimmed)}`;
 }
 
 function relativeUploadPath(subdir, filename) {
