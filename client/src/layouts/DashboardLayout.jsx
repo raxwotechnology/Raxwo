@@ -12,7 +12,7 @@ import {
   FiFolder, FiBarChart2, FiSettings, FiLogOut, FiMenu, FiX, FiBell,
   FiUser, FiCheckSquare, FiCreditCard, FiLayers, FiTrendingUp, FiClipboard, FiPieChart, FiMessageSquare, FiBook, FiChevronDown,
   FiDownload, FiSearch,
-  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey, FiMail, FiVideo
+  FiGift, FiServer, FiZap, FiMapPin, FiShield, FiFileText as FiQuote, FiTarget, FiKey, FiMail, FiVideo, FiEdit3
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 
