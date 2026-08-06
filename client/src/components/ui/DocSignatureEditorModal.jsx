@@ -1,791 +1,679 @@
 import { useState, useRef, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { FiX, FiCheck, FiUpload, FiMove, FiLayers, FiAlertCircle, FiFileText, FiPlus, FiTrash2, FiBookmark, FiDownload } from 'react-icons/fi'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  FiX, FiCheck, FiUpload, FiMove, FiLayers, FiFileText,
+  FiTrash2, FiBookmark, FiDownload, FiChevronLeft, FiChevronRight,
+  FiZoomIn, FiZoomOut
+} from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { absoluteMediaUrl, mediaUrl } from '../../lib/media'
 
-// Load PDF.js library lazily
+// ── PDF.js Lazy Loader ──────────────────────────────────────────────────────
 async function ensurePdfJs() {
   if (window.pdfjsLib) return
   await new Promise((resolve, reject) => {
-    const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-    script.onload = () => {
-      if (window.pdfjsLib) {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+    s.onload = () => {
+      if (window.pdfjsLib)
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-      }
       resolve()
     }
-    script.onerror = () => reject(new Error('Failed to load PDF.js library'))
-    document.head.appendChild(script)
+    s.onerror = () => reject(new Error('PDF.js load failed'))
+    document.head.appendChild(s)
   })
 }
 
-// Render ALL pages of a PDF stacked vertically into a single HTMLImageElement
-// Returns { img, layouts: [{yStart, height, width}] } for PDF output splitting
-async function renderAllPdfPagesToImage(pdfUrlOrData) {
+// ── Render PDF → Array of HTMLImageElement (one per page) ──────────────────
+async function renderPdfToPageImages(source) {
   await ensurePdfJs()
-
   let loadingTask
-  if (typeof pdfUrlOrData === 'string' && pdfUrlOrData.startsWith('data:') && pdfUrlOrData.includes('base64,')) {
-    const commaIdx = pdfUrlOrData.indexOf('base64,') + 7
-    let b64 = pdfUrlOrData.substring(commaIdx)
+  if (typeof source === 'string' && source.startsWith('data:') && source.includes('base64,')) {
+    const commaIdx = source.indexOf('base64,') + 7
+    let b64 = source.substring(commaIdx)
     const pdfMagic = b64.indexOf('JVBERi')
     if (pdfMagic > 0) b64 = b64.substring(pdfMagic)
     const raw = atob(b64)
-    const uint8Array = new Uint8Array(raw.length)
-    for (let i = 0; i < raw.length; i++) uint8Array[i] = raw.charCodeAt(i)
-    loadingTask = window.pdfjsLib.getDocument({ data: uint8Array })
-  } else if (typeof pdfUrlOrData === 'string' && (pdfUrlOrData.startsWith('http') || pdfUrlOrData.startsWith('/'))) {
-    const resp = await fetch(pdfUrlOrData)
-    const buf = await resp.arrayBuffer()
+    const u8 = new Uint8Array(raw.length)
+    for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i)
+    loadingTask = window.pdfjsLib.getDocument({ data: u8 })
+  } else if (typeof source === 'string' && (source.startsWith('http') || source.startsWith('/'))) {
+    const buf = await (await fetch(source)).arrayBuffer()
     loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buf) })
   } else {
-    loadingTask = window.pdfjsLib.getDocument({ url: pdfUrlOrData, withCredentials: false })
+    loadingTask = window.pdfjsLib.getDocument({ url: source })
   }
 
   const pdf = await loadingTask.promise
-  const numPages = pdf.numPages
-  const PAGE_GAP = 12
-  const SCALE = 2.0
-
-  const pageCanvases = []
-  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum)
-    const viewport = page.getViewport({ scale: SCALE })
-    const pageCanvas = document.createElement('canvas')
-    pageCanvas.width = viewport.width
-    pageCanvas.height = viewport.height
-    await page.render({ canvasContext: pageCanvas.getContext('2d'), viewport }).promise
-    pageCanvases.push(pageCanvas)
+  const images = []
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n)
+    const vp = page.getViewport({ scale: 2.0 })
+    const c = document.createElement('canvas')
+    c.width = vp.width; c.height = vp.height
+    await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise
+    const img = new Image()
+    await new Promise(r => { img.onload = r; img.src = c.toDataURL('image/png') })
+    images.push(img)
   }
-
-  const maxWidth = Math.max(...pageCanvases.map(c => c.width))
-  const totalHeight = pageCanvases.reduce((sum, c) => sum + c.height + PAGE_GAP, -PAGE_GAP)
-
-  // Track page boundaries in combined canvas coords for PDF splitting
-  const layouts = []
-  let yOffset = 0
-  for (const pc of pageCanvases) {
-    layouts.push({ yStart: yOffset, height: pc.height, width: pc.width })
-    yOffset += pc.height + PAGE_GAP
-  }
-
-  const combined = document.createElement('canvas')
-  combined.width = maxWidth
-  combined.height = totalHeight
-  const ctx = combined.getContext('2d')
-  ctx.fillStyle = '#e5e7eb'
-  ctx.fillRect(0, 0, maxWidth, totalHeight)
-  yOffset = 0
-  for (const pc of pageCanvases) {
-    ctx.drawImage(pc, Math.floor((maxWidth - pc.width) / 2), yOffset)
-    yOffset += pc.height + PAGE_GAP
-  }
-
-  const img = new Image()
-  const imgPromise = new Promise((resolve, reject) => {
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = combined.toDataURL('image/png')
-  })
-  await imgPromise
-  return { img, layouts }
+  return images
 }
 
-export default function DocSignatureEditorModal({ request, onClose, onSuccess, defaultSignature, defaultSeal }) {
-  const canvasRef = useRef(null)
+// ── Component ───────────────────────────────────────────────────────────────
+export default function DocSignatureEditorModal({ request, onClose, onSuccess }) {
+  const canvasRef   = useRef(null)
   const containerRef = useRef(null)
-  const pageLayoutsRef = useRef([])   // [{yStart, height, width}] per PDF page in combined canvas
-  const isPdfDocRef = useRef(false)   // true if the loaded document is/was a PDF
+  const isPdfRef    = useRef(false)
 
-  const [loading, setLoading] = useState(false)
-  const [docLoading, setDocLoading] = useState(true)
-  const [docImage, setDocImage] = useState(null)
+  const [pageImages,     setPageImages]     = useState([])  // HTMLImageElement[]
+  const [currentPage,    setCurrentPage]    = useState(0)   // 0-indexed
+  const [docLoading,     setDocLoading]     = useState(true)
+  const [loading,        setLoading]        = useState(false)
+  const [zoom,           setZoom]           = useState(1)
 
-  // Multiple Placed Stamps State Array on Canvas
-  const [placedStamps, setPlacedStamps] = useState([])
-  const [selectedStampId, setSelectedStampId] = useState(null)
+  // Stamps — each has a `.page` so stamps are per-page
+  const [placedStamps,   setPlacedStamps]   = useState([])
+  const [selectedStampId,setSelectedStampId]= useState(null)
+  const [isDragging,     setIsDragging]     = useState(false)
+  const [dragOffset,     setDragOffset]     = useState({ x: 0, y: 0 })
 
-  // Library of Saved Stamps from Backend
-  const [savedLibrary, setSavedLibrary] = useState([])
+  const [savedLibrary,   setSavedLibrary]   = useState([])
   const [loadingLibrary, setLoadingLibrary] = useState(false)
 
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const totalPages = pageImages.length
 
-  // Fetch Saved Stamps Library
+  // ── Load Stamp Library ────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchSavedStamps = async () => {
+    ;(async () => {
       setLoadingLibrary(true)
       try {
         const res = await api.get('/signature-requests/saved-stamps')
-        if (res.data?.stamps) {
-          setSavedLibrary(res.data.stamps)
-        }
-      } catch (err) {
-        console.warn('Failed to load saved stamps library:', err)
-      } finally {
-        setLoadingLibrary(false)
-      }
-    }
-    fetchSavedStamps()
+        if (res.data?.stamps) setSavedLibrary(res.data.stamps)
+      } catch { /* silent */ } finally { setLoadingLibrary(false) }
+    })()
   }, [])
 
-  // Helper to add a new stamp instance to canvas
+  // ── Draw canvas whenever page / stamps / zoom / selection changes ─────────
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || pageImages.length === 0) return
+    const img = pageImages[currentPage]
+    if (!img) return
+
+    const W = img.naturalWidth  || img.width  || 1240
+    const H = img.naturalHeight || img.height || 1754
+    canvas.width  = W
+    canvas.height = H
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, W, H)
+    ctx.drawImage(img, 0, 0, W, H)
+
+    placedStamps.filter(s => s.page === currentPage).forEach(s => {
+      if (!s.imgObj) return
+      // selection highlight
+      if (s.id === selectedStampId) {
+        ctx.save()
+        ctx.strokeStyle = '#3b82f6'
+        ctx.lineWidth   = 3
+        ctx.setLineDash([8, 4])
+        ctx.strokeRect(s.x - 5, s.y - 5, s.width + 10, s.height + 10)
+        ctx.setLineDash([])
+        ctx.restore()
+      }
+      ctx.save()
+      ctx.globalAlpha = s.opacity ?? 1
+      ctx.drawImage(s.imgObj, s.x, s.y, s.width, s.height)
+      ctx.restore()
+    })
+  }, [pageImages, currentPage, placedStamps, selectedStampId])
+
+  // ── Load Document on mount ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!request?.originalDocUrl) return
+    setDocLoading(true)
+    ;(async () => {
+      let rawUrl = request.originalDocUrl || ''
+      // Legacy base64 repair
+      if (rawUrl.startsWith('data:') && rawUrl.includes('base64,')) {
+        const idx = rawUrl.indexOf('base64,') + 7
+        let b64 = rawUrl.substring(idx)
+        const pm = b64.indexOf('JVBERi')
+        if (pm > 0) rawUrl = `data:application/pdf;base64,${b64.substring(pm)}`
+        else if (pm === 0) rawUrl = `data:application/pdf;base64,${b64}`
+      }
+      const fullUrl = absoluteMediaUrl(rawUrl)
+      const isPdf = /\.pdf$/i.test(rawUrl) || /\.pdf$/i.test(fullUrl) ||
+                    /^data:application\/pdf/i.test(rawUrl) || rawUrl.includes('JVBERi')
+      try {
+        const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
+        if (isPdf || /\.pdf$/i.test(target)) {
+          const imgs = await renderPdfToPageImages(target)
+          setPageImages(imgs)
+          setCurrentPage(0)
+          isPdfRef.current = true
+        } else {
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = target })
+          setPageImages([img])
+          setCurrentPage(0)
+          isPdfRef.current = false
+        }
+      } catch (err) {
+        // Try PDF as last resort
+        try {
+          const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
+          const imgs = await renderPdfToPageImages(target)
+          setPageImages(imgs)
+          setCurrentPage(0)
+          isPdfRef.current = true
+        } catch {
+          toast.error('Could not load document. Use "Load Local File".')
+        }
+      } finally {
+        setDocLoading(false)
+      }
+    })()
+  }, [request?.originalDocUrl])
+
+  // ── Load local file ───────────────────────────────────────────────────────
+  const handleCustomDocUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setDocLoading(true)
+    try {
+      if (file.type === 'application/pdf') {
+        const url = URL.createObjectURL(file)
+        const imgs = await renderPdfToPageImages(url)
+        URL.revokeObjectURL(url)
+        setPageImages(imgs)
+        setCurrentPage(0)
+        isPdfRef.current = true
+        setPlacedStamps([])
+        toast.success(`PDF loaded — ${imgs.length} page(s)`)
+      } else {
+        const reader = new FileReader()
+        reader.onload = (ev) => {
+          const img = new Image()
+          img.onload = () => {
+            setPageImages([img])
+            setCurrentPage(0)
+            isPdfRef.current = false
+            setPlacedStamps([])
+            toast.success('Image loaded')
+          }
+          img.src = ev.target.result
+        }
+        reader.readAsDataURL(file)
+      }
+    } catch { toast.error('Failed to load file') }
+    finally { setDocLoading(false) }
+  }
+
+  // ── Add stamp to current page ─────────────────────────────────────────────
   const addStampInstance = (title, type, srcUrl) => {
     if (!srcUrl) return
     const imgObj = new Image()
     imgObj.crossOrigin = 'anonymous'
     imgObj.onload = () => {
       const isSeal = type === 'seal'
-      const newStamp = {
+      const canvas = canvasRef.current
+      const W = canvas?.width || 1240
+      const H = canvas?.height || 1754
+      const stamp = {
         id: `stamp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        page: currentPage,
         title: title || (isSeal ? 'Company Seal' : 'Official Signature'),
         type: isSeal ? 'seal' : 'signature',
         imgObj,
         src: srcUrl,
-        x: isSeal ? 320 : 100 + (placedStamps.length * 20),
-        y: isSeal ? 520 : 540 + (placedStamps.length * 15),
-        width: isSeal ? 130 : 180,
+        x: isSeal ? Math.round(W * 0.55) : Math.round(W * 0.08),
+        y: Math.round(H * 0.7),
+        width: isSeal ? 130 : 220,
         height: isSeal ? 130 : 90,
-        opacity: isSeal ? 0.95 : 1
+        opacity: 1
       }
-      setPlacedStamps(prev => [...prev, newStamp])
-      setSelectedStampId(newStamp.id)
-      toast.success(`${newStamp.title} added to document!`)
+      setPlacedStamps(prev => [...prev, stamp])
+      setSelectedStampId(stamp.id)
+      toast.success(`${stamp.title} placed on Page ${currentPage + 1}`)
     }
     imgObj.src = mediaUrl(srcUrl)
   }
 
-  // Load Initial Document & Default Stamps
-  useEffect(() => {
-    if (!request?.originalDocUrl) return
-    setDocLoading(true)
-
-    let rawUrl = request.originalDocUrl || ''
-
-    // Legacy base64 URL repair (for old records only — new records use /uploads/ disk paths)
-    if (typeof rawUrl === 'string' && rawUrl.startsWith('data:') && rawUrl.includes('base64,')) {
-      const commaIdx = rawUrl.indexOf('base64,') + 7
-      let b64Content = rawUrl.substring(commaIdx)
-      const pdfMagic = b64Content.indexOf('JVBERi')
-      const pngMagic = b64Content.indexOf('iVBORw')
-      if (pdfMagic > 0) {
-        rawUrl = `data:application/pdf;base64,${b64Content.substring(pdfMagic)}`
-      } else if (pdfMagic === 0) {
-        rawUrl = `data:application/pdf;base64,${b64Content}`
-      } else if (pngMagic > 0) {
-        rawUrl = `data:image/png;base64,${b64Content.substring(pngMagic)}`
-      }
-    } else if (typeof rawUrl === 'string' && rawUrl.includes('base64,') && !rawUrl.startsWith('data:')) {
-      const idx = rawUrl.indexOf('base64,')
-      const content = rawUrl.substring(idx + 7)
-      rawUrl = content.includes('JVBERi')
-        ? `data:application/pdf;base64,${content}`
-        : `data:image/png;base64,${content}`
-    }
-
-    // Build the full URL for disk-stored files
-    const fullUrl = absoluteMediaUrl(rawUrl)
-
-    const isPdf =
-      /\.pdf$/i.test(rawUrl) ||
-      /\.pdf$/i.test(fullUrl) ||
-      /^data:application\/pdf/i.test(rawUrl) ||
-      (typeof rawUrl === 'string' && rawUrl.includes('JVBERi'))
-
-    const loadDocument = async () => {
-      try {
-        if (!rawUrl) throw new Error('No document URL provided')
-
-        // Determine the target URL to load
-        const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
-
-        // 1. Try PDF rendering (all pages stacked)
-        if (isPdf || rawUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(target)) {
-          try {
-            const { img: renderedImg, layouts } = await renderAllPdfPagesToImage(target)
-            setDocImage(renderedImg)
-            pageLayoutsRef.current = layouts
-            isPdfDocRef.current = true
-            setDocLoading(false)
-            return
-          } catch (pdfErr) {
-            console.warn('PDF rendering failed, trying image loader:', pdfErr)
-          }
-        }
-
-        // 2. Try as image (PNG/JPG from /uploads/ or data URI)
-        try {
-          const dImg = new Image()
-          dImg.crossOrigin = 'anonymous'
-          await new Promise((resolve, reject) => {
-            dImg.onload = resolve
-            dImg.onerror = reject
-            dImg.src = target
-          })
-          setDocImage(dImg)
-          pageLayoutsRef.current = []
-          isPdfDocRef.current = false
-          setDocLoading(false)
-          return
-        } catch {
-          // image load also failed — try PDF renderer as last resort
-        }
-
-        // 3. Last resort — attempt PDF render even if not detected as PDF (might be mis-typed)
-        try {
-          const { img: renderedImg, layouts } = await renderAllPdfPagesToImage(target)
-          setDocImage(renderedImg)
-          pageLayoutsRef.current = layouts
-          isPdfDocRef.current = true
-          setDocLoading(false)
-          return
-        } catch (finalErr) {
-          console.warn('All document load attempts failed:', finalErr)
-          throw finalErr
-        }
-
-      } catch (err) {
-        console.warn('Document load failed, showing fallback template:', err)
-        // Simple error fallback canvas
-        const fallbackCanvas = document.createElement('canvas')
-        fallbackCanvas.width = 850
-        fallbackCanvas.height = 1100
-        const ctx = fallbackCanvas.getContext('2d')
-        ctx.fillStyle = '#f8fafc'
-        ctx.fillRect(0, 0, 850, 1100)
-        ctx.strokeStyle = '#e2e8f0'
-        ctx.lineWidth = 2
-        ctx.strokeRect(20, 20, 810, 1060)
-        ctx.fillStyle = '#94a3b8'
-        ctx.font = 'bold 18px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.fillText('⚠ Could not load original document', 425, 520)
-        ctx.font = '14px sans-serif'
-        ctx.fillText('Use "Load Local File" to load it from your computer', 425, 560)
-        ctx.fillText(`Ref: ${request.requestRef || ''}`, 425, 600)
-        ctx.textAlign = 'left'
-        const loadedImg = new Image()
-        loadedImg.src = fallbackCanvas.toDataURL()
-        await new Promise((res) => { loadedImg.onload = res })
-        setDocImage(loadedImg)
-      } finally {
-        setDocLoading(false)
-      }
-    }
-
-    loadDocument()
-
-    // Add Default Signature & Seal if provided
-    if (defaultSignature) {
-      addStampInstance('Official Signature', 'signature', defaultSignature)
-    }
-    if (defaultSeal) {
-      addStampInstance('Company Seal', 'seal', defaultSeal)
-    }
-  }, [request])
-
-  // Custom Stamp Upload on the fly
-  const handleCustomStampUpload = (e, type) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (evt) => {
-      addStampInstance(type === 'seal' ? 'Custom Seal' : 'Custom Signature', type, evt.target.result)
-    }
-    reader.readAsDataURL(file)
-  }
-
-  // Load Custom Local Document File
-  const handleCustomDocUpload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setDocLoading(true)
-
-    try {
-      if (file.type === 'application/pdf') {
-        const fileUrl = URL.createObjectURL(file)
-        const { img: pdfImg, layouts } = await renderAllPdfPagesToImage(fileUrl)
-        setDocImage(pdfImg)
-        pageLayoutsRef.current = layouts
-        isPdfDocRef.current = true
-        URL.revokeObjectURL(fileUrl)
-        toast.success(`PDF loaded — ${layouts.length} page(s) rendered`)
-      } else {
-        const reader = new FileReader()
-        reader.onload = (evt) => {
-          const img = new Image()
-          img.onload = () => {
-            setDocImage(img)
-            pageLayoutsRef.current = []
-            isPdfDocRef.current = false
-            toast.success('Document image loaded successfully!')
-          }
-          img.src = evt.target.result
-        }
-        reader.readAsDataURL(file)
-      }
-    } catch (err) {
-      toast.error('Failed to load selected document file')
-      console.error(err)
-    } finally {
-      setDocLoading(false)
-    }
-  }
-
-  // Draw Canvas with Document and ALL Placed Stamps
-  const drawCanvas = () => {
+  // ── Mouse handlers (only interact with current page's stamps) ────────────
+  const getCanvasPos = (e) => {
     const canvas = canvasRef.current
-    if (!canvas || !docImage) return
-
-    const ctx = canvas.getContext('2d')
-    canvas.width = docImage.width || 850
-    canvas.height = docImage.height || 1100
-
-    // Draw document background
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(docImage, 0, 0, canvas.width, canvas.height)
-
-    // Draw all placed stamps
-    placedStamps.forEach(s => {
-      if (!s.imgObj) return
-      ctx.save()
-      ctx.globalAlpha = s.opacity ?? 1
-      ctx.drawImage(s.imgObj, s.x, s.y, s.width, s.height)
-      ctx.restore()
-
-      // Selection box highlight for selected stamp
-      if (s.id === selectedStampId) {
-        ctx.strokeStyle = s.type === 'seal' ? '#059669' : '#2563eb'
-        ctx.lineWidth = 3
-        ctx.setLineDash([6, 4])
-        ctx.strokeRect(s.x - 3, s.y - 3, s.width + 6, s.height + 6)
-      }
-    })
-  }
-
-  useEffect(() => {
-    drawCanvas()
-  }, [docImage, placedStamps, selectedStampId])
-
-  // Canvas Dragging Logic for Selected Stamp
-  const handleMouseDown = (e) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const mouseX = (e.clientX - rect.left) * scaleX
-    const mouseY = (e.clientY - rect.top) * scaleY
+    return {
+      x: (e.clientX - rect.left) * (canvas.width  / rect.width),
+      y: (e.clientY - rect.top)  * (canvas.height / rect.height)
+    }
+  }
 
-    // Check from top-most placed stamp downwards
-    for (let i = placedStamps.length - 1; i >= 0; i--) {
-      const s = placedStamps[i]
-      if (mouseX >= s.x && mouseX <= s.x + s.width && mouseY >= s.y && mouseY <= s.y + s.height) {
+  const handleMouseDown = (e) => {
+    const { x, y } = getCanvasPos(e)
+    const curPageStamps = placedStamps.filter(s => s.page === currentPage)
+    for (let i = curPageStamps.length - 1; i >= 0; i--) {
+      const s = curPageStamps[i]
+      if (x >= s.x && x <= s.x + s.width && y >= s.y && y <= s.y + s.height) {
         setSelectedStampId(s.id)
         setIsDragging(true)
-        setDragOffset({ x: mouseX - s.x, y: mouseY - s.y })
+        setDragOffset({ x: x - s.x, y: y - s.y })
         return
       }
     }
+    setSelectedStampId(null)
   }
 
   const handleMouseMove = (e) => {
     if (!isDragging || !selectedStampId) return
     const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const mouseX = (e.clientX - rect.left) * scaleX
-    const mouseY = (e.clientY - rect.top) * scaleY
-
+    const { x, y } = getCanvasPos(e)
     setPlacedStamps(prev => prev.map(s => {
       if (s.id !== selectedStampId) return s
-      const newX = Math.max(0, Math.min(canvas.width - s.width, mouseX - dragOffset.x))
-      const newY = Math.max(0, Math.min(canvas.height - s.height, mouseY - dragOffset.y))
-      return { ...s, x: newX, y: newY }
+      return {
+        ...s,
+        x: Math.max(0, Math.min(canvas.width  - s.width,  x - dragOffset.x)),
+        y: Math.max(0, Math.min(canvas.height - s.height, y - dragOffset.y))
+      }
     }))
   }
 
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
+  const handleMouseUp = () => setIsDragging(false)
 
-  // Delete specific placed stamp instance
-  const handleDeleteStampInstance = (id) => {
+  const handleDeleteStamp = (id) => {
     setPlacedStamps(prev => prev.filter(s => s.id !== id))
     if (selectedStampId === id) setSelectedStampId(null)
-    toast.success('Stamp removed from document')
   }
 
-  // Build a signed PDF using jsPDF — one PDF page per original PDF page
-  const buildSignedPdf = async (canvas) => {
-    const layouts = pageLayoutsRef.current
-    // Lazy-load jsPDF from the bundle
+  // ── Build signed PDF (multi-page, each page with its stamps) ─────────────
+  const buildSignedPdf = async () => {
     const { default: jsPDF } = await import('jspdf')
     const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' })
     const A4_W = pdf.internal.pageSize.getWidth()
     const A4_H = pdf.internal.pageSize.getHeight()
 
-    for (let i = 0; i < layouts.length; i++) {
-      const { yStart, height, width } = layouts[i]
+    for (let i = 0; i < pageImages.length; i++) {
+      const img = pageImages[i]
+      const W = img.naturalWidth  || img.width  || 1240
+      const H = img.naturalHeight || img.height || 1754
 
-      // Slice this page out of the combined signed canvas
-      const pageCanvas = document.createElement('canvas')
-      pageCanvas.width = canvas.width
-      pageCanvas.height = height
-      pageCanvas.getContext('2d').drawImage(
-        canvas,
-        0, yStart, canvas.width, height,   // source rect
-        0, 0, canvas.width, height          // dest rect
-      )
-
-      if (i > 0) pdf.addPage('a4', 'portrait')
-
-      // Fit page proportionally inside A4
-      const srcAspect = width / height
-      const a4Aspect = A4_W / A4_H
-      let drawW = A4_W, drawH = A4_H, drawX = 0, drawY = 0
-      if (srcAspect > a4Aspect) {
-        drawH = A4_W / srcAspect
-        drawY = (A4_H - drawH) / 2
-      } else {
-        drawW = A4_H * srcAspect
-        drawX = (A4_W - drawW) / 2
-      }
-
-      pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', drawX, drawY, drawW, drawH)
-    }
-    return pdf
-  }
-
-  // Save Finalized Signed Document
-  const handleFinalize = async () => {
-    if (placedStamps.length === 0) {
-      return toast.error('Please place at least one signature or seal on the document before finalizing')
-    }
-
-    setLoading(true)
-    try {
-      // Re-draw clean canvas without selection borders
-      const canvas = canvasRef.current
-      const ctx = canvas.getContext('2d')
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(docImage, 0, 0, canvas.width, canvas.height)
-
-      placedStamps.forEach(s => {
-        if (!s.imgObj) return
-        ctx.save()
-        ctx.globalAlpha = s.opacity ?? 1
-        ctx.drawImage(s.imgObj, s.x, s.y, s.width, s.height)
-        ctx.restore()
-      })
-
-      let signedFile
-      const layouts = pageLayoutsRef.current
-
-      if (isPdfDocRef.current && layouts.length > 0) {
-        // ── PDF original → output as proper multi-page PDF ──────────────────
-        const pdf = await buildSignedPdf(canvas)
-        const pdfBlob = pdf.output('blob')
-        signedFile = new File([pdfBlob], `Signed_${request.requestRef}.pdf`, { type: 'application/pdf' })
-      } else {
-        // ── Image original → output as PNG ──────────────────────────────────
-        const dataUrl = canvas.toDataURL('image/png')
-        const res = await fetch(dataUrl)
-        const blob = await res.blob()
-        signedFile = new File([blob], `Signed_${request.requestRef}.png`, { type: 'image/png' })
-      }
-
-      const stampsMetaData = placedStamps.map(s => ({
-        id: s.id,
-        title: s.title,
-        type: s.type,
-        x: Math.round(s.x),
-        y: Math.round(s.y),
-        width: Math.round(s.width),
-        height: Math.round(s.height),
-        opacity: s.opacity
-      }))
-
-      const formData = new FormData()
-      formData.append('file', signedFile)
-      formData.append('stampsMeta', JSON.stringify(stampsMetaData))
-
-      await api.put(`/signature-requests/${request._id}/sign`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-
-      toast.success('Document signed & sealed successfully!')
-      onSuccess()
-      onClose()
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to finalize signature')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Local PDF preview download (without uploading to server)
-  const handleLocalPdfDownload = async () => {
-    const canvas = canvasRef.current
-    if (!canvas || !docImage) return toast.error('No document loaded')
-    try {
-      // Redraw with stamps
-      const ctx = canvas.getContext('2d')
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(docImage, 0, 0, canvas.width, canvas.height)
-      placedStamps.forEach(s => {
+      // Draw page + stamps into a temp canvas
+      const c = document.createElement('canvas')
+      c.width = W; c.height = H
+      const ctx = c.getContext('2d')
+      ctx.drawImage(img, 0, 0, W, H)
+      placedStamps.filter(s => s.page === i).forEach(s => {
         if (!s.imgObj) return
         ctx.save(); ctx.globalAlpha = s.opacity ?? 1
         ctx.drawImage(s.imgObj, s.x, s.y, s.width, s.height)
         ctx.restore()
       })
-      const layouts = pageLayoutsRef.current
-      if (layouts.length > 0) {
-        const pdf = await buildSignedPdf(canvas)
-        pdf.save(`Preview_${request.requestRef}.pdf`)
+
+      if (i > 0) pdf.addPage('a4', 'portrait')
+
+      // Fit proportionally into A4
+      const aspect = W / H
+      const a4aspect = A4_W / A4_H
+      let dW = A4_W, dH = A4_H, dX = 0, dY = 0
+      if (aspect > a4aspect) { dH = A4_W / aspect; dY = (A4_H - dH) / 2 }
+      else                   { dW = A4_H * aspect; dX = (A4_W - dW) / 2 }
+
+      pdf.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', dX, dY, dW, dH)
+    }
+    return pdf
+  }
+
+  // ── Finalize: upload to server ────────────────────────────────────────────
+  const handleFinalize = async () => {
+    if (placedStamps.length === 0)
+      return toast.error('Place at least one signature or seal before finalizing')
+    setLoading(true)
+    try {
+      let signedFile
+      if (isPdfRef.current && pageImages.length > 0) {
+        const pdf = await buildSignedPdf()
+        signedFile = new File([pdf.output('blob')], `Signed_${request.requestRef}.pdf`, { type: 'application/pdf' })
       } else {
-        const { default: jsPDF } = await import('jspdf')
-        const pdf = new jsPDF({ unit: 'px', format: [canvas.width / 2, canvas.height / 2] })
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, canvas.width / 2, canvas.height / 2)
-        pdf.save(`Preview_${request.requestRef}.pdf`)
+        // Single image — use main canvas
+        const canvas = canvasRef.current
+        const dataUrl = canvas.toDataURL('image/png')
+        const blob = await (await fetch(dataUrl)).blob()
+        signedFile = new File([blob], `Signed_${request.requestRef}.png`, { type: 'image/png' })
       }
-      toast.success('PDF preview downloaded!')
+
+      const meta = placedStamps.map(s => ({
+        id: s.id, title: s.title, type: s.type, page: s.page,
+        x: Math.round(s.x), y: Math.round(s.y),
+        width: Math.round(s.width), height: Math.round(s.height),
+        opacity: s.opacity
+      }))
+
+      const fd = new FormData()
+      fd.append('file', signedFile)
+      fd.append('stampsMeta', JSON.stringify(meta))
+      await api.put(`/signature-requests/${request._id}/sign`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      toast.success('Document signed & saved!')
+      onSuccess(); onClose()
     } catch (err) {
-      toast.error('Failed to generate PDF preview')
+      toast.error(err.response?.data?.message || 'Failed to finalize')
+    } finally { setLoading(false) }
+  }
+
+  // ── Local PDF download (preview without uploading) ────────────────────────
+  const handleDownloadPdf = async () => {
+    if (pageImages.length === 0) return toast.error('No document loaded')
+    try {
+      const pdf = await buildSignedPdf()
+      pdf.save(`Preview_${request.requestRef}.pdf`)
+      toast.success('PDF downloaded!')
+    } catch (err) {
+      toast.error('Failed to generate PDF')
       console.error(err)
     }
   }
 
-  const selectedStampObj = placedStamps.find(s => s.id === selectedStampId)
+  const selectedStamp = placedStamps.find(s => s.id === selectedStampId)
+  const pageStampCount = placedStamps.filter(s => s.page === currentPage).length
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-6xl h-[92vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-slate-200"
+        exit={{ opacity: 0, scale: 0.96 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[94vh] flex flex-col overflow-hidden"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50">
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-              <FiLayers className="text-blue-600" /> Sign & Stamp Editor
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <FiLayers className="text-blue-600" /> Sign &amp; Stamp Editor
             </h2>
-            <p className="text-xs text-slate-500 font-medium">
-              Ref: <span className="font-mono text-slate-700 font-bold">{request.requestRef}</span> | Requester: <span className="font-semibold text-slate-700">{request.employeeName} ({request.employeeType})</span>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Ref: <span className="font-mono font-bold text-slate-700">{request.requestRef}</span>
+              {' '}| Requester: <span className="font-semibold text-slate-700">{request.employeeName} ({request.employeeType})</span>
+              {totalPages > 1 && <span className="ml-2 bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">{totalPages} pages</span>}
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => {
                 const url = absoluteMediaUrl(request.originalDocUrl)
-                if (url.startsWith('data:')) {
-                  const win = window.open()
-                  if (win) {
-                    win.document.write(`<iframe src="${url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`)
-                  }
-                } else {
-                  window.open(url, '_blank')
-                }
+                window.open(url.startsWith('data:') ? url : url, '_blank')
               }}
-              className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all"
             >
-              <FiFileText size={14} /> Open Original File
+              <FiFileText size={13} /> Open Original
             </button>
-            <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all border border-blue-200">
-              <FiUpload size={14} /> Replace/Load File
+            <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer border border-blue-200 transition-all">
+              <FiUpload size={13} /> Replace File
               <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
             </label>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-xl transition-all">
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
               <FiX size={20} />
             </button>
           </div>
         </div>
 
-        {/* Content Body */}
+        {/* ── Body ────────────────────────────────────────────────────────── */}
         <div className="flex-1 flex overflow-hidden">
-          {/* Left Canvas Preview Area */}
+
+          {/* ── Canvas Area ───────────────────────────────────────────────── */}
           <div
             ref={containerRef}
-            className="flex-1 bg-slate-900 p-6 flex items-center justify-center overflow-auto custom-scrollbar select-none relative"
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
+            className="flex-1 bg-slate-900 flex flex-col overflow-hidden"
           >
-            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-800/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700 text-white shadow-xl">
-              <span className="text-xs font-medium text-slate-300">Select/Load document:</span>
-              <label className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-all shadow-sm">
-                <FiUpload size={13} /> Load Local File
-                <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
-              </label>
-            </div>
-
-            {docLoading ? (
-              <div className="text-center text-white space-y-3">
-                <span className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin inline-block" />
-                <p className="text-sm font-semibold">Loading & rendering document page...</p>
+            {/* Page navigation bar */}
+            {!docLoading && totalPages > 0 && (
+              <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-slate-800 border-b border-slate-700">
+                <div className="flex items-center gap-2">
+                  <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all">
+                    <FiUpload size={12} /> Load Local File
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
+                  </label>
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => { setCurrentPage(p => Math.max(0, p - 1)); setSelectedStampId(null) }}
+                      disabled={currentPage === 0}
+                      className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded-lg transition-all"
+                    >
+                      <FiChevronLeft size={16} />
+                    </button>
+                    <span className="text-white text-sm font-semibold tabular-nums min-w-[80px] text-center">
+                      Page {currentPage + 1} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => { setCurrentPage(p => Math.min(totalPages - 1, p + 1)); setSelectedStampId(null) }}
+                      disabled={currentPage === totalPages - 1}
+                      className="p-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded-lg transition-all"
+                    >
+                      <FiChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setZoom(z => Math.max(0.4, z - 0.15))} className="p-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all"><FiZoomOut size={14} /></button>
+                  <span className="text-white text-xs font-mono min-w-[40px] text-center">{Math.round(zoom * 100)}%</span>
+                  <button onClick={() => setZoom(z => Math.min(3, z + 0.15))} className="p-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all"><FiZoomIn size={14} /></button>
+                  <button onClick={() => setZoom(1)} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg transition-all">Reset</button>
+                  {pageStampCount > 0 && (
+                    <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {pageStampCount} stamp{pageStampCount > 1 ? 's' : ''} on page
+                    </span>
+                  )}
+                </div>
               </div>
-            ) : (
-              <canvas
-                ref={canvasRef}
-                onMouseDown={handleMouseDown}
-                className="max-w-full max-h-full shadow-2xl rounded-lg cursor-crosshair bg-white border border-slate-700"
-              />
             )}
+
+            {/* Canvas scroll container */}
+            <div className="flex-1 overflow-auto p-4 flex items-start justify-center custom-scrollbar">
+              {docLoading ? (
+                <div className="flex flex-col items-center justify-center gap-4 mt-20 text-white">
+                  <span className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm font-semibold">Loading &amp; rendering document…</p>
+                  {totalPages > 0 && <p className="text-xs text-slate-400">Rendering pages…</p>}
+                </div>
+              ) : pageImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-4 mt-20 text-slate-400">
+                  <FiFileText size={48} />
+                  <p className="text-sm font-semibold">No document loaded</p>
+                  <label className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl cursor-pointer transition-all">
+                    Load Local File
+                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
+                  </label>
+                </div>
+              ) : (
+                <div
+                  style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', transition: 'transform 0.15s ease' }}
+                >
+                  <canvas
+                    ref={canvasRef}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    className="shadow-2xl rounded-lg cursor-crosshair bg-white border border-slate-300 block"
+                    style={{ maxWidth: '100%' }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Right Editor Controls Sidebar */}
-          <div className="w-84 border-l border-slate-200 bg-slate-50 p-5 flex flex-col justify-between overflow-y-auto space-y-5">
-            <div className="space-y-5">
-              {/* Saved Stamp Library Carousel */}
+          {/* ── Right Sidebar ─────────────────────────────────────────────── */}
+          <div className="w-80 border-l border-slate-200 bg-slate-50 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+
+              {/* Saved Stamp Library */}
               <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
                 <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <FiBookmark className="text-blue-600" /> My Stamp Library (ක්ලික් කර එක් කරන්න)
+                  <FiBookmark className="text-blue-600" /> Stamp Library
                 </h4>
                 {loadingLibrary ? (
-                  <p className="text-xs text-slate-400">Loading library...</p>
+                  <p className="text-xs text-slate-400">Loading…</p>
                 ) : savedLibrary.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar p-1">
-                    {savedLibrary.map((st) => {
-                      const imgSrc = (st.imageUrl && (st.imageUrl.startsWith('data:') || st.imageUrl.startsWith('blob:')))
-                        ? st.imageUrl
-                        : mediaUrl(st.imageUrl)
+                  <div className="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto custom-scrollbar">
+                    {savedLibrary.map(st => {
+                      const src = (st.imageUrl?.startsWith('data:') || st.imageUrl?.startsWith('blob:'))
+                        ? st.imageUrl : mediaUrl(st.imageUrl)
                       return (
                         <button
                           key={st._id}
                           onClick={() => addStampInstance(st.title, st.type, st.imageUrl)}
-                          className="p-2 border border-slate-200 hover:border-blue-500 bg-slate-50 hover:bg-blue-50 rounded-xl text-left transition-all flex flex-col items-center justify-center gap-1 group relative"
-                          title="Click to place a copy of this stamp on document canvas"
+                          className="p-2 border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50 rounded-xl text-left transition-all flex flex-col items-center gap-1 group"
+                          title={`Place ${st.title} on Page ${currentPage + 1}`}
                         >
-                          {imgSrc ? (
-                            <img src={imgSrc} alt={st.title} className="h-10 object-contain group-hover:scale-105 transition-transform" />
-                          ) : (
-                            <div className="h-10 w-full bg-slate-200 rounded flex items-center justify-center text-[10px] font-bold">Stamp</div>
-                          )}
-                          <span className="text-[10px] font-bold text-slate-800 truncate w-full text-center">{st.title}</span>
-                          <span className="text-[9px] font-extrabold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">+ Place Copy</span>
+                          {src && <img src={src} alt={st.title} className="w-14 h-10 object-contain" />}
+                          <span className="text-[10px] font-semibold text-slate-600 text-center truncate w-full">{st.title}</span>
+                          <span className="text-[9px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-all">+ Place Copy</span>
                         </button>
                       )
                     })}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-slate-400 italic">No saved stamps. Upload or add below.</p>
+                  <p className="text-xs text-slate-400 text-center py-2">No saved stamps. Add one below.</p>
                 )}
               </div>
 
-              {/* Add Signature & Seal Buttons */}
+              {/* Add Signature / Seal buttons */}
               <div className="grid grid-cols-2 gap-2">
-                <label className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-blue-600/20">
-                  <FiPlus size={14} /> Add Signature
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCustomStampUpload(e, 'signature')} />
-                </label>
-                <label className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-md shadow-emerald-600/20">
-                  <FiPlus size={14} /> Add Seal
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCustomStampUpload(e, 'seal')} />
-                </label>
+                <button
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'; input.accept = 'image/*'
+                    input.onchange = (e) => {
+                      const file = e.target.files?.[0]; if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = ev => addStampInstance('Signature', 'signature', ev.target.result)
+                      reader.readAsDataURL(file)
+                    }
+                    input.click()
+                  }}
+                  className="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                >
+                  + Add Signature
+                </button>
+                <button
+                  onClick={() => {
+                    const input = document.createElement('input')
+                    input.type = 'file'; input.accept = 'image/*'
+                    input.onchange = (e) => {
+                      const file = e.target.files?.[0]; if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = ev => addStampInstance('Company Seal', 'seal', ev.target.result)
+                      reader.readAsDataURL(file)
+                    }
+                    input.click()
+                  }}
+                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                >
+                  + Add Seal
+                </button>
               </div>
 
-              {/* Placed Stamps List & Active Properties */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
-                <div className="flex items-center justify-between">
+              {/* Placed stamps list — grouped by page */}
+              {placedStamps.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                     Placed Stamps ({placedStamps.length})
                   </h4>
-                </div>
-
-                {placedStamps.length > 0 ? (
-                  <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">
                     {placedStamps.map((s, idx) => (
                       <div
                         key={s.id}
-                        onClick={() => setSelectedStampId(s.id)}
-                        className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${s.id === selectedStampId ? 'border-blue-500 bg-blue-50/60 shadow-sm' : 'border-slate-200 bg-slate-50'}`}
+                        onClick={() => { setCurrentPage(s.page); setSelectedStampId(s.id) }}
+                        className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all ${
+                          s.id === selectedStampId ? 'bg-blue-50 border border-blue-300' : 'hover:bg-slate-50 border border-transparent'
+                        }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-500">#{idx + 1}</span>
-                          <div>
-                            <p className="text-xs font-bold text-slate-800 leading-tight">{s.title}</p>
-                            <p className="text-[10px] text-slate-500 uppercase">{s.type}</p>
-                          </div>
+                        <div>
+                          <span className="text-xs font-bold text-slate-700">#{idx + 1} {s.title}</span>
+                          <span className="block text-[10px] text-slate-400 font-medium uppercase">{s.type} • Page {s.page + 1}</span>
                         </div>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteStampInstance(s.id)
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                          title="Delete Stamp"
+                          onClick={(e) => { e.stopPropagation(); handleDeleteStamp(s.id) }}
+                          className="p-1 text-slate-300 hover:text-red-500 transition-all rounded-lg"
                         >
-                          <FiTrash2 size={14} />
+                          <FiTrash2 size={12} />
                         </button>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-xs text-slate-400 italic">Click Add Signature/Seal above to place stamps on document.</p>
-                )}
+                </div>
+              )}
 
-                {/* Selected Stamp Adjustments */}
-                {selectedStampObj && (
-                  <div className="pt-3 border-t border-slate-100 space-y-2 text-xs text-slate-600">
-                    <p className="font-bold text-blue-700 text-[11px] uppercase">Selected: {selectedStampObj.title}</p>
-                    <div className="flex justify-between items-center">
-                      <span>Width / Size:</span>
-                      <input
-                        type="range" min="50" max="350"
-                        value={selectedStampObj.width}
-                        onChange={(e) => {
-                          const w = Number(e.target.value)
-                          const h = selectedStampObj.type === 'seal' ? w : Math.round(w / 2)
-                          setPlacedStamps(prev => prev.map(st => st.id === selectedStampId ? { ...st, width: w, height: h } : st))
-                        }}
-                        className="w-28"
-                      />
+              {/* Stamp size control */}
+              {selectedStamp && selectedStamp.page === currentPage && (
+                <div className="bg-white border border-blue-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                  <p className="text-xs font-bold text-blue-700 uppercase">{selectedStamp.title}</p>
+                  <div>
+                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                      <span>Width / Size</span>
+                      <span className="font-mono">{Math.round(selectedStamp.width)}px</span>
                     </div>
+                    <input
+                      type="range" min="40" max="400"
+                      value={selectedStamp.width}
+                      onChange={(e) => {
+                        const w = Number(e.target.value)
+                        const h = selectedStamp.type === 'seal' ? w : Math.round(w / 2.5)
+                        setPlacedStamps(prev => prev.map(s => s.id === selectedStamp.id ? { ...s, width: w, height: h } : s))
+                      }}
+                      className="w-full accent-blue-600"
+                    />
                   </div>
-                )}
-              </div>
+                  <div>
+                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                      <span>Opacity</span>
+                      <span className="font-mono">{Math.round((selectedStamp.opacity ?? 1) * 100)}%</span>
+                    </div>
+                    <input
+                      type="range" min="20" max="100"
+                      value={Math.round((selectedStamp.opacity ?? 1) * 100)}
+                      onChange={(e) => {
+                        const op = Number(e.target.value) / 100
+                        setPlacedStamps(prev => prev.map(s => s.id === selectedStamp.id ? { ...s, opacity: op } : s))
+                      }}
+                      className="w-full accent-blue-600"
+                    />
+                  </div>
+                </div>
+              )}
 
-              {/* Instructions */}
-              <div className="text-[11px] text-slate-500 bg-slate-100 p-3 rounded-xl flex items-start gap-2">
-                <FiMove size={14} className="text-slate-400 shrink-0 mt-0.5" />
-                <span>Drag stamps anywhere on the document canvas. You can add multiple signatures and seals!</span>
+              {/* Tip */}
+              <div className="text-[11px] text-slate-400 bg-slate-100 p-3 rounded-xl flex items-start gap-2">
+                <FiMove size={13} className="text-slate-400 shrink-0 mt-0.5" />
+                <span>Navigate pages with ← → buttons. Stamps are saved per page. Drag stamps to position them.</span>
               </div>
             </div>
 
-            {/* Bottom Finalize Button */}
-            <div className="pt-4 border-t border-slate-200 space-y-2">
+            {/* Bottom action buttons */}
+            <div className="p-5 border-t border-slate-200 space-y-2 flex-shrink-0">
               <button
                 onClick={handleFinalize}
-                disabled={loading}
-                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all"
+                disabled={loading || pageImages.length === 0}
+                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all"
               >
-                {loading ? (
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <FiCheck size={18} /> Apply Signature & Save to Server
-                  </>
-                )}
+                {loading
+                  ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  : <><FiCheck size={18} /> Apply Signature &amp; Save</>}
               </button>
               <button
-                onClick={handleLocalPdfDownload}
-                disabled={loading}
-                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all"
+                onClick={handleDownloadPdf}
+                disabled={loading || pageImages.length === 0}
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-1.5 transition-all"
               >
-                <FiDownload size={14} /> Download PDF Preview (Local)
+                <FiDownload size={15} /> Download PDF Preview
               </button>
               <button
                 onClick={onClose}
-                className="w-full py-2 px-4 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-200/60 rounded-xl transition-all"
+                className="w-full py-2 px-4 text-xs font-semibold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
               >
                 Cancel
               </button>
