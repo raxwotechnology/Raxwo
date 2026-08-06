@@ -5,8 +5,8 @@ import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { absoluteMediaUrl, mediaUrl } from '../../lib/media'
 
-// PDF.js helper loader
-async function renderPdfPageToImage(pdfUrl) {
+// PDF.js helper loader - supports both HTTP URLs and Base64 Data URIs
+async function renderPdfPageToImage(pdfUrlOrData) {
   if (!window.pdfjsLib) {
     await new Promise((resolve, reject) => {
       const script = document.createElement('script')
@@ -22,10 +22,22 @@ async function renderPdfPageToImage(pdfUrl) {
     })
   }
 
-  const loadingTask = window.pdfjsLib.getDocument({
-    url: pdfUrl,
-    withCredentials: false
-  })
+  let loadingTask
+  if (typeof pdfUrlOrData === 'string' && (pdfUrlOrData.startsWith('data:application/pdf') || pdfUrlOrData.startsWith('data:application/octet-stream') || pdfUrlOrData.startsWith('data:;base64,JVBERi'))) {
+    const base64Data = pdfUrlOrData.includes(',') ? pdfUrlOrData.split(',')[1] : pdfUrlOrData
+    const raw = atob(base64Data)
+    const uint8Array = new Uint8Array(raw.length)
+    for (let i = 0; i < raw.length; i++) {
+      uint8Array[i] = raw.charCodeAt(i)
+    }
+    loadingTask = window.pdfjsLib.getDocument({ data: uint8Array })
+  } else {
+    loadingTask = window.pdfjsLib.getDocument({
+      url: pdfUrlOrData,
+      withCredentials: false
+    })
+  }
+
   const pdf = await loadingTask.promise
   const page = await pdf.getPage(1)
 
@@ -124,13 +136,20 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
     if (!request?.originalDocUrl) return
     setDocLoading(true)
 
-    const fullUrl = absoluteMediaUrl(request.originalDocUrl)
-    const isPdf = /\.pdf$/i.test(request.originalDocUrl) || /\.pdf$/i.test(fullUrl)
+    const rawUrl = request.originalDocUrl
+    const fullUrl = absoluteMediaUrl(rawUrl)
+    const isPdf =
+      /\.pdf$/i.test(rawUrl) ||
+      /\.pdf$/i.test(fullUrl) ||
+      /^data:application\/pdf/i.test(rawUrl) ||
+      /^data:application\/octet-stream/i.test(rawUrl) ||
+      (typeof rawUrl === 'string' && rawUrl.includes('JVBERi'))
 
     const loadDocument = async () => {
       try {
         if (isPdf) {
-          const renderedPdfImg = await renderPdfPageToImage(fullUrl)
+          const target = (rawUrl.startsWith('data:')) ? rawUrl : fullUrl
+          const renderedPdfImg = await renderPdfPageToImage(target)
           setDocImage(renderedPdfImg)
         } else {
           // Standard Image
@@ -139,7 +158,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
           await new Promise((resolve, reject) => {
             dImg.onload = resolve
             dImg.onerror = reject
-            dImg.src = fullUrl
+            dImg.src = (rawUrl.startsWith('data:')) ? rawUrl : fullUrl
           })
           setDocImage(dImg)
         }
