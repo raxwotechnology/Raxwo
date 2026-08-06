@@ -195,9 +195,23 @@ export default function SignatureRequests() {
     addStampMut.mutate(fd)
   }
 
-  // Get Default Signature and Seal for Editor
-  const defaultSig = savedStamps.find(s => s.type === 'signature' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'signature')?.imageUrl || ''
-  const defaultSeal = savedStamps.find(s => s.type === 'seal' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'seal')?.imageUrl || ''
+  // Download Signed Document Helper (Handles Base64 Data URIs & HTTP URLs)
+  const handleDownloadSignedDoc = (signedDocUrl, requestRef) => {
+    const fileUrl = mediaUrl(signedDocUrl)
+    if (!fileUrl) return toast.error('No signed document file available')
+
+    if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
+      const a = document.createElement('a')
+      a.href = fileUrl
+      a.download = `Signed_${requestRef || 'Document'}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      toast.success('Download started!')
+    } else {
+      window.open(fileUrl, '_blank')
+    }
+  }
 
   return (
     <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto text-slate-800">
@@ -454,15 +468,12 @@ export default function SignatureRequests() {
                     {/* Actions */}
                     <td className="py-4 px-6 text-right whitespace-nowrap">
                       {req.status === 'signed' && req.signedDocUrl ? (
-                        <a
-                          href={mediaUrl(req.signedDocUrl)}
-                          download={`Signed_${req.requestRef}.png`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all"
+                        <button
+                          onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all cursor-pointer"
                         >
                           <FiDownload size={15} /> Download Signed
-                        </a>
+                        </button>
                       ) : isManagement && req.status === 'pending' ? (
                         <div className="inline-flex items-center gap-2 justify-end">
                           <button
