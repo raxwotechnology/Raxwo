@@ -15,9 +15,10 @@ Base64Storage.prototype._handleFile = function _handleFile(req, file, cb) {
   file.stream.on('end', () => {
     const buffer = Buffer.concat(chunks);
     const b64 = buffer.toString('base64');
-    const filename = `data:${file.mimetype};base64,${b64}`;
+    const dataUri = `data:${file.mimetype};base64,${b64}`;
     cb(null, {
-      filename: filename,
+      filename: dataUri,  // req.file.filename
+      path: dataUri,      // req.file.path  — keeps toRelativeUploadUrl() working
       buffer: buffer,
       size: buffer.length
     });
@@ -94,7 +95,7 @@ const docFilter = (req, file, cb) => {
 exports.uploadFile = multer({
   storage: unifiedStorage,
   fileFilter: docFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB – matches large PDF originals
 }).single('file');
 
 exports.uploadDocument = multer({

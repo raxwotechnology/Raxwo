@@ -134,8 +134,27 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
 
     let rawUrl = request.originalDocUrl || ''
 
-    // Clean missing data: prefix if stripped to png;base64,... or pdf;base64,... or raw base64
-    if (typeof rawUrl === 'string' && rawUrl.includes('base64,')) {
+    // Fix corrupt/partial base64 strings:
+    // 1. Handle "data:image/png;base64,ZZ..." — strip leading corrupt chars before known PDF/PNG magic bytes
+    if (typeof rawUrl === 'string' && rawUrl.startsWith('data:') && rawUrl.includes('base64,')) {
+      const commaIdx = rawUrl.indexOf('base64,') + 7
+      let b64Content = rawUrl.substring(commaIdx)
+      // Strip any corrupt leading chars until we find the true magic byte sequence
+      const pdfMagic = b64Content.indexOf('JVBERi')
+      const pngMagic = b64Content.indexOf('iVBORw')
+      if (pdfMagic > 0) {
+        b64Content = b64Content.substring(pdfMagic)
+        rawUrl = `data:application/pdf;base64,${b64Content}`
+      } else if (pdfMagic === 0) {
+        rawUrl = `data:application/pdf;base64,${b64Content}`
+      } else if (pngMagic > 0) {
+        b64Content = b64Content.substring(pngMagic)
+        rawUrl = `data:image/png;base64,${b64Content}`
+      }
+      // else leave as-is (already correct)
+    }
+    // 2. Handle bare "pdf;base64,..." or "png;base64,..." (missing "data:" prefix)
+    else if (typeof rawUrl === 'string' && rawUrl.includes('base64,') && !rawUrl.startsWith('data:')) {
       const idx = rawUrl.indexOf('base64,')
       const prefix = rawUrl.substring(0, idx)
       const content = rawUrl.substring(idx + 7)
@@ -144,7 +163,9 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
       } else {
         rawUrl = `data:image/png;base64,${content}`
       }
-    } else if (typeof rawUrl === 'string' && (rawUrl.includes('iVBORw') || rawUrl.includes('JVBERi') || rawUrl.includes('==')) && !rawUrl.startsWith('data:') && !rawUrl.startsWith('http') && !rawUrl.startsWith('/uploads/')) {
+    }
+    // 3. Handle raw base64 strings stored without prefix
+    else if (typeof rawUrl === 'string' && (rawUrl.includes('iVBORw') || rawUrl.includes('JVBERi')) && !rawUrl.startsWith('data:') && !rawUrl.startsWith('http') && !rawUrl.startsWith('/uploads/')) {
       const lastSlash = rawUrl.lastIndexOf('/')
       const base64Str = rawUrl.substring(lastSlash + 1)
       if (base64Str.includes('JVBERi')) {

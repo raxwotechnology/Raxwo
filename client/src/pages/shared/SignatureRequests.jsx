@@ -201,10 +201,31 @@ export default function SignatureRequests() {
       let fileUrl = mediaUrl(signedDocUrl)
       if (!fileUrl) return toast.error('No signed document file available')
 
-      // Repair corrupted legacy base64 URLs if needed
-      if (fileUrl.includes('data:')) {
-        fileUrl = fileUrl.substring(fileUrl.indexOf('data:'))
-      } else if (fileUrl.includes('/uploads/') && (fileUrl.includes('==') || fileUrl.includes('iVBORw') || fileUrl.includes('JVBERi') || fileUrl.length > 150)) {
+      // If it's a data URI, fix any corrupt leading chars before the magic bytes
+      if (fileUrl.startsWith('data:') && fileUrl.includes('base64,')) {
+        const commaIdx = fileUrl.indexOf('base64,') + 7
+        let b64Content = fileUrl.substring(commaIdx)
+        const pdfMagic = b64Content.indexOf('JVBERi')
+        const pngMagic = b64Content.indexOf('iVBORw')
+        if (pdfMagic > 0) {
+          fileUrl = `data:application/pdf;base64,${b64Content.substring(pdfMagic)}`
+        } else if (pngMagic > 0) {
+          fileUrl = `data:image/png;base64,${b64Content.substring(pngMagic)}`
+        }
+      }
+      // Handle bare base64 strings (legacy)
+      else if (fileUrl.includes('base64,') && !fileUrl.startsWith('data:')) {
+        const idx = fileUrl.indexOf('base64,')
+        const prefix = fileUrl.substring(0, idx)
+        const content = fileUrl.substring(idx + 7)
+        if (prefix.includes('pdf') || content.includes('JVBERi')) {
+          fileUrl = `data:application/pdf;base64,${content}`
+        } else {
+          fileUrl = `data:image/png;base64,${content}`
+        }
+      }
+      // Handle /uploads/ paths that are actually base64 (legacy corrupt entries)
+      else if (fileUrl.includes('/uploads/') && (fileUrl.includes('==') || fileUrl.includes('iVBORw') || fileUrl.includes('JVBERi') || fileUrl.length > 150)) {
         const lastSlash = fileUrl.lastIndexOf('/')
         const base64Str = fileUrl.substring(lastSlash + 1)
         if (base64Str.includes('JVBERi')) {
