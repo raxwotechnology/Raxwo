@@ -538,17 +538,28 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
                 {loadingLibrary ? (
                   <p className="text-xs text-slate-400">Loading library...</p>
                 ) : savedLibrary.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto custom-scrollbar p-1">
-                    {savedLibrary.map((st) => (
-                      <button
-                        key={st._id}
-                        onClick={() => addStampInstance(st.title, st.type, st.imageUrl)}
-                        className="p-2 border border-slate-200 hover:border-blue-500 bg-slate-50 hover:bg-blue-50 rounded-xl text-left transition-all flex flex-col items-center justify-center gap-1 group"
-                      >
-                        <img src={mediaUrl(st.imageUrl)} alt={st.title} className="h-10 object-contain group-hover:scale-105 transition-transform" />
-                        <span className="text-[10px] font-bold text-slate-700 truncate w-full text-center">{st.title}</span>
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar p-1">
+                    {savedLibrary.map((st) => {
+                      const imgSrc = (st.imageUrl && (st.imageUrl.startsWith('data:') || st.imageUrl.startsWith('blob:')))
+                        ? st.imageUrl
+                        : mediaUrl(st.imageUrl)
+                      return (
+                        <button
+                          key={st._id}
+                          onClick={() => addStampInstance(st.title, st.type, st.imageUrl)}
+                          className="p-2 border border-slate-200 hover:border-blue-500 bg-slate-50 hover:bg-blue-50 rounded-xl text-left transition-all flex flex-col items-center justify-center gap-1 group relative"
+                          title="Click to place a copy of this stamp on document canvas"
+                        >
+                          {imgSrc ? (
+                            <img src={imgSrc} alt={st.title} className="h-10 object-contain group-hover:scale-105 transition-transform" />
+                          ) : (
+                            <div className="h-10 w-full bg-slate-200 rounded flex items-center justify-center text-[10px] font-bold">Stamp</div>
+                          )}
+                          <span className="text-[10px] font-bold text-slate-800 truncate w-full text-center">{st.title}</span>
+                          <span className="text-[9px] font-extrabold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded-full">+ Place Copy</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className="text-[11px] text-slate-400 italic">No saved stamps. Upload or add below.</p>

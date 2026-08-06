@@ -24,8 +24,11 @@ function uploadSubdir(name) {
 /** Store only `/uploads/...` in the database so any API host works with mediaUrl(). */
 function toRelativeUploadUrl(urlOrPath) {
   if (!urlOrPath || typeof urlOrPath !== 'string') return '';
-  let trimmed = urlOrPath.trim().replace(/\\/g, '/');
+  let trimmed = urlOrPath.trim();
   if (!trimmed) return '';
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+
+  trimmed = trimmed.replace(/\\/g, '/');
 
   try {
     if (/^https?:\/\//i.test(trimmed)) {

@@ -342,7 +342,15 @@ exports.saveStamps = async (req, res, next) => {
 exports.getSavedStampsList = async (req, res, next) => {
   try {
     const stamps = await SavedStamp.find({ user: req.user._id }).sort({ createdAt: -1 });
-    res.json({ success: true, count: stamps.length, stamps });
+    const cleanedStamps = stamps.map(st => {
+      const sObj = st.toObject();
+      if (sObj.imageUrl && typeof sObj.imageUrl === 'string' && sObj.imageUrl.includes('data:image')) {
+        const idx = sObj.imageUrl.indexOf('data:image');
+        sObj.imageUrl = sObj.imageUrl.substring(idx);
+      }
+      return sObj;
+    });
+    res.json({ success: true, count: cleanedStamps.length, stamps: cleanedStamps });
   } catch (err) {
     next(err);
   }
