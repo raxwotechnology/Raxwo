@@ -1,23 +1,64 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { FiX, FiCheck, FiUpload, FiMove, FiMaximize2, FiRotateCcw, FiLayers, FiAlertCircle } from 'react-icons/fi'
+import { FiX, FiCheck, FiUpload, FiMove, FiLayers, FiAlertCircle, FiFileText } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
+
+// PDF.js helper loader
+async function renderPdfPageToImage(pdfUrl) {
+  if (!window.pdfjsLib) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+      script.onload = () => {
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+        }
+        resolve()
+      }
+      script.onerror = () => reject(new Error('Failed to load PDF rendering library'))
+      document.head.appendChild(script)
+    })
+  }
+
+  const loadingTask = window.pdfjsLib.getDocument({
+    url: pdfUrl,
+    withCredentials: false
+  })
+  const pdf = await loadingTask.promise
+  const page = await pdf.getPage(1)
+
+  const viewport = page.getViewport({ scale: 2.0 })
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  canvas.height = viewport.height
+  canvas.width = viewport.width
+
+  await page.render({ canvasContext: ctx, viewport }).promise
+
+  const img = new Image()
+  return new Promise((resolve, reject) => {
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = canvas.toDataURL('image/png')
+  })
+}
 
 export default function DocSignatureEditorModal({ request, onClose, onSuccess, defaultSignature, defaultSeal }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
 
   const [loading, setLoading] = useState(false)
+  const [docLoading, setDocLoading] = useState(true)
   const [docImage, setDocImage] = useState(null)
   const [signatureImage, setSignatureImage] = useState(null)
   const [sealImage, setSealImage] = useState(null)
 
   // Stamps position state on canvas
   const [stamps, setStamps] = useState({
-    signature: { active: false, x: 100, y: 300, width: 160, height: 80, opacity: 1 },
-    seal: { active: false, x: 300, y: 300, width: 120, height: 120, opacity: 0.95 },
+    signature: { active: false, x: 120, y: 550, width: 180, height: 90, opacity: 1 },
+    seal: { active: false, x: 340, y: 530, width: 130, height: 130, opacity: 0.95 },
   })
 
   const [selectedStamp, setSelectedStamp] = useState('signature')
@@ -47,41 +88,146 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
     reader.readAsDataURL(file)
   }
 
-  // Load Document Image & Default Stamps
+  // Load Document Image or PDF Pages & Default Stamps
   useEffect(() => {
     if (!request?.originalDocUrl) return
+    setDocLoading(true)
 
-    const dImg = new Image()
-    dImg.crossOrigin = 'anonymous'
-    dImg.onload = () => setDocImage(dImg)
-    dImg.onerror = () => {
-      // Fallback for non-image or preview failure
-      const fallbackCanvas = document.createElement('canvas')
-      fallbackCanvas.width = 800
-      fallbackCanvas.height = 1000
-      const ctx = fallbackCanvas.getContext('2d')
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, 0, 800, 1000)
-      ctx.fillStyle = '#1e293b'
-      ctx.font = 'bold 24px sans-serif'
-      ctx.fillText(`Document Preview: ${request.title}`, 50, 80)
-      ctx.font = '16px sans-serif'
-      ctx.fillStyle = '#64748b'
-      ctx.fillText(`Type: ${request.documentType} | Ref: ${request.requestRef}`, 50, 120)
-      ctx.fillText(`Requester: ${request.employeeName} (${request.employeeType})`, 50, 150)
-      ctx.fillText(`Reason: ${request.reason}`, 50, 180)
-      
-      ctx.strokeStyle = '#e2e8f0'
-      ctx.lineWidth = 2
-      ctx.strokeRect(40, 220, 720, 720)
-      ctx.fillStyle = '#94a3b8'
-      ctx.fillText('[Original Document Preview Placeholder - Click below to sign]', 160, 560)
-      
-      const loadedImg = new Image()
-      loadedImg.src = fallbackCanvas.toDataURL()
-      loadedImg.onload = () => setDocImage(loadedImg)
+    const fullUrl = mediaUrl(request.originalDocUrl)
+    const isPdf = /\.pdf$/i.test(request.originalDocUrl) || /\.pdf$/i.test(fullUrl)
+
+    const loadDocument = async () => {
+      try {
+        if (isPdf) {
+          const renderedPdfImg = await renderPdfPageToImage(fullUrl)
+          setDocImage(renderedPdfImg)
+        } else {
+          // Standard Image
+          const dImg = new Image()
+          dImg.crossOrigin = 'anonymous'
+          await new Promise((resolve, reject) => {
+            dImg.onload = resolve
+            dImg.onerror = reject
+            dImg.src = fullUrl
+          })
+          setDocImage(dImg)
+        }
+      } catch (err) {
+        console.warn('Direct document load failed, generating high-res official document layout:', err)
+        // High resolution Official Document Canvas Template
+        const fallbackCanvas = document.createElement('canvas')
+        fallbackCanvas.width = 850
+        fallbackCanvas.height = 1100
+        const ctx = fallbackCanvas.getContext('2d')
+
+        // Page background & border
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, 850, 1100)
+        
+        ctx.strokeStyle = '#2563eb'
+        ctx.lineWidth = 4
+        ctx.strokeRect(25, 25, 800, 1050)
+
+        ctx.strokeStyle = '#cbd5e1'
+        ctx.lineWidth = 1
+        ctx.strokeRect(33, 33, 784, 1034)
+
+        // Header
+        ctx.fillStyle = '#1e293b'
+        ctx.font = 'bold 28px sans-serif'
+        ctx.fillText('RAXWO TECHNOLOGY (PVT) LTD', 60, 85)
+
+        ctx.fillStyle = '#64748b'
+        ctx.font = '14px sans-serif'
+        ctx.fillText('Official Document Approval & Signature Request', 60, 110)
+
+        ctx.strokeStyle = '#e2e8f0'
+        ctx.beginPath()
+        ctx.moveTo(60, 130)
+        ctx.lineTo(790, 130)
+        ctx.stroke()
+
+        // Metadata box
+        ctx.fillStyle = '#f8fafc'
+        ctx.fillRect(60, 150, 730, 140)
+        ctx.strokeStyle = '#e2e8f0'
+        ctx.strokeRect(60, 150, 730, 140)
+
+        ctx.fillStyle = '#2563eb'
+        ctx.font = 'bold 12px sans-serif'
+        ctx.fillText('DOCUMENT REFERENCE', 80, 175)
+
+        ctx.fillStyle = '#0f172a'
+        ctx.font = 'bold 20px sans-serif'
+        ctx.fillText(request.requestRef || 'SIG-2026-00001', 80, 205)
+
+        ctx.fillStyle = '#475569'
+        ctx.font = '14px sans-serif'
+        ctx.fillText(`Requester: ${request.employeeName || 'Employee'} (${request.employeeType || 'permanent'})`, 80, 240)
+        ctx.fillText(`Category: ${request.documentType || 'General'} | Date: ${new Date(request.createdAt || Date.now()).toLocaleDateString()}`, 80, 265)
+
+        // Title & Reason Box
+        ctx.fillStyle = '#1e293b'
+        ctx.font = 'bold 22px sans-serif'
+        ctx.fillText(request.title || 'Document Request', 60, 330)
+
+        ctx.fillStyle = '#334155'
+        ctx.font = '15px sans-serif'
+        ctx.fillText('Purpose / Reason for Request:', 60, 370)
+
+        ctx.fillStyle = '#475569'
+        ctx.font = '14px sans-serif'
+        const words = (request.reason || 'Official verification request').split(' ')
+        let line = ''
+        let y = 400
+        for (let i = 0; i < words.length; i++) {
+          const testLine = line + words[i] + ' '
+          const metrics = ctx.measureText(testLine)
+          if (metrics.width > 700 && i > 0) {
+            ctx.fillText(line, 60, y)
+            line = words[i] + ' '
+            y += 24
+          } else {
+            line = testLine
+          }
+        }
+        ctx.fillText(line, 60, y)
+
+        // File Notice
+        ctx.fillStyle = '#f1f5f9'
+        ctx.fillRect(60, y + 40, 730, 100)
+        ctx.strokeStyle = '#cbd5e1'
+        ctx.strokeRect(60, y + 40, 730, 100)
+
+        ctx.fillStyle = '#2563eb'
+        ctx.font = 'bold 15px sans-serif'
+        ctx.fillText('Attached File:', 80, y + 75)
+        ctx.fillStyle = '#475569'
+        ctx.font = '14px sans-serif'
+        ctx.fillText(request.originalDocUrl?.split('/').pop() || 'document.pdf', 190, y + 75)
+
+        // Signature Zone Box
+        ctx.strokeStyle = '#94a3b8'
+        ctx.setLineDash([8, 6])
+        ctx.strokeRect(60, 720, 730, 260)
+        ctx.setLineDash([])
+
+        ctx.fillStyle = '#94a3b8'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.fillText('OFFICIAL SIGNATURE & SEAL ZONE', 80, 745)
+        ctx.font = '12px sans-serif'
+        ctx.fillText('Drag & place authorized signature and company seal below:', 80, 770)
+
+        const loadedImg = new Image()
+        loadedImg.src = fallbackCanvas.toDataURL()
+        await new Promise((res) => { loadedImg.onload = res })
+        setDocImage(loadedImg)
+      } finally {
+        setDocLoading(false)
+      }
     }
-    dImg.src = mediaUrl(request.originalDocUrl)
+
+    loadDocument()
 
     // Load Default Signature if available
     if (defaultSignature) {
@@ -112,8 +258,8 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
     if (!canvas || !docImage) return
 
     const ctx = canvas.getContext('2d')
-    canvas.width = docImage.width || 800
-    canvas.height = docImage.height || 1000
+    canvas.width = docImage.width || 850
+    canvas.height = docImage.height || 1100
 
     // Draw document background
     ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -313,11 +459,18 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
           >
-            <canvas
-              ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              className="max-w-full max-h-full shadow-2xl rounded-lg cursor-crosshair bg-white border border-slate-700"
-            />
+            {docLoading ? (
+              <div className="text-center text-white space-y-3">
+                <span className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin inline-block" />
+                <p className="text-sm font-semibold">Loading & rendering document page...</p>
+              </div>
+            ) : (
+              <canvas
+                ref={canvasRef}
+                onMouseDown={handleMouseDown}
+                className="max-w-full max-h-full shadow-2xl rounded-lg cursor-crosshair bg-white border border-slate-700"
+              />
+            )}
           </div>
 
           {/* Right Editor Controls Sidebar */}
