@@ -67,4 +67,12 @@ router.put(
   controller.rejectRequest
 );
 
+// 8. Hard Delete signature request (Admin / Owner)
+router.delete(
+  '/:id',
+  protect,
+  authorize('admin', 'owner', 'manager'),
+  controller.deleteRequest
+);
+
 module.exports = router;

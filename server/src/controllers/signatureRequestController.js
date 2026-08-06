@@ -5,7 +5,9 @@ const SiteSetting = require('../models/SiteSetting');
 const SavedStamp = require('../models/SavedStamp');
 const { createNotification } = require('../services/notificationService');
 const { sendMail } = require('../utils/mailer');
-const { toRelativeUploadUrl } = require('../utils/uploadsPath');
+const { toRelativeUploadUrl, getUploadsRoot } = require('../utils/uploadsPath');
+const path = require('path');
+const fs = require('fs');
 
 // Helper to send email to user
 async function sendNotificationEmail(toEmail, subject, textContent, htmlContent) {
@@ -468,6 +470,41 @@ exports.deleteSavedStamp = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Stamp not found' });
     }
     res.json({ success: true, message: 'Stamp deleted from library' });
+  } catch (err) {
+    next(err);
+// Helper: delete a file from disk if it's a /uploads/ path (not a data URI)
+function tryDeleteFile(urlPath) {
+  if (!urlPath || typeof urlPath !== 'string') return;
+  if (urlPath.startsWith('data:') || urlPath.startsWith('blob:')) return; // base64, skip
+  // Normalise: strip leading /uploads/ to get relative path
+  const relative = urlPath.replace(/^\/uploads\//, '');
+  const absPath = path.join(getUploadsRoot(), relative);
+  try {
+    if (fs.existsSync(absPath)) {
+      fs.unlinkSync(absPath);
+      console.log('[SignatureRequest] Deleted file:', absPath);
+    }
+  } catch (err) {
+    console.warn('[SignatureRequest] Could not delete file:', absPath, err.message);
+  }
+}
+
+// Hard Delete a Signature Request (Admin / Owner only)
+exports.deleteRequest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const sigReq = await SignatureRequest.findById(id);
+    if (!sigReq) {
+      return res.status(404).json({ success: false, message: 'Signature request not found' });
+    }
+
+    // Delete associated files from disk
+    tryDeleteFile(sigReq.originalDocUrl);
+    tryDeleteFile(sigReq.signedDocUrl);
+
+    await SignatureRequest.findByIdAndDelete(id);
+
+    res.json({ success: true, message: 'Signature request permanently deleted' });
   } catch (err) {
     next(err);
   }

@@ -37,6 +37,7 @@ export default function SignatureRequests() {
   const [showStampsModal, setShowStampsModal] = useState(false)
   const [activeEditorRequest, setActiveEditorRequest] = useState(null)
   const [rejectingRequest, setRejectingRequest] = useState(null)
+  const [deletingRequest, setDeletingRequest] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
 
   // Submit Request Form State (Employee)
@@ -164,6 +165,22 @@ export default function SignatureRequests() {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to reject request')
+    }
+  })
+
+  // Hard Delete Request Mutation (Admin / Owner)
+  const deleteRequestMut = useMutation({
+    mutationFn: async (id) => {
+      const res = await api.delete(`/signature-requests/${id}`)
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Signature request permanently deleted!')
+      setDeletingRequest(null)
+      queryClient.invalidateQueries(['signature-requests'])
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete request')
     }
   })
 
@@ -517,38 +534,50 @@ export default function SignatureRequests() {
 
                     {/* Actions */}
                     <td className="py-4 px-6 text-right whitespace-nowrap">
-                      {req.status === 'signed' && req.signedDocUrl ? (
-                        <button
-                          onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all cursor-pointer"
-                        >
-                          <FiDownload size={15} /> Download Signed
-                        </button>
-                      ) : isManagement && req.status === 'pending' ? (
-                        <div className="inline-flex items-center gap-2 justify-end">
+                      <div className="inline-flex items-center gap-2 justify-end">
+                        {req.status === 'signed' && req.signedDocUrl ? (
                           <button
-                            onClick={() => setActiveEditorRequest(req)}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 inline-flex items-center gap-1.5 transition-all"
+                            onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
+                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all cursor-pointer"
                           >
-                            <FiEdit3 size={15} /> Sign & Stamp
+                            <FiDownload size={15} /> Download Signed
                           </button>
+                        ) : isManagement && req.status === 'pending' ? (
+                          <>
+                            <button
+                              onClick={() => setActiveEditorRequest(req)}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 inline-flex items-center gap-1.5 transition-all"
+                            >
+                              <FiEdit3 size={15} /> Sign & Stamp
+                            </button>
+                            <button
+                              onClick={() => setRejectingRequest(req)}
+                              className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-xl border border-red-200 inline-flex items-center gap-1 transition-all"
+                            >
+                              <FiX size={15} /> Decline
+                            </button>
+                          </>
+                        ) : (
+                          <a
+                            href={mediaUrl(req.originalDocUrl)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 inline-flex items-center gap-1.5"
+                          >
+                            <FiFileText size={14} /> View Doc
+                          </a>
+                        )}
+
+                        {isManagement && (
                           <button
-                            onClick={() => setRejectingRequest(req)}
-                            className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-xl border border-red-200 inline-flex items-center gap-1 transition-all"
+                            onClick={() => setDeletingRequest(req)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-200"
+                            title="Permanently Delete Request"
                           >
-                            <FiX size={15} /> Decline
+                            <FiTrash2 size={16} />
                           </button>
-                        </div>
-                      ) : (
-                        <a
-                          href={mediaUrl(req.originalDocUrl)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 inline-flex items-center gap-1.5"
-                        >
-                          <FiFileText size={14} /> View Doc
-                        </a>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -814,6 +843,50 @@ export default function SignatureRequests() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Hard Delete Confirmation Modal ────────────────────────────────────── */}
+      <AnimatePresence>
+        {deletingRequest && (
+          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-white rounded-3xl p-6 space-y-4 shadow-2xl border border-slate-200"
+            >
+              <div className="flex items-center gap-3 text-red-600">
+                <div className="p-3 bg-red-100 rounded-2xl">
+                  <FiTrash2 size={24} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">Hard Delete Request</h3>
+                  <p className="text-xs text-slate-500 font-mono font-bold">{deletingRequest.requestRef}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Are you sure you want to permanently delete <span className="font-bold text-slate-800">{deletingRequest.title}</span> ({deletingRequest.requestRef})? This action cannot be undone and will delete the record and files from server storage.
+              </p>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setDeletingRequest(null)}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteRequestMut.mutate(deletingRequest._id)}
+                  disabled={deleteRequestMut.isPending}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/20 flex items-center gap-1.5 transition-all"
+                >
+                  {deleteRequestMut.isPending ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              </div>
+            </motion.div>
           </div>
         )}
       </AnimatePresence>
