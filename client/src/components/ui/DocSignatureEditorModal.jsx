@@ -1,3 +1,8 @@
+import { useState, useRef, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import { FiX, FiCheck, FiUpload, FiMove, FiLayers, FiAlertCircle, FiFileText } from 'react-icons/fi'
+import toast from 'react-hot-toast'
+import api from '../../lib/api'
 import { absoluteMediaUrl, mediaUrl } from '../../lib/media'
 
 // PDF.js helper loader
