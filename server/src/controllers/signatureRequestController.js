@@ -472,6 +472,9 @@ exports.deleteSavedStamp = async (req, res, next) => {
     res.json({ success: true, message: 'Stamp deleted from library' });
   } catch (err) {
     next(err);
+  }
+};
+
 // Helper: delete a file from disk if it's a /uploads/ path (not a data URI)
 function tryDeleteFile(urlPath) {
   if (!urlPath || typeof urlPath !== 'string') return;
