@@ -547,6 +547,14 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
           >
+            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-slate-800/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700 text-white shadow-xl">
+              <span className="text-xs font-medium text-slate-300">Select/Load document:</span>
+              <label className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1 cursor-pointer transition-all shadow-sm">
+                <FiUpload size={13} /> Load Local File
+                <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
+              </label>
+            </div>
+
             {docLoading ? (
               <div className="text-center text-white space-y-3">
                 <span className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin inline-block" />

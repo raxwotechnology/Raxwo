@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
-const { uploadFile, uploadImageLocal } = require('../middleware/upload');
+const { uploadFile, uploadImageLocal, uploadSignedDocument } = require('../middleware/upload');
 const controller = require('../controllers/signatureRequestController');
 
 // 1. Get saved signature and seal stamps for logged in Admin/Owner
@@ -47,9 +47,9 @@ router.put(
   protect,
   authorize('admin', 'owner', 'manager'),
   (req, res, next) => {
-    uploadFile(req, res, (err) => {
-      if (err && err.code !== 'LIMIT_UNEXPECTED_FILE') {
-        // file upload optional if sending base64 signedDocUrl
+    uploadSignedDocument(req, res, (err) => {
+      if (err) {
+        console.warn('Upload signed document warning:', err.message);
       }
       next();
     });

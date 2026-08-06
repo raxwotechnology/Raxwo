@@ -109,3 +109,8 @@ exports.uploadLeaderPhoto = multer({
   limits: { fileSize: 3 * 1024 * 1024 } // 3MB
 }).single('image');
 
+exports.uploadSignedDocument = multer({
+  storage: unifiedStorage,
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB
+}).single('file');
+
