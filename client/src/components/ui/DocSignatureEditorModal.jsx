@@ -478,14 +478,22 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
           </div>
 
           <div className="flex items-center gap-3">
-            <a
-              href={absoluteMediaUrl(request.originalDocUrl)}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={() => {
+                const url = absoluteMediaUrl(request.originalDocUrl)
+                if (url.startsWith('data:')) {
+                  const win = window.open()
+                  if (win) {
+                    win.document.write(`<iframe src="${url}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`)
+                  }
+                } else {
+                  window.open(url, '_blank')
+                }
+              }}
               className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all"
             >
               <FiFileText size={14} /> Open Original File
-            </a>
+            </button>
             <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all border border-blue-200">
               <FiUpload size={14} /> Replace/Load File
               <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
