@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
-const { uploadFile, uploadImageLocal, uploadSignedDocument } = require('../middleware/upload');
+const { uploadFile, uploadImageLocal, uploadSignedDocument, uploadSigOriginalDoc, uploadSigSignedDoc } = require('../middleware/upload');
 const controller = require('../controllers/signatureRequestController');
 
 // 1. Get saved signature and seal stamps for logged in Admin/Owner
@@ -23,11 +23,12 @@ router.put('/saved-stamps/:id', protect, authorize('admin', 'owner', 'manager'),
 router.delete('/saved-stamps/:id', protect, authorize('admin', 'owner', 'manager'), controller.deleteSavedStamp);
 
 // 3. Create a new Signature Request (Employee / Intern)
+// Uses disk storage → file saved as /uploads/documents/sigdoc_xxx.pdf
 router.post(
   '/',
   protect,
   (req, res, next) => {
-    uploadFile(req, res, (err) => {
+    uploadSigOriginalDoc(req, res, (err) => {
       if (err) return res.status(400).json({ success: false, message: err.message });
       next();
     });
@@ -42,12 +43,13 @@ router.get('/', protect, controller.getRequests);
 router.get('/:id', protect, controller.getRequestById);
 
 // 6. Sign and finalize request (Admin / Owner)
+// Uses disk storage → signed PNG saved as /uploads/documents/sigdoc_xxx.png
 router.put(
   '/:id/sign',
   protect,
   authorize('admin', 'owner', 'manager'),
   (req, res, next) => {
-    uploadSignedDocument(req, res, (err) => {
+    uploadSigSignedDoc(req, res, (err) => {
       if (err) {
         console.warn('Upload signed document warning:', err.message);
       }

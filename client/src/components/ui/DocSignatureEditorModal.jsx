@@ -5,62 +5,92 @@ import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { absoluteMediaUrl, mediaUrl } from '../../lib/media'
 
-// PDF.js helper loader - supports both HTTP URLs and Base64 Data URIs
-async function renderPdfPageToImage(pdfUrlOrData) {
-  if (!window.pdfjsLib) {
-    await new Promise((resolve, reject) => {
-      const script = document.createElement('script')
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-      script.onload = () => {
-        if (window.pdfjsLib) {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-        }
-        resolve()
+// Load PDF.js library lazily
+async function ensurePdfJs() {
+  if (window.pdfjsLib) return
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script')
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+    script.onload = () => {
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
       }
-      script.onerror = () => reject(new Error('Failed to load PDF rendering library'))
-      document.head.appendChild(script)
-    })
-  }
+      resolve()
+    }
+    script.onerror = () => reject(new Error('Failed to load PDF.js library'))
+    document.head.appendChild(script)
+  })
+}
+
+// Render ALL pages of a PDF stacked vertically into a single HTMLImageElement
+async function renderAllPdfPagesToImage(pdfUrlOrData) {
+  await ensurePdfJs()
 
   let loadingTask
-  if (typeof pdfUrlOrData === 'string' && (pdfUrlOrData.startsWith('data:') || pdfUrlOrData.includes('base64,'))) {
-    const base64Data = pdfUrlOrData.includes(',') ? pdfUrlOrData.split(',')[1] : pdfUrlOrData
-    try {
-      const raw = atob(base64Data)
-      const uint8Array = new Uint8Array(raw.length)
-      for (let i = 0; i < raw.length; i++) {
-        uint8Array[i] = raw.charCodeAt(i)
-      }
-      loadingTask = window.pdfjsLib.getDocument({ data: uint8Array })
-    } catch {
-      loadingTask = window.pdfjsLib.getDocument({
-        url: pdfUrlOrData,
-        withCredentials: false
-      })
-    }
+  if (typeof pdfUrlOrData === 'string' && pdfUrlOrData.startsWith('data:') && pdfUrlOrData.includes('base64,')) {
+    // Data URI — decode to Uint8Array so pdf.js gets clean bytes
+    const commaIdx = pdfUrlOrData.indexOf('base64,') + 7
+    let b64 = pdfUrlOrData.substring(commaIdx)
+    // Strip corrupt leading chars before the PDF magic bytes
+    const pdfMagic = b64.indexOf('JVBERi')
+    if (pdfMagic > 0) b64 = b64.substring(pdfMagic)
+    const raw = atob(b64)
+    const uint8Array = new Uint8Array(raw.length)
+    for (let i = 0; i < raw.length; i++) uint8Array[i] = raw.charCodeAt(i)
+    loadingTask = window.pdfjsLib.getDocument({ data: uint8Array })
+  } else if (typeof pdfUrlOrData === 'string' && pdfUrlOrData.startsWith('http')) {
+    // HTTP URL — fetch as ArrayBuffer to avoid CORS canvas taint
+    const resp = await fetch(pdfUrlOrData)
+    const buf = await resp.arrayBuffer()
+    loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buf) })
+  } else if (typeof pdfUrlOrData === 'string' && pdfUrlOrData.startsWith('/')) {
+    // Relative URL (same-origin /uploads/...) — fetch as ArrayBuffer
+    const resp = await fetch(pdfUrlOrData)
+    const buf = await resp.arrayBuffer()
+    loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buf) })
   } else {
-    loadingTask = window.pdfjsLib.getDocument({
-      url: pdfUrlOrData,
-      withCredentials: false
-    })
+    loadingTask = window.pdfjsLib.getDocument({ url: pdfUrlOrData, withCredentials: false })
   }
 
   const pdf = await loadingTask.promise
-  const page = await pdf.getPage(1)
+  const numPages = pdf.numPages
+  const PAGE_GAP = 12
+  const SCALE = 2.0
 
-  const viewport = page.getViewport({ scale: 2.0 })
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  canvas.height = viewport.height
-  canvas.width = viewport.width
+  // Render every page
+  const pageCanvases = []
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum)
+    const viewport = page.getViewport({ scale: SCALE })
+    const pageCanvas = document.createElement('canvas')
+    pageCanvas.width = viewport.width
+    pageCanvas.height = viewport.height
+    await page.render({ canvasContext: pageCanvas.getContext('2d'), viewport }).promise
+    pageCanvases.push(pageCanvas)
+  }
 
-  await page.render({ canvasContext: ctx, viewport }).promise
+  // Combine all pages into a single tall canvas
+  const maxWidth = Math.max(...pageCanvases.map(c => c.width))
+  const totalHeight = pageCanvases.reduce((sum, c) => sum + c.height + PAGE_GAP, -PAGE_GAP)
+  const combined = document.createElement('canvas')
+  combined.width = maxWidth
+  combined.height = totalHeight
+  const ctx = combined.getContext('2d')
+  ctx.fillStyle = '#e5e7eb'
+  ctx.fillRect(0, 0, maxWidth, totalHeight)
+  let yOffset = 0
+  for (const pc of pageCanvases) {
+    ctx.drawImage(pc, Math.floor((maxWidth - pc.width) / 2), yOffset)
+    yOffset += pc.height + PAGE_GAP
+  }
 
+  // Convert to HTMLImageElement (data URI — same-origin, no CORS taint)
   const img = new Image()
   return new Promise((resolve, reject) => {
     img.onload = () => resolve(img)
     img.onerror = reject
-    img.src = canvas.toDataURL('image/png')
+    img.src = combined.toDataURL('image/png')
   })
 }
 
@@ -134,178 +164,102 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
 
     let rawUrl = request.originalDocUrl || ''
 
-    // Fix corrupt/partial base64 strings:
-    // 1. Handle "data:image/png;base64,ZZ..." — strip leading corrupt chars before known PDF/PNG magic bytes
+    // Legacy base64 URL repair (for old records only — new records use /uploads/ disk paths)
     if (typeof rawUrl === 'string' && rawUrl.startsWith('data:') && rawUrl.includes('base64,')) {
       const commaIdx = rawUrl.indexOf('base64,') + 7
       let b64Content = rawUrl.substring(commaIdx)
-      // Strip any corrupt leading chars until we find the true magic byte sequence
       const pdfMagic = b64Content.indexOf('JVBERi')
       const pngMagic = b64Content.indexOf('iVBORw')
       if (pdfMagic > 0) {
-        b64Content = b64Content.substring(pdfMagic)
-        rawUrl = `data:application/pdf;base64,${b64Content}`
+        rawUrl = `data:application/pdf;base64,${b64Content.substring(pdfMagic)}`
       } else if (pdfMagic === 0) {
         rawUrl = `data:application/pdf;base64,${b64Content}`
       } else if (pngMagic > 0) {
-        b64Content = b64Content.substring(pngMagic)
-        rawUrl = `data:image/png;base64,${b64Content}`
+        rawUrl = `data:image/png;base64,${b64Content.substring(pngMagic)}`
       }
-      // else leave as-is (already correct)
-    }
-    // 2. Handle bare "pdf;base64,..." or "png;base64,..." (missing "data:" prefix)
-    else if (typeof rawUrl === 'string' && rawUrl.includes('base64,') && !rawUrl.startsWith('data:')) {
+    } else if (typeof rawUrl === 'string' && rawUrl.includes('base64,') && !rawUrl.startsWith('data:')) {
       const idx = rawUrl.indexOf('base64,')
-      const prefix = rawUrl.substring(0, idx)
       const content = rawUrl.substring(idx + 7)
-      if (prefix.includes('pdf') || content.includes('JVBERi')) {
-        rawUrl = `data:application/pdf;base64,${content}`
-      } else {
-        rawUrl = `data:image/png;base64,${content}`
-      }
-    }
-    // 3. Handle raw base64 strings stored without prefix
-    else if (typeof rawUrl === 'string' && (rawUrl.includes('iVBORw') || rawUrl.includes('JVBERi')) && !rawUrl.startsWith('data:') && !rawUrl.startsWith('http') && !rawUrl.startsWith('/uploads/')) {
-      const lastSlash = rawUrl.lastIndexOf('/')
-      const base64Str = rawUrl.substring(lastSlash + 1)
-      if (base64Str.includes('JVBERi')) {
-        rawUrl = `data:application/pdf;base64,${base64Str}`
-      } else {
-        rawUrl = `data:image/png;base64,${base64Str}`
-      }
+      rawUrl = content.includes('JVBERi')
+        ? `data:application/pdf;base64,${content}`
+        : `data:image/png;base64,${content}`
     }
 
+    // Build the full URL for disk-stored files
     const fullUrl = absoluteMediaUrl(rawUrl)
+
     const isPdf =
       /\.pdf$/i.test(rawUrl) ||
       /\.pdf$/i.test(fullUrl) ||
       /^data:application\/pdf/i.test(rawUrl) ||
-      /^data:application\/octet-stream/i.test(rawUrl) ||
       (typeof rawUrl === 'string' && rawUrl.includes('JVBERi'))
 
     const loadDocument = async () => {
       try {
         if (!rawUrl) throw new Error('No document URL provided')
 
-        // 1. Try PDF rendering first (natively handles PDF streams & Uint8Array base64)
-        try {
-          const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
-          const renderedPdfImg = await renderPdfPageToImage(target)
-          setDocImage(renderedPdfImg)
-          return
-        } catch (pdfErr) {
-          console.warn('PDF rendering attempt failed, trying standard Image loader:', pdfErr)
+        // Determine the target URL to load
+        const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
+
+        // 1. Try PDF rendering (all pages stacked)
+        if (isPdf || rawUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(target)) {
+          try {
+            const renderedImg = await renderAllPdfPagesToImage(target)
+            setDocImage(renderedImg)
+            setDocLoading(false)
+            return
+          } catch (pdfErr) {
+            console.warn('PDF rendering failed, trying image loader:', pdfErr)
+          }
         }
 
-        // 2. Try standard Image loader
-        const dImg = new Image()
-        if (!rawUrl.startsWith('data:')) dImg.crossOrigin = 'anonymous'
-        await new Promise((resolve, reject) => {
-          dImg.onload = resolve
-          dImg.onerror = reject
-          dImg.src = rawUrl.startsWith('data:') ? rawUrl : fullUrl
-        })
-        setDocImage(dImg)
+        // 2. Try as image (PNG/JPG from /uploads/ or data URI)
+        try {
+          const dImg = new Image()
+          dImg.crossOrigin = 'anonymous'
+          await new Promise((resolve, reject) => {
+            dImg.onload = resolve
+            dImg.onerror = reject
+            dImg.src = target
+          })
+          setDocImage(dImg)
+          setDocLoading(false)
+          return
+        } catch {
+          // image load also failed — try PDF renderer as last resort
+        }
+
+        // 3. Last resort — attempt PDF render even if not detected as PDF (might be mis-typed)
+        try {
+          const renderedImg = await renderAllPdfPagesToImage(target)
+          setDocImage(renderedImg)
+          setDocLoading(false)
+          return
+        } catch (finalErr) {
+          console.warn('All document load attempts failed:', finalErr)
+          throw finalErr
+        }
+
       } catch (err) {
-        console.warn('Direct document image load failed, generating high-res official document layout:', err)
-        // High resolution Official Document Canvas Template
+        console.warn('Document load failed, showing fallback template:', err)
+        // Simple error fallback canvas
         const fallbackCanvas = document.createElement('canvas')
         fallbackCanvas.width = 850
         fallbackCanvas.height = 1100
         const ctx = fallbackCanvas.getContext('2d')
-
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(0, 0, 850, 1100)
-        
-        ctx.strokeStyle = '#2563eb'
-        ctx.lineWidth = 4
-        ctx.strokeRect(25, 25, 800, 1050)
-
-        ctx.strokeStyle = '#cbd5e1'
-        ctx.lineWidth = 1
-        ctx.strokeRect(33, 33, 784, 1034)
-
-        ctx.fillStyle = '#1e293b'
-        ctx.font = 'bold 28px sans-serif'
-        ctx.fillText('RAXWO TECHNOLOGY (PVT) LTD', 60, 85)
-
-        ctx.fillStyle = '#64748b'
-        ctx.font = '14px sans-serif'
-        ctx.fillText('Official Document Approval & Signature Request', 60, 110)
-
-        ctx.strokeStyle = '#e2e8f0'
-        ctx.beginPath()
-        ctx.moveTo(60, 130)
-        ctx.lineTo(790, 130)
-        ctx.stroke()
-
         ctx.fillStyle = '#f8fafc'
-        ctx.fillRect(60, 150, 730, 140)
+        ctx.fillRect(0, 0, 850, 1100)
         ctx.strokeStyle = '#e2e8f0'
-        ctx.strokeRect(60, 150, 730, 140)
-
-        ctx.fillStyle = '#2563eb'
-        ctx.font = 'bold 12px sans-serif'
-        ctx.fillText('DOCUMENT REFERENCE', 80, 175)
-
-        ctx.fillStyle = '#0f172a'
-        ctx.font = 'bold 20px sans-serif'
-        ctx.fillText(request.requestRef || 'SIG-2026-00001', 80, 205)
-
-        ctx.fillStyle = '#475569'
-        ctx.font = '14px sans-serif'
-        ctx.fillText(`Requester: ${request.employeeName || 'Employee'} (${request.employeeType || 'permanent'})`, 80, 240)
-        ctx.fillText(`Category: ${request.documentType || 'General'} | Date: ${new Date(request.createdAt || Date.now()).toLocaleDateString()}`, 80, 265)
-
-        ctx.fillStyle = '#1e293b'
-        ctx.font = 'bold 22px sans-serif'
-        ctx.fillText(request.title || 'Document Request', 60, 330)
-
-        ctx.fillStyle = '#334155'
-        ctx.font = '15px sans-serif'
-        ctx.fillText('Purpose / Reason for Request:', 60, 370)
-
-        ctx.fillStyle = '#475569'
-        ctx.font = '14px sans-serif'
-        const words = (request.reason || 'Official verification request').split(' ')
-        let line = ''
-        let y = 400
-        for (let i = 0; i < words.length; i++) {
-          const testLine = line + words[i] + ' '
-          const metrics = ctx.measureText(testLine)
-          if (metrics.width > 700 && i > 0) {
-            ctx.fillText(line, 60, y)
-            line = words[i] + ' '
-            y += 24
-          } else {
-            line = testLine
-          }
-        }
-        ctx.fillText(line, 60, y)
-
-        ctx.fillStyle = '#f1f5f9'
-        ctx.fillRect(60, y + 40, 730, 100)
-        ctx.strokeStyle = '#cbd5e1'
-        ctx.strokeRect(60, y + 40, 730, 100)
-
-        ctx.fillStyle = '#2563eb'
-        ctx.font = 'bold 15px sans-serif'
-        ctx.fillText('Attached File:', 80, y + 75)
-        ctx.fillStyle = '#475569'
-        ctx.font = '14px sans-serif'
-        ctx.fillText(request.originalDocUrl?.split('/').pop() || 'document.pdf', 190, y + 75)
-
-        ctx.strokeStyle = '#94a3b8'
-        ctx.setLineDash([8, 6])
-        ctx.strokeRect(60, 720, 730, 260)
-        ctx.setLineDash([])
-
+        ctx.lineWidth = 2
+        ctx.strokeRect(20, 20, 810, 1060)
         ctx.fillStyle = '#94a3b8'
-        ctx.font = 'bold 13px sans-serif'
-        ctx.fillText('OFFICIAL SIGNATURE & SEAL ZONE', 80, 745)
-        ctx.font = '12px sans-serif'
-        ctx.fillText('Drag & place authorized signature and company seal below:', 80, 770)
-
+        ctx.font = 'bold 18px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('⚠ Could not load original document', 425, 520)
+        ctx.font = '14px sans-serif'
+        ctx.fillText('Use "Load Local File" to load it from your computer', 425, 560)
+        ctx.fillText(`Ref: ${request.requestRef || ''}`, 425, 600)
+        ctx.textAlign = 'left'
         const loadedImg = new Image()
         loadedImg.src = fallbackCanvas.toDataURL()
         await new Promise((res) => { loadedImg.onload = res })
