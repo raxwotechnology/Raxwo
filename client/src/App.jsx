@@ -84,6 +84,7 @@ import ManagerProfile from './pages/manager/Profile'
 import ManagerRequests from './pages/manager/Requests'
 import MessagesCenter from './pages/shared/MessagesCenter'
 import NotificationDetail from './pages/shared/NotificationDetail'
+import SignatureRequests from './pages/shared/SignatureRequests'
 
 // Developer pages
 import DeveloperDashboard from './pages/employee/Dashboard'
@@ -256,6 +257,7 @@ export default function App() {
         <Route path="income-tax" element={<IncomeTax />} />
         <Route path="requests" element={<AdminRequests />} />
         <Route path="tool-assignments" element={<ToolAssignments />} />
+        <Route path="signature-requests" element={<SignatureRequests />} />
         <Route path="meetings" element={<Meetings />} />
       </Route>
 
@@ -301,6 +303,7 @@ export default function App() {
         <Route path="cheques" element={<AdminCheques />} />
         <Route path="requests" element={<AdminRequests />} />
         <Route path="tool-assignments" element={<ToolAssignments />} />
+        <Route path="signature-requests" element={<SignatureRequests />} />
         <Route path="meetings" element={<Meetings />} />
       </Route>
 
@@ -322,6 +325,7 @@ export default function App() {
         <Route path="tools" element={<MyTools />} />
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
+        <Route path="signature-requests" element={<SignatureRequests />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
         <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
@@ -344,6 +348,7 @@ export default function App() {
         <Route path="tools" element={<MyTools />} />
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
+        <Route path="signature-requests" element={<SignatureRequests />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
         <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
@@ -366,6 +371,7 @@ export default function App() {
         <Route path="tools" element={<MyTools />} />
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
+        <Route path="signature-requests" element={<SignatureRequests />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
         <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>

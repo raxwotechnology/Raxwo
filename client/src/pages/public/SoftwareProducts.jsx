@@ -152,15 +152,15 @@ function ProductDetailModal({ product, onClose, onFeedbackClick }) {
         <div className="flex items-start justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-blue-50/50 to-indigo-50/40">
           <div className="flex items-center gap-4">
             {product.imageUrl ? (
-              <div className="w-16 h-16 rounded-2xl p-2 border border-slate-200 bg-white shadow-md flex items-center justify-center shrink-0">
-                <img src={mediaUrl(product.imageUrl)} alt={product.title} className="w-full h-full object-contain" />
+              <div className="h-20 w-auto min-w-[80px] max-w-[200px] px-3.5 py-2.5 rounded-2xl border border-slate-200/80 bg-white shadow-md flex items-center justify-center shrink-0 ring-1 ring-slate-900/5">
+                <img src={mediaUrl(product.imageUrl)} alt={product.title} className="max-h-full max-w-full w-auto h-auto object-contain drop-shadow-xs" />
               </div>
             ) : (
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-md shrink-0 text-white"
+                className="w-20 h-20 rounded-2xl flex items-center justify-center shadow-md shrink-0 text-white"
                 style={{ backgroundImage: product.colorFrom ? `linear-gradient(135deg, ${product.colorFrom}, ${product.colorTo})` : 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}
               >
-                {IconComp && <IconComp size={28} className="drop-shadow-md" />}
+                {IconComp && <IconComp size={32} className="drop-shadow-md" />}
               </div>
             )}
             <div>
@@ -303,18 +303,18 @@ export default function SoftwareProducts() {
                         {s.imageUrl ? (
                           <div
                             onClick={() => setSelectedDetailProduct(s)}
-                            className="w-16 h-16 rounded-2xl mb-6 shadow-md group-hover:scale-105 transition-all duration-300 relative z-20 overflow-hidden border border-slate-200 bg-white p-2 flex items-center justify-center cursor-pointer"
+                            className="h-20 w-auto min-w-[80px] max-w-[180px] px-3.5 py-2.5 rounded-2xl mb-6 shadow-[0_4px_20px_rgba(0,0,0,0.06)] ring-1 ring-slate-900/5 border border-slate-200/80 bg-white flex items-center justify-center cursor-pointer group-hover:scale-105 group-hover:shadow-[0_10px_25px_rgba(32,178,245,0.22)] group-hover:border-[#20b2f5]/50 transition-all duration-300 relative z-20 overflow-hidden"
                           >
-                            <img src={mediaUrl(s.imageUrl)} alt={s.title} className="w-full h-full object-contain" />
+                            <img src={mediaUrl(s.imageUrl)} alt={s.title} className="max-h-full max-w-full w-auto h-auto object-contain drop-shadow-xs" />
                           </div>
                         ) : (
                           <div
                             onClick={() => setSelectedDetailProduct(s)}
-                            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl group-hover:scale-105 transition-all duration-300 relative bg-primary z-20 cursor-pointer"
+                            className="w-20 h-20 rounded-2xl flex items-center justify-center mb-6 shadow-xl group-hover:scale-105 group-hover:shadow-[0_10px_25px_rgba(32,178,245,0.3)] transition-all duration-300 relative bg-primary z-20 cursor-pointer"
                             style={{ backgroundImage: s.colorFrom ? `linear-gradient(135deg, ${s.colorFrom}, ${s.colorTo})` : undefined }}
                           >
                             <div className="absolute inset-0 rounded-2xl bg-white/20 blur-sm mix-blend-overlay" />
-                            {IconComp && <IconComp size={28} className="text-white drop-shadow-md relative z-10" />}
+                            {IconComp && <IconComp size={32} className="text-white drop-shadow-md relative z-10" />}
                           </div>
                         )}
 

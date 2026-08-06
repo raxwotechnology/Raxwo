@@ -33,6 +33,7 @@ const adminNav = [
     { to: '/admin/advances', label: 'Advances', icon: FiCreditCard },
     { to: '/admin/loans', label: 'Loans', icon: FiCreditCard },
     { to: '/admin/letters', label: 'Letters', icon: FiFileText },
+    { to: '/admin/signature-requests', label: 'Signature & Seal', icon: FiEdit3 },
     { to: '/admin/performance', label: 'Performance', icon: FiTrendingUp },
   ]},
   { group: 'Recruitment', items: [
@@ -112,6 +113,7 @@ const developerNav = [
     { to: '/developer/payslips', label: 'Salary + EPF/ETF', icon: FiDollarSign },
     { to: '/developer/export', label: 'Export Center', icon: FiDownload },
     { to: '/developer/letters', label: 'Letters', icon: FiFileText },
+    { to: '/developer/signature-requests', label: 'Signature & Seal', icon: FiEdit3 },
     { to: '/developer/messages', label: 'Messages', icon: FiMessageSquare },
     { to: '/developer/meetings', label: 'Meetings', icon: FiVideo },
     { to: '/developer/notifications', label: 'Notifications', icon: FiBell },

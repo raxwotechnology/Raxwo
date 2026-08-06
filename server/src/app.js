@@ -176,6 +176,7 @@ app.use('/api/sms', smsRoutes);
 app.use('/api/email-logs', emailLogRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/leaders', require('./routes/leaderRoutes'));
+app.use('/api/signature-requests', require('./routes/signatureRequestRoutes'));
 
 ensureDefaultRules().catch(() => {});
 
