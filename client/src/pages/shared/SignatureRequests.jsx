@@ -197,21 +197,57 @@ export default function SignatureRequests() {
 
   // Download Signed Document Helper (Handles Base64 Data URIs & HTTP URLs)
   const handleDownloadSignedDoc = (signedDocUrl, requestRef) => {
-    const fileUrl = mediaUrl(signedDocUrl)
+    let fileUrl = mediaUrl(signedDocUrl)
     if (!fileUrl) return toast.error('No signed document file available')
 
-    if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
-      const a = document.createElement('a')
-      a.href = fileUrl
-      a.download = `Signed_${requestRef || 'Document'}.png`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      toast.success('Download started!')
-    } else {
-      window.open(fileUrl, '_blank')
+    // Repair corrupted legacy base64 URLs if needed
+    if (fileUrl.includes('data:')) {
+      fileUrl = fileUrl.substring(fileUrl.indexOf('data:'))
+    } else if (fileUrl.includes('/uploads/') && (fileUrl.includes('==') || fileUrl.includes('iVBORw') || fileUrl.includes('JVBERi') || fileUrl.length > 150)) {
+      const lastSlash = fileUrl.lastIndexOf('/')
+      const base64Str = fileUrl.substring(lastSlash + 1)
+      if (base64Str.includes('JVBERi')) {
+        fileUrl = `data:application/pdf;base64,${base64Str}`
+      } else {
+        fileUrl = `data:image/png;base64,${base64Str}`
+      }
     }
+
+    if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
+      try {
+        const parts = fileUrl.split(';')
+        const mime = parts[0].replace('data:', '') || 'image/png'
+        const base64Data = parts[1] ? parts[1].replace('base64,', '') : parts[0]
+        const byteCharacters = atob(base64Data)
+        const byteNumbers = new Array(byteCharacters.length)
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i)
+        }
+        const byteArray = new Uint8Array(byteNumbers)
+        const blob = new Blob([byteArray], { type: mime })
+        const blobUrl = URL.createObjectURL(blob)
+
+        const ext = mime.includes('pdf') ? 'pdf' : 'png'
+        const a = document.createElement('a')
+        a.href = blobUrl
+        a.download = `Signed_${requestRef || 'Document'}.${ext}`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+        toast.success('Download started!')
+        return
+      } catch (err) {
+        console.error('Blob download conversion error:', err)
+      }
+    }
+
+    window.open(fileUrl, '_blank')
   }
+
+  // Get Default Signature and Seal for Editor
+  const defaultSig = savedStamps.find(s => s.type === 'signature' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'signature')?.imageUrl || ''
+  const defaultSeal = savedStamps.find(s => s.type === 'seal' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'seal')?.imageUrl || ''
 
   return (
     <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto text-slate-800">

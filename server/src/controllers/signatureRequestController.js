@@ -103,6 +103,27 @@ exports.createRequest = async (req, res, next) => {
   }
 };
 
+function repairUploadUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+
+  if (url.includes('data:')) {
+    const idx = url.indexOf('data:');
+    return url.substring(idx);
+  }
+
+  if (url.includes('/uploads/') && (url.includes('==') || url.includes('iVBORw') || url.includes('JVBERi') || url.length > 200)) {
+    const lastSlash = url.lastIndexOf('/');
+    const base64Content = url.substring(lastSlash + 1);
+    if (base64Content.includes('JVBERi')) {
+      return `data:application/pdf;base64,${base64Content}`;
+    }
+    return `data:image/png;base64,${base64Content}`;
+  }
+
+  return url;
+}
+
 // 2. Get Requests (With filters for Admin/Owner and scoped for Employees)
 exports.getRequests = async (req, res, next) => {
   try {
@@ -143,7 +164,14 @@ exports.getRequests = async (req, res, next) => {
       .populate('requester', 'name email avatar role')
       .populate('signedBy', 'name email role');
 
-    res.json({ success: true, count: requests.length, requests });
+    const cleanedRequests = requests.map(r => {
+      const obj = r.toObject();
+      obj.originalDocUrl = repairUploadUrl(obj.originalDocUrl);
+      obj.signedDocUrl = repairUploadUrl(obj.signedDocUrl);
+      return obj;
+    });
+
+    res.json({ success: true, count: cleanedRequests.length, requests: cleanedRequests });
   } catch (err) {
     next(err);
   }
