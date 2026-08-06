@@ -23,14 +23,21 @@ async function renderPdfPageToImage(pdfUrlOrData) {
   }
 
   let loadingTask
-  if (typeof pdfUrlOrData === 'string' && (pdfUrlOrData.startsWith('data:application/pdf') || pdfUrlOrData.startsWith('data:application/octet-stream') || pdfUrlOrData.startsWith('data:;base64,JVBERi'))) {
+  if (typeof pdfUrlOrData === 'string' && (pdfUrlOrData.startsWith('data:') || pdfUrlOrData.includes('base64,'))) {
     const base64Data = pdfUrlOrData.includes(',') ? pdfUrlOrData.split(',')[1] : pdfUrlOrData
-    const raw = atob(base64Data)
-    const uint8Array = new Uint8Array(raw.length)
-    for (let i = 0; i < raw.length; i++) {
-      uint8Array[i] = raw.charCodeAt(i)
+    try {
+      const raw = atob(base64Data)
+      const uint8Array = new Uint8Array(raw.length)
+      for (let i = 0; i < raw.length; i++) {
+        uint8Array[i] = raw.charCodeAt(i)
+      }
+      loadingTask = window.pdfjsLib.getDocument({ data: uint8Array })
+    } catch {
+      loadingTask = window.pdfjsLib.getDocument({
+        url: pdfUrlOrData,
+        withCredentials: false
+      })
     }
-    loadingTask = window.pdfjsLib.getDocument({ data: uint8Array })
   } else {
     loadingTask = window.pdfjsLib.getDocument({
       url: pdfUrlOrData,
@@ -159,50 +166,27 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
       try {
         if (!rawUrl) throw new Error('No document URL provided')
 
-        // 1. If rawUrl is Base64 Data URI
-        if (typeof rawUrl === 'string' && rawUrl.startsWith('data:')) {
-          if (rawUrl.includes('JVBERi') || rawUrl.includes('application/pdf')) {
-            const renderedPdfImg = await renderPdfPageToImage(rawUrl)
-            setDocImage(renderedPdfImg)
-            return
-          } else {
-            // Base64 Image
-            const dImg = new Image()
-            await new Promise((resolve, reject) => {
-              dImg.onload = resolve
-              dImg.onerror = reject
-              dImg.src = rawUrl
-            })
-            setDocImage(dImg)
-            return
-          }
-        }
-
-        // 2. HTTP PDF URL check
-        if (isPdf) {
-          const renderedPdfImg = await renderPdfPageToImage(fullUrl)
+        // 1. Try PDF rendering first (natively handles PDF streams & Uint8Array base64)
+        try {
+          const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
+          const renderedPdfImg = await renderPdfPageToImage(target)
           setDocImage(renderedPdfImg)
           return
+        } catch (pdfErr) {
+          console.warn('PDF rendering attempt failed, trying standard Image loader:', pdfErr)
         }
 
-        // 3. HTTP Image URL
+        // 2. Try standard Image loader
         const dImg = new Image()
-        dImg.crossOrigin = 'anonymous'
+        if (!rawUrl.startsWith('data:')) dImg.crossOrigin = 'anonymous'
         await new Promise((resolve, reject) => {
           dImg.onload = resolve
           dImg.onerror = reject
-          dImg.src = fullUrl
+          dImg.src = rawUrl.startsWith('data:') ? rawUrl : fullUrl
         })
         setDocImage(dImg)
       } catch (err) {
-        console.warn('Direct document image load failed, trying PDF parser fallback:', err)
-        try {
-          const fallbackPdfImg = await renderPdfPageToImage(fullUrl)
-          setDocImage(fallbackPdfImg)
-          return
-        } catch (pdfErr) {
-          console.warn('PDF fallback failed as well, generating high-res official document layout:', pdfErr)
-        }
+        console.warn('Direct document image load failed, generating high-res official document layout:', err)
         // High resolution Official Document Canvas Template
         const fallbackCanvas = document.createElement('canvas')
         fallbackCanvas.width = 850
