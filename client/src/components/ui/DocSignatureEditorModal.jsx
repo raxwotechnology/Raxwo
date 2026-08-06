@@ -125,7 +125,28 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess, d
     if (!request?.originalDocUrl) return
     setDocLoading(true)
 
-    const rawUrl = request.originalDocUrl
+    let rawUrl = request.originalDocUrl || ''
+
+    // Clean missing data: prefix if stripped to png;base64,... or pdf;base64,... or raw base64
+    if (typeof rawUrl === 'string' && rawUrl.includes('base64,')) {
+      const idx = rawUrl.indexOf('base64,')
+      const prefix = rawUrl.substring(0, idx)
+      const content = rawUrl.substring(idx + 7)
+      if (prefix.includes('pdf') || content.includes('JVBERi')) {
+        rawUrl = `data:application/pdf;base64,${content}`
+      } else {
+        rawUrl = `data:image/png;base64,${content}`
+      }
+    } else if (typeof rawUrl === 'string' && (rawUrl.includes('iVBORw') || rawUrl.includes('JVBERi') || rawUrl.includes('==')) && !rawUrl.startsWith('data:') && !rawUrl.startsWith('http') && !rawUrl.startsWith('/uploads/')) {
+      const lastSlash = rawUrl.lastIndexOf('/')
+      const base64Str = rawUrl.substring(lastSlash + 1)
+      if (base64Str.includes('JVBERi')) {
+        rawUrl = `data:application/pdf;base64,${base64Str}`
+      } else {
+        rawUrl = `data:image/png;base64,${base64Str}`
+      }
+    }
+
     const fullUrl = absoluteMediaUrl(rawUrl)
     const isPdf =
       /\.pdf$/i.test(rawUrl) ||

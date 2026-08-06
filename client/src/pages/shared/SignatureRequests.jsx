@@ -196,53 +196,46 @@ export default function SignatureRequests() {
   }
 
   // Download Signed Document Helper (Handles Base64 Data URIs & HTTP URLs)
-  const handleDownloadSignedDoc = (signedDocUrl, requestRef) => {
-    let fileUrl = mediaUrl(signedDocUrl)
-    if (!fileUrl) return toast.error('No signed document file available')
+  const handleDownloadSignedDoc = async (signedDocUrl, requestRef) => {
+    try {
+      let fileUrl = mediaUrl(signedDocUrl)
+      if (!fileUrl) return toast.error('No signed document file available')
 
-    // Repair corrupted legacy base64 URLs if needed
-    if (fileUrl.includes('data:')) {
-      fileUrl = fileUrl.substring(fileUrl.indexOf('data:'))
-    } else if (fileUrl.includes('/uploads/') && (fileUrl.includes('==') || fileUrl.includes('iVBORw') || fileUrl.includes('JVBERi') || fileUrl.length > 150)) {
-      const lastSlash = fileUrl.lastIndexOf('/')
-      const base64Str = fileUrl.substring(lastSlash + 1)
-      if (base64Str.includes('JVBERi')) {
-        fileUrl = `data:application/pdf;base64,${base64Str}`
-      } else {
-        fileUrl = `data:image/png;base64,${base64Str}`
-      }
-    }
-
-    if (fileUrl.startsWith('data:') || fileUrl.startsWith('blob:')) {
-      try {
-        const parts = fileUrl.split(';')
-        const mime = parts[0].replace('data:', '') || 'image/png'
-        const base64Data = parts[1] ? parts[1].replace('base64,', '') : parts[0]
-        const byteCharacters = atob(base64Data)
-        const byteNumbers = new Array(byteCharacters.length)
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i)
+      // Repair corrupted legacy base64 URLs if needed
+      if (fileUrl.includes('data:')) {
+        fileUrl = fileUrl.substring(fileUrl.indexOf('data:'))
+      } else if (fileUrl.includes('/uploads/') && (fileUrl.includes('==') || fileUrl.includes('iVBORw') || fileUrl.includes('JVBERi') || fileUrl.length > 150)) {
+        const lastSlash = fileUrl.lastIndexOf('/')
+        const base64Str = fileUrl.substring(lastSlash + 1)
+        if (base64Str.includes('JVBERi')) {
+          fileUrl = `data:application/pdf;base64,${base64Str}`
+        } else {
+          fileUrl = `data:image/png;base64,${base64Str}`
         }
-        const byteArray = new Uint8Array(byteNumbers)
-        const blob = new Blob([byteArray], { type: mime })
-        const blobUrl = URL.createObjectURL(blob)
-
-        const ext = mime.includes('pdf') ? 'pdf' : 'png'
-        const a = document.createElement('a')
-        a.href = blobUrl
-        a.download = `Signed_${requestRef || 'Document'}.${ext}`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
-        toast.success('Download started!')
-        return
-      } catch (err) {
-        console.error('Blob download conversion error:', err)
       }
-    }
 
-    window.open(fileUrl, '_blank')
+      // Natively convert fileUrl (Data URI or HTTP URL) into a clean, uncorrupted Blob
+      const response = await fetch(fileUrl)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+
+      const isPdf = blob.type.includes('pdf') || fileUrl.includes('JVBERi') || fileUrl.endsWith('.pdf')
+      const ext = isPdf ? 'pdf' : 'png'
+      const filename = `Signed_${requestRef || 'Document'}.${ext}`
+
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000)
+      toast.success('Signed document downloaded successfully!')
+    } catch (err) {
+      console.error('Download error:', err)
+      toast.error('Failed to download file')
+    }
   }
 
   // Get Default Signature and Seal for Editor

@@ -105,14 +105,20 @@ exports.createRequest = async (req, res, next) => {
 
 function repairUploadUrl(url) {
   if (!url || typeof url !== 'string') return url;
-  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
 
-  if (url.includes('data:')) {
-    const idx = url.indexOf('data:');
-    return url.substring(idx);
+  if (url.includes('base64,')) {
+    const idx = url.indexOf('base64,');
+    const prefix = url.substring(0, idx);
+    const content = url.substring(idx + 7);
+    if (prefix.includes('pdf') || content.includes('JVBERi')) {
+      return `data:application/pdf;base64,${content}`;
+    }
+    return `data:image/png;base64,${content}`;
   }
 
-  if (url.includes('/uploads/') && (url.includes('==') || url.includes('iVBORw') || url.includes('JVBERi') || url.length > 200)) {
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+
+  if (url.includes('/uploads/') && (url.includes('==') || url.includes('iVBORw') || url.includes('JVBERi') || url.length > 150)) {
     const lastSlash = url.lastIndexOf('/');
     const base64Content = url.substring(lastSlash + 1);
     if (base64Content.includes('JVBERi')) {
