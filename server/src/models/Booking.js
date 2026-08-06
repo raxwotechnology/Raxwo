@@ -21,6 +21,16 @@ const bookingSchema = new mongoose.Schema({
     default: 'unpaid',
   },
   amount: { type: Number, default: 0 },
+  bookingType: { type: String, enum: ['service', 'product'], default: 'service' },
+  monthlyPrice: { type: String, default: '' },
+  selectedFeatures: [{ type: String }],
+  productDetails: {
+    title: String,
+    category: String,
+    priceText: String,
+    features: [String],
+    imageUrl: String,
+  },
   project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
 }, { timestamps: true });
 

@@ -155,12 +155,44 @@ export default function AdminBookings() {
                     )}
                   </div>
                 </div>
-                <div><p className="text-xs text-slate-400 uppercase tracking-wide">Service</p><p className="font-semibold text-slate-800">{viewing.service}</p></div>
-                <div><p className="text-xs text-slate-400 uppercase tracking-wide">Budget</p><p className="font-semibold text-emerald-600">LKR {(viewing.budget || viewing.amount || 0).toLocaleString()}</p></div>
+                <div><p className="text-xs text-slate-400 uppercase tracking-wide">Type / Service</p>
+                  <p className="font-semibold text-slate-800 flex items-center gap-1.5 mt-0.5">
+                    {viewing.service}
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${viewing.bookingType === 'product' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {viewing.bookingType === 'product' ? 'Software Product' : 'Service'}
+                    </span>
+                  </p>
+                </div>
+                <div><p className="text-xs text-slate-400 uppercase tracking-wide">Budget / Pricing</p><p className="font-semibold text-emerald-600">{viewing.monthlyPrice ? viewing.monthlyPrice : `LKR ${(viewing.budget || viewing.amount || 0).toLocaleString()}`}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase tracking-wide">Preferred Date</p><p className="font-semibold text-slate-800">{viewing.preferredDate ? new Date(viewing.preferredDate).toLocaleDateString() : '—'}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase tracking-wide">Status</p><p className="font-semibold capitalize">{viewing.status.replace('_', ' ')}</p></div>
                 <div><p className="text-xs text-slate-400 uppercase tracking-wide">Payment</p><p className="font-semibold capitalize">{viewing.paymentStatus}</p></div>
               </div>
+
+              {/* Product / Features Breakdown */}
+              {(viewing.productDetails || (viewing.selectedFeatures && viewing.selectedFeatures.length > 0)) && (
+                <div className="bg-gradient-to-br from-blue-50/70 to-purple-50/70 border border-blue-100/80 p-4 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">Product / Selected Features</p>
+                    {viewing.productDetails?.category && (
+                      <span className="badge badge-blue text-[10px]">{viewing.productDetails.category}</span>
+                    )}
+                  </div>
+                  {viewing.productDetails?.priceText && (
+                    <p className="text-xs text-slate-600 font-medium">Pricing: <span className="font-bold text-secondary">{viewing.productDetails.priceText}</span></p>
+                  )}
+                  {((viewing.productDetails?.features && viewing.productDetails.features.length > 0) || (viewing.selectedFeatures && viewing.selectedFeatures.length > 0)) && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(viewing.productDetails?.features || viewing.selectedFeatures || []).map((feat, fidx) => (
+                        <span key={fidx} className="bg-white border border-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-md font-medium">
+                          ✓ {feat}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div><p className="text-xs text-slate-400 uppercase tracking-wide">Brief / Notes</p><div className="mt-1 p-3 bg-slate-50 rounded-xl text-sm text-slate-700 whitespace-pre-wrap">{viewing.brief || 'No notes provided.'}</div></div>
               
               {viewing.status === 'pending' && (

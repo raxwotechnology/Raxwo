@@ -361,9 +361,9 @@ export default function AdminProjects() {
 
       {/* Create/Edit Modal */}
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto" style={{ zIndex: 99999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto w-full max-w-full overflow-x-hidden box-border" style={{ zIndex: 99999 }}>
           <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] sm:max-h-[92vh] flex flex-col my-auto overflow-hidden">
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] sm:max-h-[92vh] flex flex-col my-auto overflow-hidden border border-slate-200">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b bg-white shrink-0">
               <h3 className="text-lg font-bold text-primary font-heading">{editing ? 'Edit Project' : 'New Project'}</h3>
               <button type="button" onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg"><FiX/></button>

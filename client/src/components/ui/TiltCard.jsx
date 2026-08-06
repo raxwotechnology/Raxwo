@@ -10,8 +10,8 @@ export default function TiltCard({ children, className = '' }) {
   const mouseXSpring = useSpring(x, { stiffness: 300, damping: 30 })
   const mouseYSpring = useSpring(y, { stiffness: 300, damping: 30 })
 
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['15deg', '-15deg'])
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-15deg', '15deg'])
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ['3.5deg', '-3.5deg'])
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ['-3.5deg', '3.5deg'])
 
   const handleMouseMove = (e) => {
     if (!ref.current) return
@@ -42,8 +42,8 @@ export default function TiltCard({ children, className = '' }) {
         perspective: 1000
       }}
       className={`relative ${className}`}
-      whileHover={{ scale: 1.05 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      whileHover={{ scale: 1.015 }}
+      transition={{ type: 'spring', stiffness: 250, damping: 25 }}
     >
       {/* Glow effect on hover based on mouse position could be added here, but preserving 3D is key */}
       <div className="w-full h-full relative z-10 bg-white/80 backdrop-blur-xl border border-white/50 rounded-2xl shadow-xl transition-shadow hover:shadow-2xl overflow-hidden">

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -15,12 +15,12 @@ import { mediaUrl } from '../../lib/media'
 
 /* ─── Static fallback services ─────────────────────────────────── */
 const STATIC_SERVICES = [
-  { _id: 's1', icon: 'FiCode',     title: 'Web Development',      category: 'Development', colorFrom: '#3b82f6', colorTo: '#1d4ed8', description: 'Full-stack web applications using React, Node.js, MongoDB, and modern cloud infrastructure.', features: ['React / Next.js frontends', 'Node.js / Express APIs', 'MongoDB & PostgreSQL'], priceText: 'From LKR 150,000' },
-  { _id: 's2', icon: 'FiSmartphone',title: 'Mobile App Development', category: 'Development', colorFrom: '#22c55e', colorTo: '#16a34a', description: 'Cross-platform iOS and Android apps with React Native.', features: ['React Native / Expo', 'iOS & Android', 'Push notifications'], priceText: 'From LKR 250,000' },
-  { _id: 's3', icon: 'FiCloud',    title: 'Cloud & DevOps',        category: 'Infrastructure', colorFrom: '#a855f7', colorTo: '#7c3aed', description: 'End-to-end cloud infrastructure setup, CI/CD pipelines.', features: ['AWS / Azure / GCP', 'Docker & Kubernetes', 'CI/CD pipelines'], priceText: 'From LKR 80,000/mo' },
-  { _id: 's4', icon: 'FiLayers',   title: 'Enterprise Systems',    category: 'Enterprise',   colorFrom: '#f97316', colorTo: '#ea580c', description: 'Custom ERP, HRM, CRM, and inventory management systems.', features: ['ERP / HRM Systems', 'Custom workflows', 'Multi-role portals'], priceText: 'From LKR 500,000' },
-  { _id: 's5', icon: 'FiDatabase', title: 'Database & Backend',    category: 'Infrastructure', colorFrom: '#ef4444', colorTo: '#dc2626', description: 'Database design, optimization, API development.', features: ['Database design', 'Query optimization', 'API security'], priceText: 'From LKR 100,000' },
-  { _id: 's6', icon: 'FiShield',   title: 'Cybersecurity',         category: 'Security',     colorFrom: '#64748b', colorTo: '#475569', description: 'Security audits, penetration testing, vulnerability assessments.', features: ['Penetration testing', 'Security audits', 'GDPR compliance'], priceText: 'From LKR 120,000' },
+  { _id: 's1', icon: 'FiCode',     title: 'Web Development',      category: 'Development', colorFrom: '#3b82f6', colorTo: '#1d4ed8', description: 'Full-stack web applications using React, Node.js, MongoDB, and modern cloud infrastructure.', features: ['React / Next.js frontends', 'Node.js / Express APIs', 'MongoDB & PostgreSQL', 'Responsive layouts', 'SEO Optimization'], priceText: 'From LKR 150,000' },
+  { _id: 's2', icon: 'FiSmartphone',title: 'Mobile App Development', category: 'Development', colorFrom: '#22c55e', colorTo: '#16a34a', description: 'Cross-platform iOS and Android apps with React Native.', features: ['React Native / Expo', 'iOS & Android', 'Push notifications', 'Offline support', 'App Store Publishing'], priceText: 'From LKR 250,000' },
+  { _id: 's3', icon: 'FiCloud',    title: 'Cloud & DevOps',        category: 'Infrastructure', colorFrom: '#a855f7', colorTo: '#7c3aed', description: 'End-to-end cloud infrastructure setup, CI/CD pipelines.', features: ['AWS / Azure / GCP', 'Docker & Kubernetes', 'CI/CD pipelines', 'Infrastructure as Code', '24/7 Monitoring'], priceText: 'From LKR 80,000/mo' },
+  { _id: 's4', icon: 'FiLayers',   title: 'Enterprise Systems',    category: 'Enterprise',   colorFrom: '#f97316', colorTo: '#ea580c', description: 'Custom ERP, HRM, CRM, and inventory management systems.', features: ['ERP / HRM Systems', 'Custom workflows', 'Multi-role portals', 'Automated reports', 'Legacy migration'], priceText: 'From LKR 500,000' },
+  { _id: 's5', icon: 'FiDatabase', title: 'Database & Backend',    category: 'Infrastructure', colorFrom: '#ef4444', colorTo: '#dc2626', description: 'Database design, optimization, API development.', features: ['Database design', 'Query optimization', 'API security', 'Data backup & sync', 'High availability'], priceText: 'From LKR 100,000' },
+  { _id: 's6', icon: 'FiShield',   title: 'Cybersecurity',         category: 'Security',     colorFrom: '#64748b', colorTo: '#475569', description: 'Security audits, penetration testing, vulnerability assessments.', features: ['Penetration testing', 'Security audits', 'GDPR compliance', 'Access controls', 'Threat prevention'], priceText: 'From LKR 120,000' },
 ]
 
 const ICON_MAP = { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiDatabase, FiLayers }
@@ -133,11 +133,99 @@ function FeedbackModal({ service, onClose }) {
   )
 }
 
+/* ─── Service Detail Modal ───────────────────────────────────────── */
+function ServiceDetailModal({ service, onClose, onFeedbackClick }) {
+  const navigate = useNavigate()
+  const IconComp = service.icon
+
+  const handleGetQuote = () => {
+    onClose()
+    navigate(`/booking?type=service&title=${encodeURIComponent(service.title)}&price=${encodeURIComponent(service.price || service.priceText || '')}&category=${encodeURIComponent(service.category || '')}`, {
+      state: {
+        type: 'service',
+        title: service.title,
+        price: service.price || service.priceText,
+        category: service.category,
+        features: service.features,
+      }
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-100"
+      >
+        <div className="flex items-start justify-between p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 via-blue-50/50 to-indigo-50/40">
+          <div className="flex items-center gap-4">
+            {service.imageUrl ? (
+              <div className="w-16 h-16 rounded-2xl p-2 border border-slate-200 bg-white shadow-md flex items-center justify-center shrink-0">
+                <img src={mediaUrl(service.imageUrl)} alt={service.title} className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-md shrink-0 text-white"
+                style={{ backgroundImage: service.colorFrom ? `linear-gradient(135deg, ${service.colorFrom}, ${service.colorTo})` : 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}
+              >
+                {IconComp && <IconComp size={28} className="drop-shadow-md" />}
+              </div>
+            )}
+            <div>
+              {service.category && (
+                <span className="badge bg-blue-100 text-blue-700 text-[10px] uppercase font-bold tracking-wider mb-1">{service.category}</span>
+              )}
+              <h2 className="text-2xl font-bold text-primary font-heading leading-tight">{service.title}</h2>
+              <p className="text-secondary font-black text-lg mt-0.5">{service.price || service.priceText}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-white rounded-xl border border-slate-200 transition-all">
+            <FiX size={20} />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Description</h3>
+            <div className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap bg-slate-50 p-4 rounded-2xl border border-slate-100" dangerouslySetInnerHTML={{ __html: service.desc || service.description }} />
+          </div>
+
+          <div>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Service Scope & Features ({service.features?.length || 0})</h3>
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              {(service.features || []).map((feat, idx) => (
+                <div key={idx} className="flex items-start gap-2.5 bg-white p-3 rounded-xl border border-slate-200/80 shadow-xs">
+                  <div className="mt-0.5 bg-emerald-100 text-emerald-600 rounded-full p-1 shrink-0"><FiCheck size={12} /></div>
+                  <span className="text-xs font-medium text-slate-700 leading-snug">{feat}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+          <button
+            onClick={() => { onClose(); onFeedbackClick(service); }}
+            className="btn-ghost text-xs text-slate-600 hover:text-amber-500 flex items-center gap-1.5"
+          >
+            <FiStar size={14} className="text-amber-400" /> Give Feedback
+          </button>
+          <button onClick={handleGetQuote} className="btn-primary gap-2 px-6">
+            Get Quote <FiArrowRight size={14} />
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
 /* ─── Main Services Page ─────────────────────────────────────────── */
 export default function Services() {
   const [feedbackService, setFeedbackService] = useState(null)
+  const [selectedDetailService, setSelectedDetailService] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
-  const currentTab = 'service' // Keep variable for any internal logic that might use it, but ignore for filtering
   const activeCategory = searchParams.get('category') || 'All'
 
   const { data, isLoading } = useQuery({
@@ -161,9 +249,6 @@ export default function Services() {
   const categories = ['All', ...Array.from(new Set(displayServices.map(s => s.category).filter(Boolean)))]
   const filtered = activeCategory === 'All' ? displayServices : displayServices.filter(s => s.category === activeCategory)
 
-  const handleTabChange = (t) => {
-    setSearchParams({ tab: t })
-  }
   const handleCategoryChange = (cat) => {
     const p = new URLSearchParams(searchParams)
     if (cat === 'All') p.delete('category')
@@ -201,24 +286,20 @@ export default function Services() {
       <section className="bg-white py-6 border-b border-slate-100 sticky top-0 z-40 shadow-sm">
         <div className="container-max">
           <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
-
-
-            <>
-              <FiFilter size={14} className="text-slate-400 shrink-0" />
-              {categories.map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => handleCategoryChange(cat)}
-                  className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
-                    activeCategory === cat
-                      ? 'bg-[#20b2f5] text-white shadow-md'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </>
+            <FiFilter size={14} className="text-slate-400 shrink-0" />
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => handleCategoryChange(cat)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                  activeCategory === cat
+                    ? 'bg-[#20b2f5] text-white shadow-md'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
       </section>
@@ -248,38 +329,53 @@ export default function Services() {
                   >
                     <TiltCard className="h-full">
                       <div className="card card-body group h-full bg-white/70 backdrop-blur-md flex flex-col border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgb(0,0,0,0.12)] transition-all duration-500 rounded-3xl relative overflow-hidden z-10">
-                        {/* Decorative background glow */}
                         <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100/50 to-purple-100/50 blur-3xl rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-150 duration-700 pointer-events-none -z-10" />
                         
                         {s.imageUrl ? (
-                          <div className="w-16 h-16 rounded-2xl mb-6 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 relative z-20 overflow-hidden border border-slate-100 bg-white">
-                            <img src={mediaUrl(s.imageUrl)} alt={s.title} className="w-full h-full object-cover" />
+                          <div
+                            onClick={() => setSelectedDetailService(s)}
+                            className="w-16 h-16 rounded-2xl mb-6 shadow-md group-hover:scale-105 transition-all duration-300 relative z-20 overflow-hidden border border-slate-200 bg-white p-2 flex items-center justify-center cursor-pointer"
+                          >
+                            <img src={mediaUrl(s.imageUrl)} alt={s.title} className="w-full h-full object-contain" />
                           </div>
                         ) : (
                           <div
-                            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 relative bg-primary z-20"
+                            onClick={() => setSelectedDetailService(s)}
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl group-hover:scale-105 transition-all duration-300 relative bg-primary z-20 cursor-pointer"
                             style={{ backgroundImage: s.colorFrom ? `linear-gradient(135deg, ${s.colorFrom}, ${s.colorTo})` : undefined }}
                           >
                             <div className="absolute inset-0 rounded-2xl bg-white/20 blur-sm mix-blend-overlay"></div>
                             {IconComp && <IconComp size={28} className="text-white drop-shadow-md relative z-10" />}
                           </div>
                         )}
+
                         <div className="relative z-20 flex-1 flex flex-col">
                           {s.category && (
                             <span className="inline-block self-start badge bg-blue-50/80 text-blue-700 text-[10px] uppercase font-bold tracking-wider mb-3 border border-blue-200/50 shadow-sm">{s.category}</span>
                           )}
-                          <h3 className="text-2xl font-bold text-primary font-heading mb-3 leading-tight group-hover:text-blue-600 transition-colors">{s.title}</h3>
+                          <h3
+                            onClick={() => setSelectedDetailService(s)}
+                            className="text-2xl font-bold text-primary font-heading mb-3 leading-tight group-hover:text-blue-600 transition-colors cursor-pointer"
+                          >
+                            {s.title}
+                          </h3>
                           <div className="text-slate-500 text-sm leading-relaxed mb-6 flex-1 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-4" dangerouslySetInnerHTML={{ __html: s.desc || s.description }} />
                           
                           <div className="space-y-2 mb-6 bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
-                            {(s.features || []).slice(0,4).map(f => (
+                            {(s.features || []).slice(0, 4).map(f => (
                               <div key={f} className="flex items-start gap-2.5 text-sm text-slate-600">
                                 <div className="mt-0.5 bg-emerald-100 rounded-full p-0.5"><FiCheck className="text-emerald-600 flex-shrink-0" size={10} /></div> 
                                 <span className="leading-snug">{f}</span>
                               </div>
                             ))}
                             {(s.features || []).length > 4 && (
-                              <p className="text-xs text-slate-400 pl-6 font-medium">+{s.features.length - 4} more features</p>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDetailService(s)}
+                                className="text-xs text-secondary hover:underline pl-6 font-bold flex items-center gap-1 transition-all mt-1"
+                              >
+                                +{s.features.length - 4} more features (view all) →
+                              </button>
                             )}
                           </div>
                         </div>
@@ -293,12 +389,23 @@ export default function Services() {
                             <button
                               onClick={() => setFeedbackService(s)}
                               className="text-slate-400 hover:text-amber-500 text-xs font-medium flex items-center gap-1 transition-all hover:gap-1.5 px-2 py-1.5 rounded-lg hover:bg-amber-50"
+                              title="Give Feedback"
                             >
                               <FiStar size={12} /> Feedback
                             </button>
-                            <a href="https://raxwo.net/lets-talk/" className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all">
+                            <Link
+                              to={`/booking?type=service&title=${encodeURIComponent(s.title)}&price=${encodeURIComponent(s.price || s.priceText || '')}&category=${encodeURIComponent(s.category || '')}`}
+                              state={{
+                                type: 'service',
+                                title: s.title,
+                                price: s.price || s.priceText,
+                                category: s.category,
+                                features: s.features,
+                              }}
+                              className="text-secondary text-sm font-medium flex items-center gap-1 hover:gap-2 transition-all"
+                            >
                               Get quote <FiArrowRight size={14} />
-                            </a>
+                            </Link>
                           </div>
                         </div>
                       </div>
@@ -346,13 +453,21 @@ export default function Services() {
         <div className="container-max">
           <h2 className="text-4xl font-bold text-white font-heading mb-4">Ready to Start Your Project?</h2>
           <p className="text-white/70 mb-8 max-w-xl mx-auto">Get a free consultation and project estimate from our expert team.</p>
-          <a href="https://raxwo.net/lets-talk/" className="btn-primary btn-lg">Request a Free Quote <FiArrowRight /></a>
+          <Link to="/booking" className="btn-primary btn-lg">Request a Free Quote <FiArrowRight /></Link>
         </div>
       </section>
 
+      {/* Modals */}
       <AnimatePresence>
         {feedbackService && (
           <FeedbackModal service={feedbackService} onClose={() => setFeedbackService(null)} />
+        )}
+        {selectedDetailService && (
+          <ServiceDetailModal
+            service={selectedDetailService}
+            onClose={() => setSelectedDetailService(null)}
+            onFeedbackClick={(serv) => setFeedbackService(serv)}
+          />
         )}
       </AnimatePresence>
     </div>

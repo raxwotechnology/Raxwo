@@ -495,8 +495,8 @@ export default function AdminQuotations() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <span className="badge badge-navy font-mono text-xs tracking-tight">{q.quotationNo}</span>
-                <p className="font-semibold text-slate-800 mt-1 truncate">{q.client?.name || '—'}</p>
-                <p className="text-xs text-slate-400 truncate">{q.title || q.serviceType || '—'}</p>
+                <p className="font-semibold text-slate-800 mt-1">{q.client?.name || '—'}</p>
+                <p className="text-xs text-slate-600 font-medium break-words whitespace-normal mt-0.5">{q.title || q.serviceType || '—'}</p>
               </div>
               <span className={`badge capitalize shrink-0 ${STATUS_COLOR[q.status] || 'badge-gray'}`}>{q.status}</span>
             </div>
@@ -583,7 +583,7 @@ export default function AdminQuotations() {
 
       {/* Create/Edit — form + live document preview */}
       {showModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4 z-[99999]">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-0 sm:p-2 lg:p-4 z-[99999] w-full max-w-full overflow-x-hidden box-border">
           <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}
             className="doc-editor-modal bg-white sm:rounded-2xl shadow-2xl w-full sm:max-w-[95vw] 2xl:max-w-[1600px] h-full sm:h-[96vh] overflow-hidden flex flex-col border-0 sm:border border-slate-200">
             <div className="flex items-center justify-between px-4 py-3 sm:p-4 md:p-5 border-b shrink-0 bg-white z-10">

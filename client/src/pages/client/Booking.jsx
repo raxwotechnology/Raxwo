@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
+import { useSearchParams, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
+import { mediaUrl } from '../../lib/media'
 import { FiCalendar, FiDollarSign, FiFileText, FiCheck, FiArrowRight, FiCpu, FiSmartphone, FiCloud, FiShield, FiDatabase, FiLayers } from 'react-icons/fi'
 import ClientPageHeader from '../../components/ui/ClientPageHeader'
 
@@ -23,11 +25,15 @@ const STEPS = ['Select Service', 'Project Details', 'Confirmation']
 
 export default function ClientBooking() {
   const { isAuthenticated } = useAuthStore()
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
+
   const [step, setStep] = useState(0)
   const [selectedService, setSelectedService] = useState(null)
+  const [selectedItemObj, setSelectedItemObj] = useState(null)
   const [submitted, setSubmitted] = useState(false)
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm()
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm()
   const [activeTab, setActiveTab] = useState('services') // 'services' | 'products'
 
   const { data: servicesData, isLoading } = useQuery({
@@ -39,17 +45,72 @@ export default function ClientBooking() {
 
   const servicesList = isLoading ? [] : (
     rawServices.filter(s => s.type !== 'product').length > 0
-      ? rawServices.filter(s => s.type !== 'product').map(s => ({ label: s.title || 'Service', icon: s.icon || 'FiCpu', color: 'from-blue-500 to-blue-600', category: s.category || 'Service' }))
+      ? rawServices.filter(s => s.type !== 'product').map(s => ({
+          _id: s._id,
+          label: s.title || 'Service',
+          icon: s.icon || 'FiCpu',
+          imageUrl: s.imageUrl,
+          color: 'from-blue-500 to-blue-600',
+          category: s.category || 'Service',
+          priceText: s.priceText,
+          description: s.description,
+          features: s.features || []
+        }))
       : STATIC_SERVICES
   )
 
   const productsList = isLoading ? [] : (
     rawServices.filter(s => s.type === 'product').length > 0
-      ? rawServices.filter(s => s.type === 'product').map(s => ({ label: s.title || 'Software Product', icon: s.icon || 'FiLayers', color: 'from-purple-500 to-purple-600', category: s.category || 'Product' }))
+      ? rawServices.filter(s => s.type === 'product').map(s => ({
+          _id: s._id,
+          label: s.title || 'Software Product',
+          icon: s.icon || 'FiLayers',
+          imageUrl: s.imageUrl,
+          color: 'from-purple-500 to-purple-600',
+          category: s.category || 'Product',
+          priceText: s.priceText,
+          description: s.description,
+          features: s.features || []
+        }))
       : [
-          { label: 'Gymora ERP', icon: 'FiLayers', color: 'from-blue-600 to-indigo-600', category: 'ERP System' }
+          { label: 'Gymora ERP', icon: 'FiLayers', color: 'from-blue-600 to-indigo-600', category: 'ERP System', priceText: 'From LKR 35,000/mo' }
         ]
   )
+
+  // Handle URL query parameters or navigation state from "Get Quote"
+  useEffect(() => {
+    const qType = searchParams.get('type') || location.state?.type
+    const qTitle = searchParams.get('title') || location.state?.title
+    const qPrice = searchParams.get('price') || location.state?.price
+    const qCategory = searchParams.get('category') || location.state?.category
+    const qFeatures = location.state?.features
+
+    if (qType === 'product') {
+      setActiveTab('products')
+    } else if (qType === 'service') {
+      setActiveTab('services')
+    }
+
+    if (qTitle) {
+      setSelectedService(qTitle)
+      const itemObj = {
+        label: qTitle,
+        priceText: qPrice || '',
+        category: qCategory || (qType === 'product' ? 'Product' : 'Service'),
+        features: Array.isArray(qFeatures) ? qFeatures : [],
+      }
+      setSelectedItemObj(itemObj)
+
+      let initialBrief = `Requesting Quote for: ${qTitle}`
+      if (qPrice) initialBrief += `\nPrice/Plan: ${qPrice}`
+      if (qCategory) initialBrief += `\nCategory: ${qCategory}`
+      if (Array.isArray(qFeatures) && qFeatures.length > 0) {
+        initialBrief += `\nFeatures requested:\n- ${qFeatures.join('\n- ')}`
+      }
+      setValue('brief', initialBrief)
+      setStep(1)
+    }
+  }, [searchParams, location.state, setValue])
 
   const displayedItems = activeTab === 'services' ? servicesList : productsList
 
@@ -60,7 +121,21 @@ export default function ClientBooking() {
   })
 
   const onSubmit = (vals) => {
-    mutation.mutate({ ...vals, service: selectedService })
+    const payload = {
+      ...vals,
+      service: selectedService,
+      bookingType: activeTab === 'products' ? 'product' : 'service',
+      monthlyPrice: selectedItemObj?.priceText || '',
+      selectedFeatures: selectedItemObj?.features || [],
+      productDetails: selectedItemObj ? {
+        title: selectedItemObj.label,
+        category: selectedItemObj.category,
+        priceText: selectedItemObj.priceText,
+        features: selectedItemObj.features || [],
+        imageUrl: selectedItemObj.imageUrl || '',
+      } : undefined,
+    }
+    mutation.mutate(payload)
   }
 
   if (submitted) {
@@ -161,13 +236,31 @@ export default function ClientBooking() {
                     const Icon = SERVICE_ICONS[s.icon] || FiCpu
                     return (
                       <motion.button key={`${s.label}-${idx}`} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        onClick={() => { setSelectedService(s.label); setStep(1) }}
+                        onClick={() => {
+                          setSelectedService(s.label)
+                          setSelectedItemObj(s)
+                          if (s.description || s.features?.length) {
+                            let briefText = `Requesting Quote for: ${s.label}`
+                            if (s.priceText) briefText += `\nPrice: ${s.priceText}`
+                            if (s.category) briefText += `\nCategory: ${s.category}`
+                            if (s.features?.length) briefText += `\nFeatures:\n- ${s.features.join('\n- ')}`
+                            setValue('brief', briefText)
+                          }
+                          setStep(1)
+                        }}
                         className={`card p-4 sm:p-5 text-left border-2 transition-all duration-200 group ${selectedService === s.label ? 'border-secondary shadow-md' : 'border-transparent hover:border-secondary/40 hover:shadow-sm'}`}>
-                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-md`}>
-                          <Icon size={18} className="text-white sm:w-5 sm:h-5" />
-                        </div>
+                        {s.imageUrl ? (
+                          <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 p-1.5 flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-md overflow-hidden">
+                            <img src={mediaUrl(s.imageUrl)} alt={s.label} className="w-full h-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br ${s.color || 'from-blue-500 to-blue-600'} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 transition-transform shadow-md`}>
+                            <Icon size={18} className="text-white sm:w-5 sm:h-5" />
+                          </div>
+                        )}
                         <span className="badge badge-blue text-[10px] mb-2">{s.category || (activeTab === 'products' ? 'Product' : 'Service')}</span>
                         <h3 className="font-bold text-primary font-heading text-[13px] sm:text-sm">{s.label}</h3>
+                        {s.priceText && <p className="text-[11px] font-extrabold text-secondary mt-0.5">{s.priceText}</p>}
                         <p className="text-[11px] sm:text-xs text-slate-500 mt-1 flex items-center gap-1">Select <FiArrowRight size={10} /></p>
                       </motion.button>
                     )
