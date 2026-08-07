@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   FiCheckCircle, FiExternalLink, FiKey, FiMessageSquare,
   FiZap, FiLayers, FiCode, FiSmartphone, FiCloud, FiShield,
-  FiDatabase, FiTrendingUp, FiUsers, FiPackage, FiArrowRight
+  FiDatabase, FiTrendingUp, FiUsers, FiPackage, FiArrowRight, FiStar
 } from 'react-icons/fi'
 import { mediaUrl } from '../../lib/media'
 
@@ -12,12 +12,28 @@ const ICON_MAP = {
   FiUsers, FiDatabase, FiLayers, FiPackage
 }
 
-export default function ProductServiceCard({ item, onViewFeatures, onGetQuote }) {
+function stripHtml(html) {
+  if (!html) return ''
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return doc.body.textContent || ''
+  } catch {
+    return html.replace(/<[^>]*>?/gm, '')
+  }
+}
+
+export default function ProductServiceCard({ item, onViewFeatures, onGetQuote, onFeedback }) {
   const navigate = useNavigate()
 
   const handleCardClick = () => {
     navigate(`/showcase/${item._id || item.id || 'item'}`)
   }
+
+  const handleFeedbackClick = (e) => {
+    e.stopPropagation()
+    if (onFeedback) onFeedback(item)
+  }
+
 
   const handleAutoLoginClick = (e) => {
     e.stopPropagation()
@@ -42,7 +58,6 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote })
     } else if (onGetQuote) {
       onGetQuote(item)
     } else {
-      // Fallback WhatsApp / Contact
       const msg = encodeURIComponent(`Hi Raxwo Team! I am interested in getting a quote for ${item.title}.`)
       window.open(`https://wa.me/94770000000?text=${msg}`, '_blank')
     }
@@ -53,15 +68,20 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote })
     if (onViewFeatures) onViewFeatures(item)
   }
 
-  // Highlights: fallback to first 4 features if topHighlights is empty
-  const highlights = (item.topHighlights && item.topHighlights.length > 0)
-    ? item.topHighlights.slice(0, 4)
-    : (item.features || []).slice(0, 4)
+  // Filter out empty strings from highlights
+  const rawHighlights = (item.topHighlights && item.topHighlights.length > 0)
+    ? item.topHighlights
+    : (item.features || [])
+
+  const highlights = rawHighlights
+    .map(s => String(s || '').trim())
+    .filter(Boolean)
+    .slice(0, 4)
 
   // Count remaining features
   const totalFeatureCount = (item.categorizedFeatures && item.categorizedFeatures.length > 0)
-    ? item.categorizedFeatures.reduce((acc, cat) => acc + (cat.items?.length || 0), 0)
-    : (item.features?.length || 0)
+    ? item.categorizedFeatures.reduce((acc, cat) => acc + (cat.items?.filter(Boolean).length || 0), 0)
+    : (item.features?.filter(Boolean).length || 0)
   
   const remainingCount = Math.max(0, totalFeatureCount - highlights.length)
 
@@ -73,6 +93,14 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote })
 
   // Logo URL
   const logoSrc = item.logoUrl || item.imageUrl
+
+  // Clean summary text without HTML tags
+  const rawSummary = item.tagline || stripHtml(item.description)
+  const summaryText = rawSummary || 'Full-featured enterprise software solution tailored for business growth.'
+
+  // Formatted price string
+  const formattedPrice = item.priceText
+    || (item.price ? `${item.currency || 'LKR'} ${Number(item.price).toLocaleString()} / ${item.billingPeriod || 'mo'}` : 'Custom Pricing')
 
   return (
     <motion.div
@@ -89,47 +117,47 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote })
         }}
       />
 
-      <div className="p-6 sm:p-7 flex-1 flex flex-col justify-between space-y-6">
-        {/* Header: Logo/Icon + Badge */}
+      <div className="p-6 sm:p-7 flex-1 flex flex-col justify-between space-y-5">
+        {/* Header: Logo/Icon Top Bar */}
         <div>
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3">
-              {logoSrc ? (
-                <div className="w-13 h-13 rounded-2xl bg-slate-50 p-2 border border-slate-100 shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <img src={mediaUrl(logoSrc)} alt={item.title} className="w-full h-full object-contain" />
-                </div>
-              ) : (
-                <div
-                  className="w-13 h-13 rounded-2xl flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform"
-                  style={{
-                    background: `linear-gradient(135deg, ${item.colorFrom || '#2563eb'}, ${item.colorTo || '#4f46e5'})`
-                  }}
-                >
-                  <IconComp size={24} />
-                </div>
-              )}
-              <div>
-                <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-[11px] font-bold uppercase tracking-wider mb-1">
-                  {badgeLabel}
-                </span>
-                <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
-                  {item.title}
-                </h3>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            {logoSrc ? (
+              <div className="h-14 w-auto min-w-[70px] max-w-[170px] p-2 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform">
+                <img src={mediaUrl(logoSrc)} alt={item.title} className="max-h-full max-w-full object-contain" />
               </div>
-            </div>
+            ) : (
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform"
+                style={{
+                  background: `linear-gradient(135deg, ${item.colorFrom || '#2563eb'}, ${item.colorTo || '#4f46e5'})`
+                }}
+              >
+                <IconComp size={22} />
+              </div>
+            )}
+
+            <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-[11px] font-bold uppercase tracking-wider shrink-0">
+              {badgeLabel}
+            </span>
           </div>
 
-          {/* Tagline / Summary */}
+          {/* Title */}
+          <h3 className="text-xl font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1 mb-2">
+            {item.title}
+          </h3>
+
+          {/* Clean Tagline / Summary */}
           <p className="text-xs sm:text-sm text-slate-600 font-normal leading-relaxed line-clamp-2 mb-4">
-            {item.tagline || item.description || 'Full-featured enterprise software solution tailored for business growth.'}
+            {summaryText}
           </p>
 
-          {/* Primary Highlights (Top 4 Features with green checkmarks) */}
-          {highlights.length > 0 && (
-            <div className="space-y-2 py-3 px-3.5 bg-slate-50/80 rounded-2xl border border-slate-100">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-                Key Highlights
-              </span>
+          {/* Primary Highlights (Non-empty Top 4 Features with green checkmarks) */}
+          <div className="space-y-2 py-3 px-3.5 bg-slate-50/80 rounded-2xl border border-slate-100">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+              Key Highlights
+            </span>
+
+            {highlights.length > 0 ? (
               <div className="grid grid-cols-1 gap-2">
                 {highlights.map((feat, idx) => (
                   <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-700">
@@ -138,18 +166,20 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote })
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="text-xs text-slate-400 italic">Core software features &amp; modules</div>
+            )}
 
-              {/* View All Features Link (+X more features) */}
-              <button
-                type="button"
-                onClick={handleViewAllFeaturesClick}
-                className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 transition-all"
-              >
-                <span>+{remainingCount > 0 ? remainingCount : 35} more features</span>
-                <FiArrowRight size={12} />
-              </button>
-            </div>
-          )}
+            {/* View All Features Link (+X more features) */}
+            <button
+              type="button"
+              onClick={handleViewAllFeaturesClick}
+              className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 transition-all"
+            >
+              <span>+{remainingCount > 0 ? remainingCount : 35} more features</span>
+              <FiArrowRight size={12} />
+            </button>
+          </div>
         </div>
 
         {/* Bottom Actions Container */}
@@ -181,24 +211,37 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote })
             </div>
           )}
 
-          {/* Pricing & Get Quote Button */}
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          {/* Pricing & Buttons */}
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pricing</span>
               <span className="text-sm font-extrabold text-slate-900">
-                {item.priceText || (item.price ? `${item.currency || 'LKR'} ${item.price.toLocaleString()} / ${item.billingPeriod || 'mo'}` : 'Custom Pricing')}
+                {formattedPrice}
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={handleGetQuoteClick}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
-            >
-              <FiMessageSquare size={14} />
-              <span>Get Quote</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleFeedbackClick}
+                className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold text-xs rounded-xl border border-amber-200 inline-flex items-center gap-1 transition-all hover:scale-105"
+                title="Leave a Review / Feedback"
+              >
+                <FiStar size={13} className="text-amber-500 fill-current" />
+                <span className="hidden sm:inline">Feedback</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleGetQuoteClick}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all hover:scale-105 active:scale-95"
+              >
+                <FiMessageSquare size={14} />
+                <span>Get Quote</span>
+              </button>
+            </div>
           </div>
+
         </div>
       </div>
     </motion.div>

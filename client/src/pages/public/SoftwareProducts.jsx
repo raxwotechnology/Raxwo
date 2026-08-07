@@ -7,6 +7,10 @@ import api from '../../lib/api'
 import ProductServiceCard from '../../components/showcase/ProductServiceCard'
 import AllFeaturesModal from '../../components/showcase/AllFeaturesModal'
 import QuoteModal from '../../components/showcase/QuoteModal'
+import FeedbackModal from '../../components/showcase/FeedbackModal'
+
+// ... static products ...
+
 
 const STATIC_PRODUCTS = [
   {
@@ -119,6 +123,7 @@ export default function SoftwareProducts() {
   const [activeCategory, setActiveCategory] = useState('All')
   const [selectedFeaturesItem, setSelectedFeaturesItem] = useState(null)
   const [selectedQuoteItem, setSelectedQuoteItem] = useState(null)
+  const [selectedFeedbackItem, setSelectedFeedbackItem] = useState(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['public-products'],
@@ -134,9 +139,9 @@ export default function SoftwareProducts() {
     : baseProducts.filter(s => (s.badge || s.category) === activeCategory)
 
   return (
-    <div className="bg-slate-950 text-white min-h-screen">
+    <div className="bg-slate-50 text-slate-900 min-h-screen">
       {/* Hero Header */}
-      <section className="bg-gradient-hero section-padding pt-32 text-center relative overflow-hidden">
+      <section className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 section-padding pt-32 text-center relative overflow-hidden text-white">
         <div className="absolute inset-0">
           <div className="absolute top-20 right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
           <div className="absolute bottom-10 left-20 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
@@ -156,8 +161,8 @@ export default function SoftwareProducts() {
         </div>
       </section>
 
-      {/* Category Filter */}
-      <section className="bg-slate-900/90 backdrop-blur-md py-5 border-y border-slate-800 sticky top-0 z-40 shadow-xl">
+      {/* Category Filter Sticky Bar */}
+      <section className="bg-white/95 backdrop-blur-md py-4 border-y border-slate-200/80 sticky top-0 z-40 shadow-xs">
         <div className="container-max">
           <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
             <FiFilter size={14} className="text-slate-400 shrink-0" />
@@ -166,7 +171,7 @@ export default function SoftwareProducts() {
                 key={cat}
                 onClick={() => setActiveCategory(cat)}
                 className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  activeCategory === cat ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  activeCategory === cat ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
                 {cat}
@@ -177,7 +182,7 @@ export default function SoftwareProducts() {
       </section>
 
       {/* Products Showcase Grid */}
-      <section className="section-padding bg-slate-950">
+      <section className="section-padding bg-slate-50/70">
         <div className="container-max">
           <AnimatePresence mode="wait">
             <motion.div
@@ -194,14 +199,15 @@ export default function SoftwareProducts() {
                   item={item}
                   onViewFeatures={(itemToView) => setSelectedFeaturesItem(itemToView)}
                   onGetQuote={(itemToQuote) => setSelectedQuoteItem(itemToQuote)}
+                  onFeedback={(itemToFb) => setSelectedFeedbackItem(itemToFb)}
                 />
               ))}
             </motion.div>
           </AnimatePresence>
 
           {filtered.length === 0 && (
-            <div className="text-center py-20 text-slate-400">
-              <FiPackage size={40} className="mx-auto mb-3 text-slate-600" />
+            <div className="text-center py-20 text-slate-500">
+              <FiPackage size={40} className="mx-auto mb-3 text-slate-300" />
               <p className="text-sm font-semibold">No software products in this category yet.</p>
             </div>
           )}
@@ -209,7 +215,7 @@ export default function SoftwareProducts() {
       </section>
 
       {/* Bottom CTA */}
-      <section className="section-padding bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border-t border-slate-800 text-center">
+      <section className="section-padding bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white text-center">
         <div className="container-max">
           <h2 className="text-3xl font-extrabold text-white mb-4">Need a Custom Software Module?</h2>
           <p className="text-slate-300 mb-8 max-w-xl mx-auto text-sm leading-relaxed">
@@ -220,6 +226,7 @@ export default function SoftwareProducts() {
           </Link>
         </div>
       </section>
+
 
       {/* Modals */}
       {selectedFeaturesItem && (
@@ -234,6 +241,13 @@ export default function SoftwareProducts() {
           onClose={() => setSelectedQuoteItem(null)}
         />
       )}
+      {selectedFeedbackItem && (
+        <FeedbackModal
+          item={selectedFeedbackItem}
+          onClose={() => setSelectedFeedbackItem(null)}
+        />
+      )}
     </div>
   )
 }
+

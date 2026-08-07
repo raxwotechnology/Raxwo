@@ -1,4 +1,5 @@
-import { useParams, Link, useNavigate } from 'react'
+import { useState } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
@@ -9,7 +10,7 @@ import {
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import QuoteModal from '../../components/showcase/QuoteModal'
-import { useState } from 'react'
+
 
 const ICON_MAP = {
   FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp,
@@ -58,10 +59,10 @@ export default function ShowcaseDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pt-28 pb-16 flex items-center justify-center bg-slate-900 text-white">
+      <div className="min-h-screen pt-28 pb-16 flex items-center justify-center bg-slate-50 text-slate-900">
         <div className="flex flex-col items-center gap-3">
-          <span className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm font-semibold text-slate-400">Loading Product Details...</p>
+          <span className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-semibold text-slate-500">Loading Product Details...</p>
         </div>
       </div>
     )
@@ -69,10 +70,10 @@ export default function ShowcaseDetailPage() {
 
   if (error || !item) {
     return (
-      <div className="min-h-screen pt-28 pb-16 bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
-        <FiPackage size={48} className="text-slate-600 mb-4" />
+      <div className="min-h-screen pt-28 pb-16 bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-6 text-center">
+        <FiPackage size={48} className="text-slate-300 mb-4" />
         <h2 className="text-2xl font-bold mb-2">Product Details</h2>
-        <p className="text-slate-400 text-sm max-w-md mb-6">
+        <p className="text-slate-500 text-sm max-w-md mb-6">
           Detailed specification page for this item. Click below to return to the main showcase.
         </p>
         <button
@@ -87,63 +88,64 @@ export default function ShowcaseDetailPage() {
 
   const IconComp = ICON_MAP[item.icon] || FiLayers
   const logoSrc = item.logoUrl || item.imageUrl
+  const formattedPrice = item.priceText || (item.price ? `${item.currency || 'LKR'} ${Number(item.price).toLocaleString()} / ${item.billingPeriod || 'mo'}` : 'Custom Pricing')
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white pt-24 pb-20">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pt-24 pb-20">
       {/* Top Navigation */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-8">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition-colors bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-800"
+          className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-xs"
         >
-          <FiArrowLeft size={14} /> Back to All Showcase Items
+          <FiArrowLeft size={14} /> Back to Showcase
         </button>
       </div>
 
       {/* Hero Banner Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 mb-12">
-        <div className="relative rounded-3xl p-8 sm:p-12 overflow-hidden border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 shadow-2xl">
+        <div className="relative rounded-3xl p-8 sm:p-12 overflow-hidden border border-slate-200/80 bg-white shadow-xl">
           {/* Ambient Lighting */}
           <div
-            className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none"
-            style={{ backgroundColor: item.colorFrom || '#3b82f6' }}
+            className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl opacity-10 pointer-events-none"
+            style={{ backgroundColor: item.colorFrom || '#2563eb' }}
           />
 
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             <div className="lg:col-span-8 space-y-6">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 {logoSrc ? (
-                  <div className="w-16 h-16 rounded-2xl bg-white p-2 border border-slate-700 shadow-md flex items-center justify-center">
-                    <img src={mediaUrl(logoSrc)} alt={item.title} className="w-full h-full object-contain" />
+                  <div className="h-16 w-auto min-w-[75px] max-w-[180px] p-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center">
+                    <img src={mediaUrl(logoSrc)} alt={item.title} className="max-h-full max-w-full object-contain" />
                   </div>
                 ) : (
                   <div
-                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-lg"
-                    style={{ background: `linear-gradient(135deg, ${item.colorFrom || '#3b82f6'}, ${item.colorTo || '#1d4ed8'})` }}
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-md"
+                    style={{ background: `linear-gradient(135deg, ${item.colorFrom || '#2563eb'}, ${item.colorTo || '#4f46e5'})` }}
                   >
                     <IconComp size={32} />
                   </div>
                 )}
                 <div>
-                  <span className="inline-block px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full text-xs font-bold uppercase tracking-wider mb-1">
+                  <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-xs font-bold uppercase tracking-wider mb-1">
                     {item.badge || item.category || 'Software Solution'}
                   </span>
-                  <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                  <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
                     {item.title}
                   </h1>
                 </div>
               </div>
 
-              <p className="text-base sm:text-lg text-slate-300 font-normal leading-relaxed">
-                {item.tagline || item.description}
+              <p className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed">
+                {item.tagline || (item.description ? item.description.replace(/<[^>]*>?/gm, '') : '')}
               </p>
 
               {/* Highlights pills */}
               {item.topHighlights && item.topHighlights.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {item.topHighlights.map((feat, idx) => (
-                    <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-xs font-semibold text-slate-200">
-                      <FiCheckCircle size={14} className="text-emerald-400" />
+                  {item.topHighlights.filter(Boolean).map((feat, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-semibold text-slate-700">
+                      <FiCheckCircle size={14} className="text-emerald-500" />
                       {feat}
                     </span>
                   ))}
@@ -152,26 +154,26 @@ export default function ShowcaseDetailPage() {
             </div>
 
             {/* Action Box Side */}
-            <div className="lg:col-span-4 bg-slate-900/90 border border-slate-800 p-6 rounded-3xl space-y-5 backdrop-blur-md">
+            <div className="lg:col-span-4 bg-slate-900 text-white border border-slate-800 p-6 rounded-3xl space-y-5 shadow-2xl">
               <div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Pricing Package</span>
                 <div className="text-2xl font-extrabold text-white">
-                  {item.priceText || (item.price ? `${item.currency || 'LKR'} ${item.price.toLocaleString()} / ${item.billingPeriod || 'mo'}` : 'Custom Pricing')}
+                  {formattedPrice}
                 </div>
               </div>
 
               {/* Demo Credentials Box */}
               {(item.demoUrl || item.autoLoginUrl || item.demoUsername) && (
-                <div className="p-4 bg-blue-950/40 rounded-2xl border border-blue-900/50 space-y-3">
+                <div className="p-4 bg-blue-950/60 rounded-2xl border border-blue-900/60 space-y-3">
                   <div className="flex items-center gap-2 text-xs font-bold text-blue-400 uppercase tracking-wider">
                     <FiKey size={14} className="text-amber-400" /> Demo Credentials
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs font-mono text-slate-300">
-                    <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
+                    <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800">
                       <span className="text-slate-500 block text-[10px]">User:</span>
                       <span className="font-bold text-white truncate block">{item.demoUsername || 'admin'}</span>
                     </div>
-                    <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
+                    <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800">
                       <span className="text-slate-500 block text-[10px]">Pass:</span>
                       <span className="font-bold text-white truncate block">{item.demoPassword || 'demo123'}</span>
                     </div>
@@ -201,33 +203,36 @@ export default function ShowcaseDetailPage() {
         {/* Left 8 Cols: Categorized Features Breakdown */}
         <div className="lg:col-span-8 space-y-8">
           {/* Detailed Overview */}
-          <div className="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl space-y-4">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <FiLayers className="text-blue-400" /> System Overview & Capabilities
+          <div className="bg-white border border-slate-200/80 p-8 rounded-3xl space-y-4 shadow-sm">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <FiLayers className="text-blue-600" /> System Overview &amp; Capabilities
             </h2>
-            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">
-              {item.description}
-            </p>
+            <div
+              className="text-slate-600 text-sm leading-relaxed prose max-w-none"
+              dangerouslySetInnerHTML={{ __html: item.description || '' }}
+            />
           </div>
 
           {/* Categorized Features Breakdown */}
           {item.categorizedFeatures && item.categorizedFeatures.length > 0 && (
-            <div className="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl space-y-6">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <FiZap className="text-amber-400" /> Full Features Breakdown
+            <div className="bg-white border border-slate-200/80 p-8 rounded-3xl space-y-6 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <FiZap className="text-amber-500" /> Full Features Breakdown
               </h2>
 
-              <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {item.categorizedFeatures.map((cat, idx) => (
-                  <div key={idx} className="space-y-3">
-                    <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wider flex items-center gap-2 border-b border-slate-800 pb-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
-                      {cat.categoryName}
+                  <div key={idx} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-3">
+                    <h3 className="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center justify-between">
+                      <span>{cat.categoryName}</span>
+                      <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-md font-bold">
+                        {cat.items?.length || 0} Modules
+                      </span>
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-2">
                       {(cat.items || []).map((feat, fIdx) => (
-                        <div key={fIdx} className="flex items-center gap-2 text-xs font-medium text-slate-200 bg-slate-950/60 p-3 rounded-2xl border border-slate-800/80">
-                          <FiCheckCircle size={15} className="text-emerald-400 shrink-0" />
+                        <div key={fIdx} className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                          <FiCheck size={14} className="text-emerald-500 shrink-0" />
                           <span>{feat}</span>
                         </div>
                       ))}
@@ -240,21 +245,22 @@ export default function ShowcaseDetailPage() {
 
           {/* Modules List if present */}
           {item.modules && item.modules.length > 0 && (
-            <div className="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl space-y-6">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <FiPackage className="text-indigo-400" /> Included Modules
+            <div className="bg-white border border-slate-200/80 p-8 rounded-3xl space-y-6 shadow-sm">
+              <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <FiPackage className="text-indigo-600" /> Included Modules
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {item.modules.map((mod, idx) => (
-                  <div key={idx} className="p-4 bg-slate-950/60 rounded-2xl border border-slate-800 space-y-1">
-                    <h4 className="font-bold text-sm text-white">{mod.name}</h4>
-                    <p className="text-xs text-slate-400">{mod.description}</p>
+                  <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
+                    <h4 className="font-bold text-sm text-slate-900">{mod.name}</h4>
+                    <p className="text-xs text-slate-500">{mod.description}</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
         </div>
+
 
         {/* Right 4 Cols: Video Demo & Extra Info */}
         <div className="lg:col-span-4 space-y-6">
