@@ -3,441 +3,820 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown, FiArchive, FiCheck, FiLayers, FiTag, FiFilter, FiMessageSquare, FiStar, FiClock, FiCheckCircle, FiXCircle } from 'react-icons/fi'
-import FeatureTagInput from '../../components/ui/FeatureTagInput'
+import {
+  FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown,
+  FiCheck, FiLayers, FiTag, FiFilter, FiUpload, FiZap, FiKey,
+  FiDollarSign, FiMessageSquare, FiInfo, FiChevronRight, FiChevronLeft
+} from 'react-icons/fi'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
-import ReactQuill from 'react-quill'
-import 'react-quill/dist/quill.snow.css'
 import { mediaUrl } from '../../lib/media'
 
-const EMPTY_SERVICE = { title: '', description: '', features: [], priceText: '', priceType: 'one-time', imageUrl: '', active: true, order: 0, type: 'service', category: '' }
-const EMPTY_PKG = { name: '', price: '', currency: 'LKR', billingCycle: 'one-time', features: '', duration: '', discount: '', promotionLabel: '', isPopular: false }
-const BILLING = ['one-time', 'monthly', 'quarterly', 'yearly', 'lifetime', 'startup', 'custom']
-const PRICE_TYPES = ['one-time', 'monthly', 'yearly', 'lifetime', 'startup', 'custom']
+const EMPTY_SERVICE = {
+  title: '',
+  tagline: '',
+  description: '',
+  type: 'product',
+  category: 'ERP',
+  badge: 'ERP',
+  topHighlights: ['', '', '', ''],
+  categorizedFeatures: [
+    { categoryName: 'Core Module Features', items: [''] }
+  ],
+  demoUrl: '',
+  demoUsername: '',
+  demoPassword: '',
+  autoLoginUrl: '',
+  price: 0,
+  currency: 'LKR',
+  billingPeriod: 'monthly',
+  priceText: '',
+  contactActionType: 'whatsapp',
+  whatsappNumber: '',
+  imageUrl: '',
+  logoUrl: '',
+  active: true,
+  order: 0
+}
 
 export default function AdminServices() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState('service')
+  const [tab, setTab] = useState('product') // 'product' | 'service'
   const [filterCategory, setFilterCategory] = useState('All')
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState(EMPTY_SERVICE)
   const [imageFile, setImageFile] = useState(null)
   const [showModal, setShowModal] = useState(false)
-  const [expandedService, setExpandedService] = useState(null)
-  const [showPkgModal, setShowPkgModal] = useState(null) // serviceId
-  const [editingPkg, setEditingPkg] = useState(null)
-  const [pkgForm, setPkgForm] = useState(EMPTY_PKG)
+  const [step, setStep] = useState(1) // 1, 2, 3, 4
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-services'],
     queryFn: () => api.get('/content/services/admin').then(r => r.data),
   })
-  const allTabServices = (data?.services || []).filter(s => s.type === tab || (!s.type && tab === 'service'))
-  const categories = ['All', ...Array.from(new Set(allTabServices.map(s => s.category).filter(Boolean)))]
-  const allCategories = Array.from(new Set((data?.services || []).map(s => s.category).filter(Boolean)))
-  const services = filterCategory === 'All' ? allTabServices : allTabServices.filter(s => s.category === filterCategory)
 
-  const { data: fbData } = useQuery({
-    queryKey: ['admin-feedbacks'],
-    queryFn: () => api.get('/feedback').then(r => r.data),
-  })
-  const allFeedbacks = fbData?.feedbacks || []
+  const allTabServices = (data?.services || []).filter(s => s.type === tab || (!s.type && tab === 'product'))
+  const categories = ['All', ...Array.from(new Set(allTabServices.map(s => s.badge || s.category).filter(Boolean)))]
+  const services = filterCategory === 'All' ? allTabServices : allTabServices.filter(s => (s.badge || s.category) === filterCategory)
 
+  // Upload Logo helper
   const uploadImage = async () => {
-    if (!imageFile) return form.imageUrl || ''
-    const fd = new FormData(); fd.append('image', imageFile)
+    if (!imageFile) return form.logoUrl || form.imageUrl || ''
+    const fd = new FormData()
+    fd.append('image', imageFile)
     const { data: up } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
     return up.imageUrl
   }
 
   const createMut = useMutation({
     mutationFn: async (payload) => api.post('/content/services', payload).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Created'); setShowModal(false); setForm(EMPTY_SERVICE); setImageFile(null) },
-    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-services'] })
+      toast.success('Product/Service created successfully!')
+      closeModal()
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed to create item'),
   })
+
   const updateMut = useMutation({
     mutationFn: ({ id, payload }) => api.put(`/content/services/${id}`, payload).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Updated'); setShowModal(false); setEditing(null) },
-    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-services'] })
+      toast.success('Product/Service updated successfully!')
+      closeModal()
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed to update item'),
   })
+
   const deleteMut = useMutation({
     mutationFn: (id) => api.delete(`/content/services/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Deleted') },
   })
+
   const { requestDelete: requestDeleteService, DeletePasswordModal: serviceDeleteModal } = useDeleteWithPassword(deleteMut, {
-    title: 'Delete service',
-    message: 'Enter your admin password to delete this service.',
-  })
-  const updateFbStatusMut = useMutation({
-    mutationFn: ({ id, status }) => api.put(`/feedback/${id}/status`, { status }).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-feedbacks'] }); toast.success('Feedback status updated') },
-  })
-  const addPkgMut = useMutation({
-    mutationFn: ({ id, pkg }) => api.post(`/content/services/${id}/packages`, pkg).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Package added'); setShowPkgModal(null); setPkgForm(EMPTY_PKG) },
-    onError: e => toast.error(e.response?.data?.message || 'Failed'),
-  })
-  const updatePkgMut = useMutation({
-    mutationFn: ({ serviceId, pkgId, pkg }) => api.put(`/content/services/${serviceId}/packages/${pkgId}`, pkg).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Package updated'); setEditingPkg(null); setPkgForm(EMPTY_PKG) },
-    onError: e => toast.error(e.response?.data?.message || 'Failed'),
-  })
-  const deletePkgMut = useMutation({
-    mutationFn: ({ serviceId, pkgId }) => api.delete(`/content/services/${serviceId}/packages/${pkgId}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-services'] }); toast.success('Package deleted') },
+    title: 'Delete Item',
+    message: 'Enter your admin password to permanently delete this item.',
   })
 
-  const submit = async () => {
-    const imageUrl = await uploadImage()
-    const payload = { ...form, imageUrl, type: tab }
-    if (editing) updateMut.mutate({ id: editing._id, payload })
-    else createMut.mutate(payload)
+  const closeModal = () => {
+    setShowModal(false)
+    setEditing(null)
+    setForm(EMPTY_SERVICE)
+    setImageFile(null)
+    setStep(1)
   }
 
-  const openEdit = (s) => {
-    setEditing(s)
-    setForm({ title: s.title, description: s.description, features: Array.isArray(s.features) ? s.features : [], priceText: s.priceText || '', priceType: s.priceType || 'one-time', imageUrl: s.imageUrl, active: s.active, order: s.order || 0, type: s.type || 'service', category: s.category || '' })
+  const openAddModal = () => {
+    setEditing(null)
+    setForm({ ...EMPTY_SERVICE, type: tab })
     setImageFile(null)
+    setStep(1)
     setShowModal(true)
+  }
+
+  const openEditModal = (s) => {
+    setEditing(s)
+    setForm({
+      title: s.title || '',
+      tagline: s.tagline || '',
+      description: s.description || '',
+      type: s.type || 'product',
+      category: s.category || 'ERP',
+      badge: s.badge || s.category || 'ERP',
+      topHighlights: s.topHighlights && s.topHighlights.length === 4 ? s.topHighlights : [(s.topHighlights?.[0] || ''), (s.topHighlights?.[1] || ''), (s.topHighlights?.[2] || ''), (s.topHighlights?.[3] || '')],
+      categorizedFeatures: (s.categorizedFeatures && s.categorizedFeatures.length > 0)
+        ? s.categorizedFeatures
+        : [{ categoryName: 'Core Features', items: s.features || [''] }],
+      demoUrl: s.demoUrl || '',
+      demoUsername: s.demoUsername || '',
+      demoPassword: s.demoPassword || '',
+      autoLoginUrl: s.autoLoginUrl || '',
+      price: s.price || 0,
+      currency: s.currency || 'LKR',
+      billingPeriod: s.billingPeriod || 'monthly',
+      priceText: s.priceText || '',
+      contactActionType: s.contactActionType || 'whatsapp',
+      whatsappNumber: s.whatsappNumber || '',
+      imageUrl: s.imageUrl || '',
+      logoUrl: s.logoUrl || s.imageUrl || '',
+      active: s.active !== undefined ? s.active : true,
+      order: s.order || 0
+    })
+    setImageFile(null)
+    setStep(1)
+    setShowModal(true)
+  }
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) return toast.error('Please provide a Title in Step 1')
+    try {
+      const logoUrl = await uploadImage()
+      const payload = {
+        ...form,
+        logoUrl,
+        imageUrl: logoUrl,
+        topHighlights: form.topHighlights.filter(Boolean),
+        categorizedFeatures: form.categorizedFeatures.map(cat => ({
+          categoryName: cat.categoryName,
+          items: (cat.items || []).filter(Boolean)
+        })).filter(c => c.categoryName && c.items.length > 0)
+      }
+
+      if (editing) {
+        updateMut.mutate({ id: editing._id, payload })
+      } else {
+        createMut.mutate(payload)
+      }
+    } catch (err) {
+      toast.error('Image upload failed')
+    }
+  }
+
+  // Feature Builder Handlers
+  const addCategory = () => {
+    setForm(prev => ({
+      ...prev,
+      categorizedFeatures: [...prev.categorizedFeatures, { categoryName: '', items: [''] }]
+    }))
+  }
+
+  const removeCategory = (catIdx) => {
+    setForm(prev => ({
+      ...prev,
+      categorizedFeatures: prev.categorizedFeatures.filter((_, idx) => idx !== catIdx)
+    }))
+  }
+
+  const addFeatureItem = (catIdx) => {
+    setForm(prev => ({
+      ...prev,
+      categorizedFeatures: prev.categorizedFeatures.map((cat, idx) => {
+        if (idx !== catIdx) return cat
+        return { ...cat, items: [...cat.items, ''] }
+      })
+    }))
+  }
+
+  const updateFeatureItem = (catIdx, itemIdx, val) => {
+    setForm(prev => ({
+      ...prev,
+      categorizedFeatures: prev.categorizedFeatures.map((cat, idx) => {
+        if (idx !== catIdx) return cat
+        const newItems = [...cat.items]
+        newItems[itemIdx] = val
+        return { ...cat, items: newItems }
+      })
+    }))
+  }
+
+  const removeFeatureItem = (catIdx, itemIdx) => {
+    setForm(prev => ({
+      ...prev,
+      categorizedFeatures: prev.categorizedFeatures.map((cat, idx) => {
+        if (idx !== catIdx) return cat
+        return { ...cat, items: cat.items.filter((_, iIdx) => iIdx !== itemIdx) }
+      })
+    }))
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="page-header">
+      {serviceDeleteModal}
+
+      {/* Header */}
+      <div className="page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="page-title">Services & Products</h1>
-          <p className="page-subtitle">Manage public-facing services, products, and pricing packages.</p>
+          <h1 className="page-title">Products &amp; Software Services</h1>
+          <p className="page-subtitle">Configure ready-made ERP products, software services, 1-click demo logins, and pricing quotes.</p>
         </div>
-        <button onClick={() => { setEditing(null); setForm({ ...EMPTY_SERVICE, type: tab }); setShowModal(true) }} className="btn-primary gap-2">
-          <FiPlus size={14} /> Add {tab === 'service' ? 'Service' : 'Product'}
+        <button onClick={openAddModal} className="btn-primary gap-2">
+          <FiPlus size={16} /> Add New {tab === 'product' ? 'Product' : 'Service'}
         </button>
       </div>
 
-      {/* Tab toggle */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex gap-1 bg-slate-100 rounded-xl p-1">
-          {[{ val: 'service', label: '🛠 Services' }, { val: 'product', label: '📦 Products' }].map(t => (
-            <button key={t.val} onClick={() => { setTab(t.val); setFilterCategory('All') }}
-              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${tab === t.val ? 'bg-white shadow text-secondary' : 'text-slate-500 hover:text-slate-700'}`}>
-              {t.label}
-            </button>
-          ))}
+      {/* Type Toggle & Filters */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <button
+            onClick={() => { setTab('product'); setFilterCategory('All') }}
+            className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'product' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            📦 Software Products (ERP / SaaS)
+          </button>
+          <button
+            onClick={() => { setTab('service'); setFilterCategory('All') }}
+            className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'service' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+          >
+            🛠 Software Services
+          </button>
         </div>
 
-        {/* Category filter chips */}
         {categories.length > 1 && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto">
             <FiFilter size={13} className="text-slate-400" />
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setFilterCategory(cat)}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
                   filterCategory === cat
-                    ? 'bg-primary text-white border-primary shadow-sm'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-primary/40 hover:text-primary'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                {cat !== 'All' && <FiTag size={10} />}
                 {cat}
-                {cat !== 'All' && (
-                  <span className={`ml-0.5 px-1 rounded-full text-[10px] font-bold ${filterCategory === cat ? 'bg-white/20' : 'bg-slate-100'}`}>
-                    {allTabServices.filter(s => s.category === cat).length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {error && (
-        <div className="card card-body border border-red-200 bg-red-50">
-          <p className="text-red-700 font-semibold">Failed to load. <button onClick={() => refetch()} className="underline ml-1">Retry</button></p>
-        </div>
-      )}
-
-
+      {/* Items List */}
       {isLoading ? (
-        <div className="flex justify-center py-12"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>
+        <div className="flex justify-center py-16">
+          <span className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
       ) : services.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-2xl border border-slate-200">
-          <FiLayers size={40} className="mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500">
-            {filterCategory === 'All' ? `No ${tab}s yet. Add your first one.` : `No ${tab}s found in category "${filterCategory}".`}
-          </p>
-          {filterCategory === 'All' && (
-            <button onClick={() => { setEditing(null); setForm({ ...EMPTY_SERVICE, type: tab }); setShowModal(true) }} className="btn-primary mt-4">Add {tab === 'service' ? 'Service' : 'Product'}</button>
-          )}
+        <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 space-y-3">
+          <FiLayers size={40} className="mx-auto text-slate-300" />
+          <h3 className="font-bold text-slate-700">No {tab}s Found</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">Click below to create your first software item with demo login credentials and feature highlights.</p>
+          <button onClick={openAddModal} className="btn-primary mt-2">
+            <FiPlus size={14} /> Add {tab === 'product' ? 'Product' : 'Service'}
+          </button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {services.map(s => (
-            <motion.div key={s._id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="card border border-slate-200 overflow-hidden">
-              {/* Service Header */}
-              <div className="p-4 flex items-start gap-4">
-                {s.imageUrl && (
-                  <img src={mediaUrl(s.imageUrl)} alt={s.title} className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-200 bg-slate-50" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-bold text-primary">{s.title}</h3>
-                    {s.category && <span className="badge bg-slate-100 text-slate-600 border border-slate-200 text-[10px]">{s.category}</span>}
-                    <span className={`badge ${s.active ? 'badge-green' : 'badge-gray'} text-[10px]`}>{s.active ? 'Active' : 'Inactive'}</span>
-                    {s.packages?.length > 0 && <span className="badge badge-blue text-[10px]">{s.packages.length} packages</span>}
-                  </div>
-                  <div className="text-sm text-slate-500 line-clamp-2 mb-1" dangerouslySetInnerHTML={{ __html: s.description }} />
-                  {(s.priceText || s.priceType !== 'one-time') && (
-                    <p className="text-xs font-semibold text-secondary mt-1">
-                      {s.priceText} {s.priceType && s.priceType !== 'one-time' ? <span className="opacity-75 font-normal ml-1 capitalize">/ {s.priceType.replace('-', ' ')}</span> : ''}
-                    </p>
-                  )}
-                  {s.features?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {s.features.slice(0, 4).map((f, i) => (
-                        <span key={i} className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{f}</span>
-                      ))}
-                      {s.features.length > 4 && <span className="text-[10px] text-slate-400">+{s.features.length - 4} more</span>}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {services.map(item => (
+            <div key={item._id} className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-bold uppercase rounded-full border border-blue-100">
+                    {item.badge || item.category || item.type}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                    {item.active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {item.logoUrl || item.imageUrl ? (
+                    <img src={mediaUrl(item.logoUrl || item.imageUrl)} alt={item.title} className="w-12 h-12 rounded-xl object-contain border border-slate-100 bg-slate-50 p-1" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                      <FiPackage size={20} />
                     </div>
                   )}
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base line-clamp-1">{item.title}</h3>
+                    <p className="text-xs text-slate-500 font-mono font-bold">
+                      {item.priceText || (item.price ? `${item.currency} ${item.price.toLocaleString()}` : 'Custom')}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={() => openEdit(s)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-500"><FiEdit2 size={14} /></button>
-                  <button onClick={() => { setShowPkgModal(s._id); setPkgForm(EMPTY_PKG); setEditingPkg(null) }} className="p-2 hover:bg-blue-50 rounded-xl text-blue-500" title="Manage Packages"><FiPackage size={14} /></button>
-                  <button type="button" onClick={() => requestDeleteService(s._id)} className="p-2 hover:bg-red-50 rounded-xl text-red-500"><FiTrash2 size={14} /></button>
-                  <button onClick={() => setExpandedService(expandedService === s._id ? null : s._id)} className="p-2 hover:bg-slate-100 rounded-xl text-slate-400">
-                    <FiChevronDown size={14} className={`transition-transform ${expandedService === s._id ? 'rotate-180' : ''}`} />
+
+                <p className="text-xs text-slate-600 line-clamp-2">{item.tagline || item.description}</p>
+
+                {/* Highlights */}
+                {item.topHighlights && item.topHighlights.length > 0 && (
+                  <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Top 4 Highlights</span>
+                    {item.topHighlights.slice(0, 4).map((h, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5 text-[11px] text-slate-700 font-medium">
+                        <FiCheck className="text-emerald-500 shrink-0" size={12} />
+                        <span className="truncate">{h}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {item.demoUrl ? '🔗 Demo Set' : 'No Demo'}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => openEditModal(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Edit">
+                    <FiEdit2 size={15} />
+                  </button>
+                  <button onClick={() => requestDeleteService(item._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Delete">
+                    <FiTrash2 size={15} />
                   </button>
                 </div>
               </div>
-
-              {/* Packages Panel */}
-              <AnimatePresence>
-                {expandedService === s._id && (
-                  <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden border-t border-slate-100">
-                    {s.packages?.length > 0 && (
-                      <div className="p-4 bg-slate-50">
-                        <p className="text-xs font-bold text-slate-500 uppercase mb-3">Pricing Packages</p>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {s.packages.map(pkg => (
-                            <div key={pkg._id} className={`bg-white rounded-xl border p-3 ${pkg.isPopular ? 'border-secondary shadow-sm' : 'border-slate-200'}`}>
-                              {pkg.isPopular && <span className="text-[10px] bg-secondary text-white px-2 py-0.5 rounded-full font-bold mb-2 inline-block">{pkg.promotionLabel || 'POPULAR'}</span>}
-                              <p className="font-bold text-primary">{pkg.name}</p>
-                              <p className="text-xl font-black text-secondary">{pkg.currency} {Number(pkg.price).toLocaleString()}</p>
-                              <p className="text-xs text-slate-400 capitalize">{pkg.billingCycle}{pkg.duration ? ` · ${pkg.duration}` : ''}</p>
-                              {pkg.discount > 0 && <p className="text-xs text-emerald-600 font-semibold mt-1">{pkg.discount}% discount</p>}
-                              <ul className="mt-2 space-y-1">
-                                {(pkg.features || []).slice(0, 3).map((f, i) => (
-                                  <li key={i} className="flex items-center gap-1.5 text-xs text-slate-600"><FiCheck size={10} className="text-emerald-500" />{f}</li>
-                                ))}
-                                {pkg.features?.length > 3 && <li className="text-xs text-slate-400">+{pkg.features.length - 3} more</li>}
-                              </ul>
-                              <div className="flex gap-1 mt-3 pt-2 border-t border-slate-100">
-                                <button onClick={() => { setEditingPkg(pkg); setPkgForm({ ...pkg, features: (pkg.features || []).join('\n') }); setShowPkgModal(s._id) }}
-                                  className="btn-ghost btn-sm text-xs"><FiEdit2 size={11} /> Edit</button>
-                                <button onClick={() => deletePkgMut.mutate({ serviceId: s._id, pkgId: pkg._id })}
-                                  className="btn-ghost btn-sm text-xs text-red-500"><FiTrash2 size={11} /></button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Feedbacks Panel */}
-                    <div className="p-4 bg-white border-t border-slate-100">
-                      <p className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2"><FiMessageSquare /> Client Feedbacks</p>
-                      {(() => {
-                        const sFeedbacks = allFeedbacks.filter(fb => fb.service?._id === s._id || fb.service === s._id)
-                        if (sFeedbacks.length === 0) return <p className="text-sm text-slate-400">No feedbacks for this item yet.</p>
-                        return (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            {sFeedbacks.map(fb => (
-                              <div key={fb._id} className="p-3 border border-slate-100 rounded-xl bg-slate-50 relative group">
-                                <div className="flex justify-between items-start mb-2">
-                                  <div>
-                                    <p className="font-bold text-sm text-primary">{fb.name || fb.client?.name}</p>
-                                    <div className="flex text-amber-400 mt-0.5">
-                                      {[...Array(5)].map((_, i) => <FiStar key={i} size={12} fill={i < fb.rating ? 'currentColor' : 'transparent'} className={i >= fb.rating ? 'text-slate-300' : ''} />)}
-                                    </div>
-                                  </div>
-                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${fb.status === 'approved' ? 'bg-green-100 text-green-700' : fb.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                    {fb.status}
-                                  </span>
-                                </div>
-                                <p className="text-sm text-slate-600 line-clamp-2">{fb.message}</p>
-                                <div className="mt-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  {fb.status !== 'approved' && (
-                                    <button onClick={() => updateFbStatusMut.mutate({ id: fb._id, status: 'approved' })} className="text-xs font-bold text-green-600 hover:bg-green-50 px-2 py-1 rounded border border-green-200">Approve</button>
-                                  )}
-                                  {fb.status !== 'rejected' && (
-                                    <button onClick={() => updateFbStatusMut.mutate({ id: fb._id, status: 'rejected' })} className="text-xs font-bold text-red-600 hover:bg-red-50 px-2 py-1 rounded border border-red-200">Reject</button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Service Add/Edit Modal */}
+      {/* ── 4-STEP ADMIN CREATION / EDITING WIZARD MODAL ───────────────────────── */}
       <AnimatePresence>
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-xl shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="p-5 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
-                <h2 className="font-bold text-primary text-lg">{editing ? 'Edit' : 'Add'} {tab === 'service' ? 'Service' : 'Product'}</h2>
-                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-200 rounded-xl"><FiX /></button>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto border border-slate-100"
+            >
+              {/* Wizard Modal Header */}
+              <div className="p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
+                <div>
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block">
+                    {editing ? 'Edit Item Configuration' : 'Create Showcase Item'}
+                  </span>
+                  <h2 className="text-xl font-bold text-white">
+                    {form.title || (tab === 'product' ? 'New Software Product' : 'New Software Service')}
+                  </h2>
+                </div>
+                <button onClick={closeModal} className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-all">
+                  <FiX size={20} />
+                </button>
               </div>
-              <div className="p-5 overflow-y-auto space-y-4">
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="form-label">Title</label>
-                    <input className="form-input" placeholder="Service name" value={form.title} onChange={e => setForm(s => ({ ...s, title: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="form-label">Category</label>
-                    <input list="category-options" className="form-input" placeholder="e.g. Web, Mobile..." value={form.category} onChange={e => setForm(s => ({ ...s, category: e.target.value }))} />
-                    <datalist id="category-options">
-                      {allCategories.map(c => <option key={c} value={c} />)}
-                    </datalist>
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Description</label>
-                  <ReactQuill theme="snow" value={form.description} onChange={val => setForm(s => ({ ...s, description: val }))} className="bg-white rounded-xl" />
-                </div>
-                <div>
-                  <label className="form-label mb-2 flex items-center justify-between">
-                    <span>Service features</span>
-                    <button type="button" onClick={() => setForm(s => ({ ...s, features: [...s.features, ''] }))} className="text-xs text-secondary hover:underline flex items-center gap-1"><FiPlus/> Add feature line</button>
-                  </label>
-                  <div className="space-y-2">
-                    {form.features.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2 group">
-                        <div className="bg-emerald-50 p-2 rounded-lg text-emerald-500 shrink-0"><FiCheck size={14}/></div>
-                        <input className="form-input flex-1" value={f} onChange={e => { const nf = [...form.features]; nf[i] = e.target.value; setForm(s => ({ ...s, features: nf })) }} placeholder="Enter feature text..." />
-                        <button type="button" onClick={() => setForm(s => ({ ...s, features: s.features.filter((_, idx) => idx !== i) }))} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><FiTrash2 size={16}/></button>
+
+              {/* 4 Steps Navigation Indicator */}
+              <div className="bg-slate-800/90 text-white px-6 py-3 border-b border-slate-700 flex items-center justify-between text-xs font-semibold overflow-x-auto">
+                {[
+                  { num: 1, label: 'Basic Info & Logo' },
+                  { num: 2, label: 'Feature Management' },
+                  { num: 3, label: 'Demo & Auto-Login' },
+                  { num: 4, label: 'Pricing & Quote Action' }
+                ].map(st => (
+                  <button
+                    key={st.num}
+                    onClick={() => setStep(st.num)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all whitespace-nowrap ${
+                      step === st.num ? 'bg-blue-600 text-white font-bold shadow-md' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-extrabold ${step === st.num ? 'bg-white text-blue-600' : 'bg-slate-700 text-slate-300'}`}>
+                      {st.num}
+                    </span>
+                    <span>{st.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Wizard Step Body */}
+              <div className="p-6 overflow-y-auto max-h-[65vh] custom-scrollbar space-y-5">
+                {/* ── STEP 1: BASIC INFORMATION ────────────────────────────────── */}
+                {step === 1 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                      <span className="text-xs font-bold text-slate-700">Category Selection:</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, type: 'product' })}
+                          className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${form.type === 'product' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'}`}
+                        >
+                          📦 Product (SaaS / ERP)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm({ ...form, type: 'service' })}
+                          className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${form.type === 'service' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'}`}
+                        >
+                          🛠 Software Service
+                        </button>
                       </div>
-                    ))}
-                    {form.features.length === 0 && <p className="text-sm text-slate-400 italic text-center py-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl">No features added. Click "Add feature line" to add one.</p>}
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="form-label">Price Text</label>
-                    <div className="flex gap-2">
-                      <input className="form-input flex-1" placeholder="e.g. From LKR 100,000" value={form.priceText} onChange={e => setForm(s => ({ ...s, priceText: e.target.value }))} />
-                      <select className="form-select w-32" value={form.priceType} onChange={e => setForm(s => ({ ...s, priceType: e.target.value }))}>
-                        {PRICE_TYPES.map(pt => <option key={pt} value={pt} className="capitalize">{pt.replace('-', ' ')}</option>)}
-                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Item Title *</label>
+                        <input
+                          type="text"
+                          required
+                          value={form.title}
+                          onChange={e => setForm({ ...form, title: e.target.value })}
+                          placeholder="e.g. Gym Management ERP System"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Badge Name</label>
+                        <input
+                          type="text"
+                          value={form.badge}
+                          onChange={e => setForm({ ...form, badge: e.target.value, category: e.target.value })}
+                          placeholder="e.g. ERP, SaaS, Mobile App, Custom Web"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Short Summary / Tagline (Front Card)</label>
+                      <input
+                        type="text"
+                        value={form.tagline}
+                        onChange={e => setForm({ ...form, tagline: e.target.value })}
+                        placeholder="Complete ERP system for gym membership, access control, and trainer payroll."
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Detailed Description (Detail Page)</label>
+                      <textarea
+                        rows={4}
+                        value={form.description}
+                        onChange={e => setForm({ ...form, description: e.target.value })}
+                        placeholder="Full overview of the system capabilities, modules, and architecture..."
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium resize-none focus:bg-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Logo Drag-and-Drop Area */}
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Logo / Image Upload (Drag and Drop)</label>
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+                        onDragLeave={() => setIsDragOver(false)}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setIsDragOver(false)
+                          if (e.dataTransfer.files?.[0]) setImageFile(e.dataTransfer.files[0])
+                        }}
+                        className={`p-6 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-center cursor-pointer transition-all ${
+                          isDragOver ? 'border-blue-500 bg-blue-50/50' : 'border-slate-300 bg-slate-50 hover:bg-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={e => e.target.files?.[0] && setImageFile(e.target.files[0])}
+                          className="hidden"
+                          id="logo-file-input"
+                        />
+                        <label htmlFor="logo-file-input" className="cursor-pointer flex flex-col items-center gap-2">
+                          <FiUpload size={24} className="text-blue-500" />
+                          <span className="text-xs font-bold text-slate-700">
+                            {imageFile ? imageFile.name : (form.logoUrl ? 'Click or Drag to Replace Logo' : 'Drag & Drop Logo Image here or Click to Browse')}
+                          </span>
+                          <span className="text-[10px] text-slate-400">PNG, JPG, SVG up to 5MB</span>
+                        </label>
+                      </div>
+
+                      {(imageFile || form.logoUrl) && (
+                        <div className="mt-3 flex items-center gap-3 p-2 bg-slate-100 rounded-xl border border-slate-200 w-fit">
+                          <img
+                            src={imageFile ? URL.createObjectURL(imageFile) : mediaUrl(form.logoUrl)}
+                            alt="Logo preview"
+                            className="w-10 h-10 object-contain rounded-lg bg-white p-1"
+                          />
+                          <span className="text-xs font-semibold text-slate-700">Logo Preview</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div>
-                    <label className="form-label">Order</label>
-                    <input type="number" className="form-input" value={form.order} onChange={e => setForm(s => ({ ...s, order: e.target.value }))} />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Image</label>
-                  <input type="file" accept="image/*" className="form-input" onChange={e => setImageFile(e.target.files?.[0] || null)} />
-                  {form.imageUrl && !imageFile && <img src={mediaUrl(form.imageUrl)} className="mt-2 w-24 h-24 object-cover rounded-xl border border-slate-200" alt="" />}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="active-chk" className="w-4 h-4" checked={form.active} onChange={e => setForm(s => ({ ...s, active: e.target.checked }))} />
-                  <label htmlFor="active-chk" className="text-sm font-medium text-slate-700">Active (visible on website)</label>
-                </div>
-              </div>
-              <div className="p-5 border-t bg-slate-50 rounded-b-2xl flex gap-3">
-                <button onClick={submit} disabled={!form.title || createMut.isPending || updateMut.isPending} className="btn-primary flex-1 justify-center">
-                  {createMut.isPending || updateMut.isPending ? <span className="spinner" /> : editing ? 'Save Changes' : 'Create'}
-                </button>
-                <button onClick={() => setShowModal(false)} className="btn-ghost px-4">Cancel</button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                )}
 
-      {/* Package Modal */}
-      <AnimatePresence>
-        {showPkgModal && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="p-5 border-b flex justify-between items-center bg-slate-50 rounded-t-2xl">
-                <h2 className="font-bold text-primary text-lg">{editingPkg ? 'Edit Package' : 'Add Package'}</h2>
-                <button onClick={() => { setShowPkgModal(null); setEditingPkg(null); setPkgForm(EMPTY_PKG) }} className="p-2 hover:bg-slate-200 rounded-xl"><FiX /></button>
+                {/* ── STEP 2: FEATURE MANAGEMENT ───────────────────────────────── */}
+                {step === 2 && (
+                  <div className="space-y-6">
+                    {/* Top 4 Front Card Highlights */}
+                    <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-100 space-y-3">
+                      <span className="text-xs font-bold text-blue-700 uppercase tracking-wider block">
+                        Front Card Primary Highlights (Top 4 Features with Green Checkmarks)
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[0, 1, 2, 3].map(idx => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
+                            <input
+                              type="text"
+                              value={form.topHighlights[idx] || ''}
+                              onChange={e => {
+                                const newH = [...form.topHighlights]
+                                newH[idx] = e.target.value
+                                setForm({ ...form, topHighlights: newH })
+                              }}
+                              placeholder={`Highlight feature ${idx + 1}`}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:border-blue-500 focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Advanced Categorized Features Breakdown */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          Categorized Features Breakdown (Modal &amp; Detail Page)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={addCategory}
+                          className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl border border-blue-200 flex items-center gap-1 transition-all"
+                        >
+                          <FiPlus size={13} /> Add Feature Category
+                        </button>
+                      </div>
+
+                      {form.categorizedFeatures.map((cat, catIdx) => (
+                        <div key={catIdx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <input
+                              type="text"
+                              value={cat.categoryName}
+                              onChange={e => {
+                                const newCats = [...form.categorizedFeatures]
+                                newCats[catIdx].categoryName = e.target.value
+                                setForm({ ...form, categorizedFeatures: newCats })
+                              }}
+                              placeholder="Category Name (e.g. Attendance System)"
+                              className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:border-blue-500 focus:outline-none"
+                            />
+                            {form.categorizedFeatures.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeCategory(catIdx)}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                              >
+                                <FiTrash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="space-y-2 pl-2">
+                            {cat.items.map((itemVal, itemIdx) => (
+                              <div key={itemIdx} className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                <input
+                                  type="text"
+                                  value={itemVal}
+                                  onChange={e => updateFeatureItem(catIdx, itemIdx, e.target.value)}
+                                  placeholder="Feature item (e.g. QR Code Scanner Support)"
+                                  className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:border-blue-500 focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeFeatureItem(catIdx, itemIdx)}
+                                  className="p-1.5 text-slate-400 hover:text-red-500"
+                                >
+                                  <FiX size={14} />
+                                </button>
+                              </div>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => addFeatureItem(catIdx)}
+                              className="mt-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                            >
+                              <FiPlus size={12} /> Add Feature to {cat.categoryName || 'Category'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 3: DEMO & AUTO-LOGIN CONFIG ───────────────────────────── */}
+                {step === 3 && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 text-amber-900 space-y-1">
+                      <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                        <FiKey size={14} className="text-amber-600" /> 1-Click Auto Login Configuration
+                      </span>
+                      <p className="text-xs text-amber-800">
+                        When a customer clicks "Auto Login" on the front card, they will be automatically redirected into the live demo system without having to manually type credentials.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Live Demo System URL</label>
+                      <input
+                        type="url"
+                        value={form.demoUrl}
+                        onChange={e => setForm({ ...form, demoUrl: e.target.value })}
+                        placeholder="https://demo.gymsystem.com"
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Demo Username / Email</label>
+                        <input
+                          type="text"
+                          value={form.demoUsername}
+                          onChange={e => setForm({ ...form, demoUsername: e.target.value })}
+                          placeholder="admin@demo.com"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Demo Password</label>
+                        <input
+                          type="text"
+                          value={form.demoPassword}
+                          onChange={e => setForm({ ...form, demoPassword: e.target.value })}
+                          placeholder="demo123"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Custom Single-Click Auto Login Hash/URL (Optional)</label>
+                      <input
+                        type="url"
+                        value={form.autoLoginUrl}
+                        onChange={e => setForm({ ...form, autoLoginUrl: e.target.value })}
+                        placeholder="https://demo.gymsystem.com/#autologin=true&user=admin&pass=demo123"
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 block">Leave empty to automatically append credentials to the Live Demo URL.</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 4: PRICING & LEAD GENERATION ──────────────────────────── */}
+                {step === 4 && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Price Amount</label>
+                        <input
+                          type="number"
+                          value={form.price}
+                          onChange={e => setForm({ ...form, price: Number(e.target.value) })}
+                          placeholder="35000"
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Currency</label>
+                        <select
+                          value={form.currency}
+                          onChange={e => setForm({ ...form, currency: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="LKR">LKR (Sri Lankan Rupee)</option>
+                          <option value="USD">USD (US Dollar)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">Billing Period</label>
+                        <select
+                          value={form.billingPeriod}
+                          onChange={e => setForm({ ...form, billingPeriod: e.target.value, priceType: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="yearly">Yearly</option>
+                          <option value="one-time">One-time</option>
+                          <option value="lifetime">Lifetime</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">Custom Price Text (Overrules Amount)</label>
+                      <input
+                        type="text"
+                        value={form.priceText}
+                        onChange={e => setForm({ ...form, priceText: e.target.value })}
+                        placeholder="From LKR 35,000 / one-time"
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-3">
+                      <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider block">
+                        "Get Quote" Button Contact Action
+                      </span>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="contactAction"
+                            value="whatsapp"
+                            checked={form.contactActionType === 'whatsapp'}
+                            onChange={() => setForm({ ...form, contactActionType: 'whatsapp' })}
+                          />
+                          Direct WhatsApp Chat
+                        </label>
+                        <label className="flex items-center gap-2 text-xs font-semibold text-slate-800 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="contactAction"
+                            value="form"
+                            checked={form.contactActionType === 'form'}
+                            onChange={() => setForm({ ...form, contactActionType: 'form' })}
+                          />
+                          Quote Request Lead Form Modal
+                        </label>
+                      </div>
+
+                      {form.contactActionType === 'whatsapp' && (
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 block mb-1">WhatsApp Mobile Number</label>
+                          <input
+                            type="text"
+                            value={form.whatsappNumber}
+                            onChange={e => setForm({ ...form, whatsappNumber: e.target.value })}
+                            placeholder="94770000000"
+                            className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-medium focus:border-emerald-500 focus:outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="p-5 overflow-y-auto space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="form-label">Package Name</label>
-                    <input className="form-input" placeholder="e.g. Basic, Pro, Enterprise" value={pkgForm.name} onChange={e => setPkgForm(s => ({ ...s, name: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="form-label">Billing Cycle</label>
-                    <select className="form-select" value={pkgForm.billingCycle} onChange={e => setPkgForm(s => ({ ...s, billingCycle: e.target.value }))}>
-                      {BILLING.map(b => <option key={b} value={b} className="capitalize">{b}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="form-label">Price (LKR)</label>
-                    <input type="number" className="form-input" placeholder="0" value={pkgForm.price} onChange={e => setPkgForm(s => ({ ...s, price: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="form-label">Discount %</label>
-                    <input type="number" className="form-input" placeholder="0" value={pkgForm.discount} onChange={e => setPkgForm(s => ({ ...s, discount: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="form-label">Duration</label>
-                    <input className="form-input" placeholder="e.g. 3 months" value={pkgForm.duration} onChange={e => setPkgForm(s => ({ ...s, duration: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="form-label">Promotion Label</label>
-                    <input className="form-input" placeholder="e.g. BEST VALUE" value={pkgForm.promotionLabel} onChange={e => setPkgForm(s => ({ ...s, promotionLabel: e.target.value }))} />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Features (one per line)</label>
-                  <textarea className="form-input" rows="4" placeholder="Feature 1&#10;Feature 2&#10;Feature 3" value={pkgForm.features} onChange={e => setPkgForm(s => ({ ...s, features: e.target.value }))} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="popular-chk" className="w-4 h-4" checked={pkgForm.isPopular} onChange={e => setPkgForm(s => ({ ...s, isPopular: e.target.checked }))} />
-                  <label htmlFor="popular-chk" className="text-sm font-medium text-slate-700">Mark as Popular / Recommended</label>
-                </div>
-              </div>
-              <div className="p-5 border-t bg-slate-50 rounded-b-2xl">
+
+              {/* Wizard Footer Controls */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
                 <button
-                  onClick={() => {
-                    const payload = { ...pkgForm, features: typeof pkgForm.features === 'string' ? pkgForm.features.split('\n').filter(Boolean) : pkgForm.features }
-                    if (editingPkg) updatePkgMut.mutate({ serviceId: showPkgModal, pkgId: editingPkg._id, pkg: payload })
-                    else addPkgMut.mutate({ id: showPkgModal, pkg: payload })
-                  }}
-                  disabled={!pkgForm.name || addPkgMut.isPending || updatePkgMut.isPending}
-                  className="btn-primary w-full justify-center">
-                  {addPkgMut.isPending || updatePkgMut.isPending ? <span className="spinner" /> : editingPkg ? 'Save Package' : 'Add Package'}
+                  type="button"
+                  disabled={step === 1}
+                  onClick={() => setStep(s => Math.max(1, s - 1))}
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 text-xs font-bold rounded-xl disabled:opacity-40 flex items-center gap-1"
+                >
+                  <FiChevronLeft size={16} /> Back
                 </button>
+
+                <div className="flex items-center gap-2">
+                  {step < 4 ? (
+                    <button
+                      type="button"
+                      onClick={() => setStep(s => Math.min(4, s + 1))}
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1"
+                    >
+                      Next Step <FiChevronRight size={16} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={createMut.isPending || updateMut.isPending}
+                      className="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+                    >
+                      {(createMut.isPending || updateMut.isPending) ? (
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <FiCheck size={16} /> Save &amp; Publish Item
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-      {serviceDeleteModal}
     </div>
   )
 }

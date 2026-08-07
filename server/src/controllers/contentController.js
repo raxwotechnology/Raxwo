@@ -19,13 +19,28 @@ exports.getPublicServices = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+exports.getServiceById = async (req, res, next) => {
+  try {
+    const service = await Service.findById(req.params.id);
+    if (!service) return res.status(404).json({ success: false, message: 'Item not found' });
+    res.json({ success: true, service });
+  } catch (err) { next(err); }
+};
+
 exports.createService = async (req, res, next) => {
   try {
+    const body = req.body;
     const payload = {
-      ...req.body,
-      features: Array.isArray(req.body.features)
-        ? req.body.features
-        : String(req.body.features || '').split(',').map((s) => s.trim()).filter(Boolean),
+      ...body,
+      topHighlights: Array.isArray(body.topHighlights)
+        ? body.topHighlights
+        : String(body.topHighlights || '').split('\n').map(s => s.trim()).filter(Boolean),
+      features: Array.isArray(body.features)
+        ? body.features
+        : String(body.features || '').split(',').map((s) => s.trim()).filter(Boolean),
+      categorizedFeatures: Array.isArray(body.categorizedFeatures) ? body.categorizedFeatures : [],
+      modules: Array.isArray(body.modules) ? body.modules : [],
+      screenshots: Array.isArray(body.screenshots) ? body.screenshots : [],
     };
     const service = await Service.create(payload);
     res.status(201).json({ success: true, service });
@@ -34,16 +49,22 @@ exports.createService = async (req, res, next) => {
 
 exports.updateService = async (req, res, next) => {
   try {
+    const body = req.body;
     const payload = {
-      ...req.body,
-      ...(req.body.features !== undefined ? {
-        features: Array.isArray(req.body.features)
-          ? req.body.features
-          : String(req.body.features || '').split(',').map((s) => s.trim()).filter(Boolean),
+      ...body,
+      ...(body.topHighlights !== undefined ? {
+        topHighlights: Array.isArray(body.topHighlights)
+          ? body.topHighlights
+          : String(body.topHighlights || '').split('\n').map(s => s.trim()).filter(Boolean)
+      } : {}),
+      ...(body.features !== undefined ? {
+        features: Array.isArray(body.features)
+          ? body.features
+          : String(body.features || '').split(',').map((s) => s.trim()).filter(Boolean),
       } : {}),
     };
     const service = await Service.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
-    if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
+    if (!service) return res.status(404).json({ success: false, message: 'Item not found' });
     res.json({ success: true, service });
   } catch (err) { next(err); }
 };
@@ -51,7 +72,7 @@ exports.updateService = async (req, res, next) => {
 exports.archiveService = async (req, res, next) => {
   try {
     const service = await Service.findByIdAndUpdate(req.params.id, { archived: true, active: false }, { new: true });
-    if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
+    if (!service) return res.status(404).json({ success: false, message: 'Item not found' });
     res.json({ success: true, service });
   } catch (err) { next(err); }
 };
@@ -59,10 +80,11 @@ exports.archiveService = async (req, res, next) => {
 exports.deleteService = async (req, res, next) => {
   try {
     const service = await Service.findByIdAndDelete(req.params.id);
-    if (!service) return res.status(404).json({ success: false, message: 'Service not found' });
-    res.json({ success: true, message: 'Service deleted' });
+    if (!service) return res.status(404).json({ success: false, message: 'Item not found' });
+    res.json({ success: true, message: 'Item deleted' });
   } catch (err) { next(err); }
 };
+
 
 // ── PACKAGE MANAGEMENT ────────────────────────────────────────────────────────
 

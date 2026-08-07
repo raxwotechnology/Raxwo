@@ -16,12 +16,14 @@ import WhatsAppButton from './components/ui/WhatsAppButton'
 import Home from './pages/public/Home'
 import Services from './pages/public/Services'
 import SoftwareProducts from './pages/public/SoftwareProducts'
+import ShowcaseDetailPage from './pages/public/ShowcaseDetailPage'
 import About from './pages/public/About'
 import Portfolio from './pages/public/Portfolio'
 import Careers from './pages/public/Careers'
 import Contact from './pages/public/Contact'
 import JobDetail from './pages/public/JobDetail'
 import Apply from './pages/public/Apply'
+
 
 // Auth
 import Login from './pages/auth/Login'
@@ -179,8 +181,12 @@ export default function App() {
       {/* Public Website */}
       <Route element={<PublicLayout />}>
         <Route path="/services" element={<Services />} />
+        <Route path="/services/:id" element={<ShowcaseDetailPage />} />
         <Route path="/software-products" element={<SoftwareProducts />} />
+        <Route path="/software-products/:id" element={<ShowcaseDetailPage />} />
+        <Route path="/showcase/:id" element={<ShowcaseDetailPage />} />
         <Route path="/about" element={<About />} />
+
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/careers" element={<Careers />} />
         <Route path="/careers/:id" element={<JobDetail />} />
