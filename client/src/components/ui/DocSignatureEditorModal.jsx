@@ -26,25 +26,39 @@ async function ensurePdfJs() {
   })
 }
 
-// ── docx-preview Lazy Loader ─────────────────────────────────────────────────
+// ── docx-preview Lazy Loader (requires JSZip first) ─────────────────────────
+async function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`)
+    if (existing) { resolve(); return }
+    const s = document.createElement('script')
+    s.src = src
+    s.onload = resolve
+    s.onerror = () => reject(new Error(`Failed to load: ${src}`))
+    document.head.appendChild(s)
+  })
+}
+
 async function ensureDocxPreview() {
   if (window.docx) return
-  // load the CSS first
+  // 1. Load CSS
   if (!document.querySelector('#docx-preview-css')) {
     const link = document.createElement('link')
     link.id = 'docx-preview-css'
     link.rel = 'stylesheet'
-    link.href = 'https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.css'
+    link.href = 'https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.css'
     document.head.appendChild(link)
   }
-  await new Promise((resolve, reject) => {
-    const s = document.createElement('script')
-    s.src = 'https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js'
-    s.onload = resolve
-    s.onerror = () => reject(new Error('docx-preview load failed'))
-    document.head.appendChild(s)
-  })
+  // 2. Load JSZip first (docx-preview depends on it for loadAsync)
+  if (!window.JSZip) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js')
+  }
+  // 3. Load docx-preview
+  await loadScript('https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.js')
+  // docx-preview exposes itself as window.docx
+  if (!window.docx) throw new Error('docx-preview did not initialize')
 }
+
 
 // ── Render PDF → Array of HTMLImageElement (one per page) ──────────────────
 async function renderPdfToPageImages(source) {
@@ -96,13 +110,19 @@ async function renderPdfToPageImages(source) {
 async function fetchArrayBuffer(pathUrl, absUrl) {
   try {
     const res = await api.get(pathUrl || absUrl, { responseType: 'arraybuffer' })
-    return res.data
+    // axios with responseType:'arraybuffer' returns an ArrayBuffer
+    const data = res.data
+    // Ensure it's a real ArrayBuffer (not Uint8Array/Buffer) for docx-preview
+    if (data instanceof ArrayBuffer) return data
+    if (data?.buffer instanceof ArrayBuffer) return data.buffer
+    return data
   } catch {
     const res = await fetch(absUrl || pathUrl)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     return res.arrayBuffer()
   }
 }
+
 
 // ── Component ───────────────────────────────────────────────────────────────
 export default function DocSignatureEditorModal({ request, onClose, onSuccess }) {
@@ -177,6 +197,9 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     await ensureDocxPreview()
     const container = docxContainerRef.current
     container.innerHTML = ''
+    // Ensure the buffer is an ArrayBuffer (not a plain object from axios)
+    let buf = arrayBuf
+    if (buf instanceof ArrayBuffer === false && buf.buffer) buf = buf.buffer
     const renderOpts = {
       className: 'docx-page',
       inWrapper: true,
@@ -185,7 +208,6 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       ignoreFonts: false,
       breakPages: true,
       ignoreLastRenderedPageBreak: false,
-      experimental: true,
       trimXmlDeclaration: true,
       renderChanges: false,
       renderHeaders: true,
@@ -194,11 +216,12 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       renderEndnotes: true,
       useBase64URL: true,
     }
-    await window.docx.renderAsync(arrayBuf, container, null, renderOpts)
-    // count pages rendered
-    const pages = container.querySelectorAll('.docx-wrapper > section, .docx-wrapper > article, [class*="page"]')
-    setDocxPageCount(pages.length || 1)
+    // docx-preview v0.1.x uses window.docx.renderAsync(buffer, bodyContainer, styleContainer, options)
+    await window.docx.renderAsync(buf, container, null, renderOpts)
+    const pages = container.querySelectorAll('section[data-page-nr], .docx-page, article')
+    setDocxPageCount(Math.max(pages.length, 1))
   }, [])
+
 
   // ── Load document on mount ──────────────────────────────────────────────
   useEffect(() => {
@@ -455,12 +478,12 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   const isDocxMode     = mode === 'docx'
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3">
+    <div className="fixed inset-0 z-[99999] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 overflow-hidden">
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.96 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] h-[96vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] h-[92vh] max-h-[920px] flex flex-col overflow-hidden border border-slate-700/50"
       >
         {/* ── Header ────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-6 py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex-shrink-0 border-b border-slate-800">
