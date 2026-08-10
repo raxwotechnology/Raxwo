@@ -284,6 +284,13 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     setDocxPageCount(Math.max(pages.length, 1))
   }, [])
 
+  // ── Render DOCX whenever mode === 'docx' and container is mounted ──────────
+  useEffect(() => {
+    if (mode === 'docx' && docxBufRef.current && docxContainerRef.current) {
+      renderDocxIntoContainer(docxBufRef.current)
+    }
+  }, [mode, renderDocxIntoContainer])
+
   // ── Draw canvas ───────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current
@@ -324,8 +331,8 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
         if (isDocx) {
           const buf = await fetchArrayBuffer(pathUrl)
           docxBufRef.current = buf
-          await renderDocxIntoContainer(buf)
           setMode('docx')
+          // renderDocxIntoContainer will be triggered by useEffect once container mounts
         } else if (isPdf) {
           isPdfRef.current = true
           const buf = await fetchArrayBuffer(pathUrl)
@@ -361,8 +368,8 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       if (lower.endsWith('.docx') || lower.endsWith('.doc')) {
         docxBufRef.current = buf
         isPdfRef.current = false
-        await renderDocxIntoContainer(buf)
         setMode('docx')
+        // renderDocxIntoContainer will be triggered by useEffect once container mounts
       } else if (lower.endsWith('.pdf')) {
         docxBufRef.current = null
         isPdfRef.current = true
