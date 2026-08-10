@@ -85,6 +85,17 @@ async function renderPdfToPageImages(source) {
   return images
 }
 
+// ── Detect format from first bytes (magic bytes) — ignores MIME/extension ────
+// DOCX/XLSX/ZIP: PK\x03\x04 → 0x50 0x4B 0x03 0x04
+// PDF:           %PDF      → 0x25 0x50 0x44 0x46
+function sniffFormat(buf) {
+  if (!buf || buf.byteLength < 4) return 'image'
+  const b = new Uint8Array(buf, 0, 4)
+  if (b[0] === 0x50 && b[1] === 0x4B) return 'docx'   // ZIP-based (DOCX, XLSX)
+  if (b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46) return 'pdf'
+  return 'image'
+}
+
 // ── Fetch ArrayBuffer — supports Data URIs, blob URIs, and server static files ──
 async function fetchArrayBuffer(pathUrl) {
   if (!pathUrl) throw new Error('No path URL provided')
@@ -329,7 +340,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     })
   }, [pageImages, currentPage, placedStamps, selectedStampId])
 
-  // ── Load document on mount ────────────────────────────────────────────
+  // ── Load document on mount — uses MAGIC BYTES to detect format ──────────
   useEffect(() => {
     if (!request?.originalDocUrl) { setMode('empty'); return }
     setMode('loading')
@@ -337,29 +348,54 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       try {
         const pathUrl = request.originalDocUrl
         const lower = (pathUrl || '').toLowerCase()
-        const isDocx = lower.includes('.docx') || lower.includes('.doc') || lower.includes('wordprocessingml') || lower.includes('msword')
-        const isPdf = lower.includes('.pdf') || lower.includes('application/pdf')
 
-        if (isDocx) {
-          const buf = await fetchArrayBuffer(pathUrl)
-          docxBufRef.current = buf
-          setMode('docx')
-          // renderDocxIntoContainer will be triggered by useEffect once container mounts
-        } else if (isPdf) {
-          isPdfRef.current = true
-          const buf = await fetchArrayBuffer(pathUrl)
-          const imgs = await renderPdfToPageImages(buf)
-          setPageImages(imgs); setCurrentPage(0); setMode('pdf')
-        } else {
+        // URL-hint: if we can tell from the URL, skip fetching for images
+        const urlHintImage = !lower.includes('wordprocessingml') && !lower.includes('msword') &&
+          !lower.includes('.doc') && !lower.includes('application/pdf') && !lower.includes('.pdf') &&
+          (lower.includes('.jpg') || lower.includes('.jpeg') || lower.includes('.png') ||
+           lower.includes('.webp') || lower.includes('image/'))
+
+        if (urlHintImage) {
+          // Pure image URL — load directly without fetching full buffer
           const absUrl = pathUrl.startsWith('data:') || pathUrl.startsWith('blob:')
             ? pathUrl : absoluteMediaUrl(pathUrl)
           const img = new Image(); img.crossOrigin = 'anonymous'
           await new Promise((res, rej) => {
             img.onload = res
-            img.onerror = () => rej(new Error(`Failed to load document/image file: 404 or invalid format`))
+            img.onerror = () => rej(new Error('Failed to load image file'))
             img.src = absUrl
           })
           isPdfRef.current = false
+          setPageImages([img]); setCurrentPage(0); setMode('image')
+          return
+        }
+
+        // For all other URLs: fetch as ArrayBuffer and detect via MAGIC BYTES
+        const buf = await fetchArrayBuffer(pathUrl)
+        const fmt = sniffFormat(buf)
+        console.info('[DocModal] Detected format:', fmt, '| URL hint:', lower.substring(0, 80))
+
+        if (fmt === 'docx') {
+          docxBufRef.current = buf
+          isPdfRef.current = false
+          setMode('docx')
+          // renderDocxIntoContainer triggered by useEffect polling loop
+        } else if (fmt === 'pdf') {
+          isPdfRef.current = true
+          docxBufRef.current = null
+          const imgs = await renderPdfToPageImages(buf)
+          setPageImages(imgs); setCurrentPage(0); setMode('pdf')
+        } else {
+          // Treat binary as image (PNG/JPG blob)
+          isPdfRef.current = false
+          const blob = new Blob([buf])
+          const objectUrl = URL.createObjectURL(blob)
+          const img = new Image(); img.crossOrigin = 'anonymous'
+          await new Promise((res, rej) => {
+            img.onload = res
+            img.onerror = () => rej(new Error('Binary is not a recognisable image'))
+            img.src = objectUrl
+          })
           setPageImages([img]); setCurrentPage(0); setMode('image')
         }
       } catch (err) {
@@ -377,12 +413,14 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     setMode('loading')
     try {
       const buf = await file.arrayBuffer()
-      if (lower.endsWith('.docx') || lower.endsWith('.doc')) {
+      // Use magic bytes so wrong extension / MIME never misleads
+      const fmt = sniffFormat(buf)
+      if (fmt === 'docx') {
         docxBufRef.current = buf
         isPdfRef.current = false
         setMode('docx')
         // renderDocxIntoContainer will be triggered by useEffect once container mounts
-      } else if (lower.endsWith('.pdf')) {
+      } else if (fmt === 'pdf') {
         docxBufRef.current = null
         isPdfRef.current = true
         const imgs = await renderPdfToPageImages(buf)

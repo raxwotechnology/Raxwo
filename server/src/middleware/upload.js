@@ -125,7 +125,8 @@ const sigDocDiskStorage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname) ||
-      (file.mimetype === 'application/pdf' ? '.pdf' : '.png');
+      (file.mimetype === 'application/pdf' ? '.pdf' :
+       (file.mimetype && file.mimetype.includes('word')) ? '.docx' : '.bin');
     const name = `sigdoc_${Date.now()}_${Math.random().toString(36).substr(2, 8)}${ext}`;
     cb(null, name);
   }

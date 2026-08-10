@@ -320,13 +320,13 @@ export default function SignatureRequests() {
         <div className="bg-white rounded-xl p-3 shadow-xs border border-slate-200/80 flex flex-wrap items-center gap-3">
           {/* Search Box */}
           <div className="relative flex-1 min-w-[240px]">
-            <FiSearch className="absolute left-3 top-2.5 text-slate-400" size={14} />
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
             <input
               type="text"
               placeholder="Search by name, reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
+              className="form-input !pl-9 py-2 text-sm"
             />
           </div>
 
@@ -334,7 +334,7 @@ export default function SignatureRequests() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
+            className="form-select w-auto py-2 text-sm"
           >
             <option value="All">All Statuses</option>
             <option value="Pending">Pending Review</option>
@@ -346,7 +346,7 @@ export default function SignatureRequests() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
+            className="form-select w-auto py-2 text-sm"
           >
             <option value="All">All Categories</option>
             {DOC_TYPES.map(t => (
@@ -358,7 +358,7 @@ export default function SignatureRequests() {
           <select
             value={urgencyFilter}
             onChange={(e) => setUrgencyFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
+            className="form-select w-auto py-2 text-sm"
           >
             <option value="All">All Priorities</option>
             <option value="Normal">Normal Priority</option>
@@ -372,130 +372,136 @@ export default function SignatureRequests() {
               setUrgencyFilter('All')
               setSearchTerm('')
             }}
-            className="px-3 py-2 text-[11px] font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+            className="px-3 py-2 text-sm font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
           >
-            <FiRefreshCw size={12} /> Reset
+            <FiRefreshCw size={14} /> Reset
           </button>
         </div>
 
         {/* ── Document Requests Data Table ────────────────────────────────────── */}
-        <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 overflow-hidden">
+        <div className="table-container">
           {isLoading ? (
             <div className="p-12 text-center text-slate-400 space-y-2">
-              <span className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin inline-block" />
+              <span className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto block" />
               <p className="text-xs font-semibold text-slate-500">Loading document requests...</p>
             </div>
           ) : requests.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[900px]">
+              <table className="table min-w-[900px]">
                 <thead>
-                  <tr className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200/80">
-                    <th className="py-3 px-4 w-52">Reference</th>
-                    <th className="py-3 px-4 w-44">Employee / Requester</th>
-                    <th className="py-3 px-4 w-36">Type</th>
-                    <th className="py-3 px-4">Reason</th>
-                    <th className="py-3 px-4 w-24">Priority</th>
-                    <th className="py-3 px-4 w-36">Status</th>
-                    <th className="py-3 px-4 text-right w-44">Actions</th>
+                  <tr>
+                    <th>Reference &amp; Document</th>
+                    <th>Employee / Requester</th>
+                    <th>Category</th>
+                    <th>Reason</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th className="text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
+                <tbody>
                 {requests.map((req) => (
-                  <tr key={req._id} className="hover:bg-slate-50/80 transition-colors">
+                  <tr key={req._id}>
                     {/* Ref & Title */}
-                    <td className="py-2.5 px-4">
-                      <div className="space-y-0.5">
-                        <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded inline-block">
+                    <td>
+                      <div className="flex flex-col gap-1 min-w-[180px]">
+                        <span className="font-mono text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md w-fit">
                           {req.requestRef}
                         </span>
-                        <p className="font-bold text-slate-900 text-xs leading-tight line-clamp-1">{req.title}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{new Date(req.createdAt).toLocaleDateString()}</p>
+                        <p className="font-medium text-gray-800 text-sm leading-tight line-clamp-1">{req.title}</p>
+                        <p className="text-xs text-gray-400">{new Date(req.createdAt).toLocaleDateString()}</p>
                       </div>
                     </td>
 
                     {/* Requester */}
-                    <td className="py-2.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-[10px] uppercase shrink-0 shadow-xs">
-                          {req.employeeName ? req.employeeName[0] : 'U'}
+                    <td>
+                      <div className="flex items-center gap-3 min-w-[160px]">
+                        <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
+                          {req.employeeName ? req.employeeName.charAt(0).toUpperCase() : 'U'}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-900 text-xs truncate">{req.employeeName}</p>
-                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider block">{req.employeeType}</span>
+                        <div>
+                          <p className="font-medium text-gray-800 text-sm">{req.employeeName}</p>
+                          <p className="text-xs text-gray-400 capitalize">{req.employeeType || 'Permanent'}</p>
                         </div>
                       </div>
                     </td>
 
                     {/* Category */}
-                    <td className="py-2.5 px-4">
-                      <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-semibold border border-slate-200/80 whitespace-nowrap inline-block">
+                    <td>
+                      <span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-medium border border-slate-200/80 whitespace-nowrap inline-block">
                         {req.documentType}
                       </span>
                     </td>
 
                     {/* Reason */}
-                    <td className="py-2.5 px-4">
-                      <p className="text-slate-600 text-xs line-clamp-1 font-normal" title={req.reason}>
+                    <td>
+                      <p className="text-gray-600 text-sm max-w-xs truncate font-normal" title={req.reason}>
                         {req.reason}
                       </p>
                     </td>
 
-                    {/* Urgency */}
-                    <td className="py-2.5 px-4">
+                    {/* Priority */}
+                    <td>
                       {req.urgency === 'urgent' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md animate-pulse whitespace-nowrap">
+                        <span className="badge badge-red animate-pulse">
                           <FiAlertCircle size={11} /> URGENT
                         </span>
                       ) : (
-                        <span className="text-[11px] text-slate-500 font-medium">Normal</span>
+                        <span className="text-sm text-gray-500 font-normal">Normal</span>
                       )}
                     </td>
 
                     {/* Status */}
-                    <td className="py-2.5 px-4">
+                    <td>
                       {req.status === 'signed' ? (
                         <div>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md whitespace-nowrap">
-                            <FiCheckCircle size={12} className="text-emerald-600" /> Signed & Sealed
+                          <span className="badge badge-green">
+                            <FiCheckCircle size={11} /> Signed &amp; Sealed
                           </span>
                           {req.signedByName && (
-                            <p className="text-[9px] text-slate-400 font-medium mt-0.5">By {req.signedByName}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">By {req.signedByName}</p>
                           )}
                         </div>
                       ) : req.status === 'rejected' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-800 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-md whitespace-nowrap">
-                          <FiXCircle size={12} className="text-red-600" /> Rejected
+                        <span className="badge badge-red">
+                          <FiXCircle size={11} /> Rejected
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md whitespace-nowrap">
-                          <FiClock size={12} className="text-amber-600" /> Pending Review
+                        <span className="badge badge-yellow">
+                          <FiClock size={11} /> Pending Review
                         </span>
                       )}
                     </td>
 
                     {/* Actions */}
-                    <td className="py-2.5 px-4 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1.5 justify-end">
+                    <td className="text-right">
+                      <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                         {req.status === 'signed' && req.signedDocUrl ? (
                           <button
+                            type="button"
                             onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1 transition-all cursor-pointer"
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                            title="Download Signed Document"
                           >
-                            <FiDownload size={13} /> Download
+                            <FiDownload size={14} /> Download
                           </button>
                         ) : isManagement && req.status === 'pending' ? (
                           <>
                             <button
+                              type="button"
                               onClick={() => setActiveEditorRequest(req)}
-                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1 transition-all"
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors"
+                              title="Sign & Stamp Document"
                             >
-                              <FiEdit3 size={13} /> Sign & Stamp
+                              <FiEdit3 size={14} /> Sign &amp; Stamp
                             </button>
                             <button
+                              type="button"
                               onClick={() => setRejectingRequest(req)}
-                              className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-xs rounded-lg border border-red-200 inline-flex items-center gap-1 transition-all"
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Decline Request"
                             >
-                              <FiX size={13} /> Decline
+                              <FiX size={14} />
                             </button>
                           </>
                         ) : (
@@ -503,16 +509,18 @@ export default function SignatureRequests() {
                             href={mediaUrl(req.originalDocUrl)}
                             target="_blank"
                             rel="noreferrer"
-                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 inline-flex items-center gap-1"
+                            className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"
+                            title="View Original Document"
                           >
-                            <FiFileText size={13} /> View Doc
+                            <FiFileText size={14} />
                           </a>
                         )}
 
                         {isManagement && (
                           <button
+                            type="button"
                             onClick={() => setDeletingRequest(req)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                             title="Permanently Delete Request"
                           >
                             <FiTrash2 size={14} />
@@ -526,10 +534,10 @@ export default function SignatureRequests() {
             </table>
           </div>
         ) : (
-          <div className="p-16 text-center text-slate-400 space-y-3">
-            <FiFileText size={36} className="mx-auto text-slate-300" />
-            <p className="text-base font-bold text-slate-700">No document signature requests found</p>
-            <p className="text-xs text-slate-500 font-medium">Submit a new request or adjust filters to view documents.</p>
+          <div className="p-16 text-center text-gray-400 space-y-2">
+            <FiFileText size={36} className="mx-auto text-gray-300 opacity-40" />
+            <p className="text-base font-semibold text-gray-700">No document signature requests found</p>
+            <p className="text-xs text-gray-400 font-normal">Submit a new request or adjust filters to view documents.</p>
           </div>
         )}
       </div>
