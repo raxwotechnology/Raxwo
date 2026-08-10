@@ -693,14 +693,14 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     <AnimatePresence>
       <motion.div
         key="doc-sign-modal-backdrop"
-        className="fixed inset-0 flex items-center justify-center p-3"
-        style={{ zIndex: 999999, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(8px)' }}
+        className="fixed inset-0 flex items-center justify-center p-2 sm:p-4"
+        style={{ zIndex: 2147483647, background: 'rgba(2,6,23,0.96)', backdropFilter: 'blur(12px)' }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       >
         <motion.div
           key="doc-sign-modal-panel"
           className="flex flex-col w-full bg-white rounded-2xl overflow-hidden shadow-2xl relative"
-          style={{ maxWidth: '1200px', height: '92vh', zIndex: 1000000 }}
+          style={{ maxWidth: '1280px', height: '94vh', zIndex: 2147483647 }}
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}

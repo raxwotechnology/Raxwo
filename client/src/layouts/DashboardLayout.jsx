@@ -315,7 +315,7 @@ export default function DashboardLayout({ role }) {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 relative z-10">
         {/* Top bar */}
-        <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between shadow-card flex-shrink-0 relative z-[220]">
+        <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between shadow-card flex-shrink-0 relative z-30">
           <button className="lg:hidden p-2 -ml-2 text-gray-600 hover:text-primary" onClick={() => setSidebarOpen(!sidebarOpen)}>
             <FiMenu size={22} />
           </button>

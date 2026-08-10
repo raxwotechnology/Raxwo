@@ -370,20 +370,20 @@ export default function SignatureRequests() {
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">ISSUED REQUESTS</h2>
-          <span className="text-xs text-slate-400 font-medium">{requests.length} on file</span>
+          <span className="text-xs text-slate-500 font-bold bg-slate-200/60 px-2.5 py-1 rounded-full">{requests.length} on file</span>
         </div>
 
-        {/* ── Simple Inline Search & Filters Bar ────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-3.5 shadow-card border border-slate-200/80 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
-          {/* Search Box */}
-          <div className="relative flex-1 w-full sm:w-auto min-w-0 sm:min-w-[240px]">
+        {/* ── Grid Search & Filters Bar ────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl p-3.5 shadow-card border border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-center">
+          {/* Search Box (Spans 2 columns on lg screens) */}
+          <div className="relative lg:col-span-2 w-full">
             <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
             <input
               type="text"
               placeholder="Search by name, reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-input !pl-10 py-2.5 text-sm w-full"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
           </div>
 
@@ -391,7 +391,7 @@ export default function SignatureRequests() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="form-select w-full sm:w-44 py-2.5 text-sm"
+            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all"
           >
             <option value="All">All Statuses</option>
             <option value="Pending">Pending Review</option>
@@ -403,7 +403,7 @@ export default function SignatureRequests() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="form-select w-full sm:w-48 py-2.5 text-sm"
+            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all"
           >
             <option value="All">All Categories</option>
             {DOC_TYPES.map(t => (
@@ -411,28 +411,31 @@ export default function SignatureRequests() {
             ))}
           </select>
 
-          {/* Urgency Filter */}
-          <select
-            value={urgencyFilter}
-            onChange={(e) => setUrgencyFilter(e.target.value)}
-            className="form-select w-full sm:w-44 py-2.5 text-sm"
-          >
-            <option value="All">All Priorities</option>
-            <option value="Normal">Normal Priority</option>
-            <option value="Urgent">🔴 Urgent Priority</option>
-          </select>
+          {/* Urgency Filter + Reset Button */}
+          <div className="flex items-center gap-2 w-full">
+            <select
+              value={urgencyFilter}
+              onChange={(e) => setUrgencyFilter(e.target.value)}
+              className="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-blue-500/20 transition-all"
+            >
+              <option value="All">All Priorities</option>
+              <option value="Normal">Normal Priority</option>
+              <option value="Urgent">🔴 Urgent Priority</option>
+            </select>
 
-          <button
-            onClick={() => {
-              setStatusFilter('All')
-              setCategoryFilter('All')
-              setUrgencyFilter('All')
-              setSearchTerm('')
-            }}
-            className="px-3.5 py-2.5 text-sm font-semibold text-slate-500 hover:text-blue-600 flex items-center justify-center gap-1.5 transition-colors bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none"
-          >
-            <FiRefreshCw size={14} /> Reset
-          </button>
+            <button
+              onClick={() => {
+                setStatusFilter('All')
+                setCategoryFilter('All')
+                setUrgencyFilter('All')
+                setSearchTerm('')
+              }}
+              className="p-2.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all shrink-0 flex items-center justify-center"
+              title="Reset Filters"
+            >
+              <FiRefreshCw size={15} />
+            </button>
+          </div>
         </div>
 
         {/* ── Document Requests Desktop Data Table ────────────────────────────── */}
@@ -748,7 +751,7 @@ export default function SignatureRequests() {
       {/* ── Submit Request Modal (Employee) ─────────────────────────────────── */}
       {showSubmitModal && createPortal(
         <AnimatePresence>
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -933,7 +936,7 @@ export default function SignatureRequests() {
       {/* ── Saved Stamps Library Manager Modal (Admin / Owner) ───────────────── */}
       {showStampsModal && createPortal(
         <AnimatePresence>
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm overflow-y-auto">
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1046,7 +1049,7 @@ export default function SignatureRequests() {
       {/* ── Reject Modal ──────────────────────────────────────────────────────── */}
       {rejectingRequest && createPortal(
         <AnimatePresence>
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <div className="w-full max-w-md bg-white rounded-3xl p-6 space-y-4 shadow-2xl border border-slate-200">
               <h3 className="text-base font-bold text-slate-900">Reject Signature Request</h3>
               <p className="text-xs text-slate-500 font-medium">Specify why this request is being declined:</p>
@@ -1078,7 +1081,7 @@ export default function SignatureRequests() {
       {/* ── Hard Delete Confirmation Modal ────────────────────────────────────── */}
       {deletingRequest && createPortal(
         <AnimatePresence>
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
