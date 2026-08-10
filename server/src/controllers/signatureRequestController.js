@@ -195,8 +195,7 @@ exports.getRequests = async (req, res, next) => {
         const emp = await Employee.findOne({ userId: req.user._id });
         query.$or = [
           { requester: req.user._id },
-          ...(emp ? [{ employeeId: emp._id }] : []),
-          { recipientType: 'general' }
+          ...(emp ? [{ employeeId: emp._id }] : [])
         ];
       }
     } else {
@@ -266,7 +265,17 @@ exports.getRequestById = async (req, res, next) => {
     const isOwner = sigReq.requester._id.toString() === req.user._id.toString();
     const isManagement = ['admin', 'owner', 'manager'].includes(req.user.role);
 
-    if (!isOwner && !isManagement) {
+    let isTargetRecipient = false;
+    if (req.user.role === 'client') {
+      const clientProf = await ClientProfile.findOne({ userId: req.user._id });
+      if (clientProf && sigReq.clientId && sigReq.clientId.toString() === clientProf._id.toString()) isTargetRecipient = true;
+      if (sigReq.clientEmail && sigReq.clientEmail === req.user.email) isTargetRecipient = true;
+    } else {
+      const emp = await Employee.findOne({ userId: req.user._id });
+      if (emp && sigReq.employeeId && sigReq.employeeId.toString() === emp._id.toString()) isTargetRecipient = true;
+    }
+
+    if (!isOwner && !isManagement && !isTargetRecipient) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
