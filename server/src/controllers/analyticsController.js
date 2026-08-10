@@ -16,6 +16,7 @@ const PettyCash = require('../models/PettyCash');
 const Request = require('../models/Request');
 const WorkLog = require('../models/WorkLog');
 const { createNotification } = require('../services/notificationService');
+const axios = require('axios');
 
 const dateRange = (start, end) => ({
   $gte: start ? new Date(start) : new Date(new Date().getFullYear(), 0, 1),
@@ -548,4 +549,270 @@ exports.sendBirthdayNotifications = async (req, res, next) => {
     }
     res.json({ success: true, birthdays: birthdayUsers.length });
   } catch (err) { next(err); }
+};
+
+// Dynamic Real-Time Website Auditor & Scraper Endpoint
+exports.auditWebsite = async (req, res, next) => {
+  try {
+    let { url } = req.body;
+    if (!url || typeof url !== 'string' || !url.trim()) {
+      return res.status(400).json({ success: false, message: 'Website URL is required' });
+    }
+
+    url = url.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid URL format' });
+    }
+
+    const startTime = Date.now();
+    let response;
+    let fetchError = null;
+
+    try {
+      response = await axios.get(parsedUrl.href, {
+        timeout: 9000,
+        maxRedirects: 5,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 RaxwoSEOAudit/1.0',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5'
+        },
+        validateStatus: () => true
+      });
+    } catch (err) {
+      fetchError = err;
+    }
+
+    const responseTimeMs = Date.now() - startTime;
+    const isHttps = parsedUrl.protocol === 'https:';
+    const statusCode = response ? response.status : 0;
+    const html = (response && typeof response.data === 'string') ? response.data : '';
+    const headers = response?.headers || {};
+
+    // HTML Metadata Extraction
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].trim() : '';
+    const titleLength = title.length;
+
+    const metaDescMatch = html.match(/<meta\s+[^>]*name=["']description["'][^>]*content=["']([\s\S]*?)["']/i) ||
+                          html.match(/<meta\s+[^>]*content=["']([\s\S]*?)["'][^>]*name=["']description["']/i);
+    const description = metaDescMatch ? metaDescMatch[1].trim() : '';
+    const descriptionLength = description.length;
+
+    const hasViewport = /<meta\s+[^>]*name=["']viewport["']/i.test(html);
+    const hasCanonical = /<link\s+[^>]*rel=["']canonical["']/i.test(html);
+    const hasFavicon = /<link\s+[^>]*rel=["'](icon|shortcut icon|apple-touch-icon)["']/i.test(html);
+    const hasOgImage = /<meta\s+[^>]*property=["']og:image["']/i.test(html) || /<meta\s+[^>]*content=["'][^"']*og:image["']/i.test(html);
+
+    // Headings Count
+    const h1Matches = html.match(/<h1[^>]*>[\s\S]*?<\/h1>/gi) || [];
+    const h1Count = h1Matches.length;
+
+    const h2Matches = html.match(/<h2[^>]*>[\s\S]*?<\/h2>/gi) || [];
+    const h2Count = h2Matches.length;
+
+    const h3Matches = html.match(/<h3[^>]*>[\s\S]*?<\/h3>/gi) || [];
+    const h3Count = h3Matches.length;
+
+    // Image Alt Tags Analysis
+    const imgMatches = html.match(/<img\s+[^>]*>/gi) || [];
+    const totalImages = imgMatches.length;
+    let imagesWithoutAlt = 0;
+    imgMatches.forEach(imgTag => {
+      const altMatch = imgTag.match(/alt=["']([\s\S]*?)["']/i);
+      if (!altMatch || !altMatch[1].trim()) {
+        imagesWithoutAlt++;
+      }
+    });
+
+    // Security Headers
+    const hasHsts = Boolean(headers['strict-transport-security']);
+    const hasCsp = Boolean(headers['content-security-policy']);
+    const hasXFrame = Boolean(headers['x-frame-options']);
+
+    // Dynamic Score Calculation
+    let seoDeductions = 0;
+    if (!title) seoDeductions += 18;
+    else if (titleLength < 25 || titleLength > 65) seoDeductions += 8;
+
+    if (!description) seoDeductions += 18;
+    else if (descriptionLength < 70 || descriptionLength > 160) seoDeductions += 8;
+
+    if (h1Count === 0) seoDeductions += 12;
+    else if (h1Count > 2) seoDeductions += 6;
+
+    if (!hasCanonical) seoDeductions += 10;
+    if (!hasOgImage) seoDeductions += 8;
+    if (totalImages > 0 && (imagesWithoutAlt / totalImages) > 0.3) seoDeductions += 10;
+    if (!hasFavicon) seoDeductions += 6;
+
+    const seoScore = Math.max(38, Math.min(99, 100 - seoDeductions));
+
+    // Speed Score
+    let speedScore = 95;
+    if (responseTimeMs > 2500) speedScore = 48;
+    else if (responseTimeMs > 1500) speedScore = 62;
+    else if (responseTimeMs > 800) speedScore = 76;
+    else if (responseTimeMs > 400) speedScore = 86;
+    else speedScore = 96;
+
+    if (statusCode !== 200 && statusCode !== 0) speedScore -= 18;
+    speedScore = Math.max(30, Math.min(99, speedScore));
+
+    // Mobile Score
+    let mobileScore = 95;
+    if (!hasViewport) mobileScore -= 35;
+    mobileScore = Math.max(35, Math.min(99, mobileScore));
+
+    // Security Score
+    let securityScore = 98;
+    if (!isHttps) securityScore -= 45;
+    if (!hasHsts) securityScore -= 12;
+    if (!hasXFrame && !hasCsp) securityScore -= 10;
+    securityScore = Math.max(30, Math.min(99, securityScore));
+
+    // Accessibility Score
+    let accessibilityScore = 92;
+    if (totalImages > 0) {
+      const altRatio = (totalImages - imagesWithoutAlt) / totalImages;
+      accessibilityScore = Math.round(50 + altRatio * 45);
+    }
+    accessibilityScore = Math.max(40, Math.min(99, accessibilityScore));
+
+    // UI/UX & Content Scores
+    const uiuxScore = Math.min(98, Math.max(50, Math.round((mobileScore + speedScore) / 2)));
+    const contentScore = Math.min(98, Math.max(45, Math.round((seoScore * 0.6) + (h2Count > 2 ? 20 : 10) + (description ? 15 : 0))));
+
+    // Build Dynamic Issues Array
+    const issues = [];
+    if (!isHttps) {
+      issues.push(`🔒 Security Risk: Website uses unencrypted HTTP protocol (HTTPS required)`);
+    }
+    if (!title) {
+      issues.push(`❌ Missing <title> tag on ${parsedUrl.hostname}`);
+    } else if (titleLength < 25) {
+      issues.push(`⚠️ Suboptimal Title Length: Title is ${titleLength} chars (recommended: 30–60 chars)`);
+    } else if (titleLength > 65) {
+      issues.push(`⚠️ Title Length Exceeded: Title is ${titleLength} chars (recommended: 30–60 chars)`);
+    }
+
+    if (!description) {
+      issues.push(`❌ Meta Description Missing: <meta name="description"> is missing on ${parsedUrl.hostname}`);
+    } else if (descriptionLength < 70) {
+      issues.push(`⚠️ Short Meta Description: Description is ${descriptionLength} chars (recommended: 70–160 chars)`);
+    } else if (descriptionLength > 160) {
+      issues.push(`⚠️ Long Meta Description: Description is ${descriptionLength} chars (recommended: 70–160 chars)`);
+    }
+
+    if (h1Count === 0) {
+      issues.push(`❌ Missing <h1> Main Heading: No <h1> tag found on the audited URL`);
+    } else if (h1Count > 2) {
+      issues.push(`⚠️ Multiple <h1> Tags: Found ${h1Count} <h1> headings (recommended: exactly 1 <h1>)`);
+    }
+
+    if (totalImages > 0 && imagesWithoutAlt > 0) {
+      issues.push(`🖼️ Image Accessibility: ${imagesWithoutAlt} out of ${totalImages} images lack alt text attributes`);
+    }
+
+    if (!hasViewport) {
+      issues.push(`📱 Mobile Responsiveness: Missing <meta name="viewport"> viewport scaling tag`);
+    }
+
+    if (!hasCanonical) {
+      issues.push(`🔗 Duplicate Content Risk: Missing <link rel="canonical"> tag`);
+    }
+
+    if (!hasOgImage) {
+      issues.push(`📢 Social Preview Issue: Missing og:image meta tag for social media sharing cards`);
+    }
+
+    if (responseTimeMs > 800) {
+      issues.push(`⏱️ Latency Alert: Server response time is ${responseTimeMs}ms (recommended: <500ms)`);
+    }
+
+    if (statusCode !== 200 && statusCode !== 0) {
+      issues.push(`⚠️ HTTP Server Status: Returned status code ${statusCode}`);
+    }
+
+    if (fetchError) {
+      issues.push(`⚠️ Network Fetch Warning: ${fetchError.message}`);
+    }
+
+    if (issues.length === 0) {
+      issues.push(`✅ Excellent! No critical SEO, accessibility, or security issues found on ${parsedUrl.hostname}`);
+    }
+
+    // Build Dynamic Suggestions Array
+    const suggestions = [];
+    if (!description) {
+      suggestions.push(`Add a targeted <meta name="description"> between 70–160 characters describing ${parsedUrl.hostname}.`);
+    }
+    if (imagesWithoutAlt > 0) {
+      suggestions.push(`Add descriptive alt attributes to all ${imagesWithoutAlt} un-annotated image tags to improve accessibility and image search indexation.`);
+    }
+    if (responseTimeMs > 500) {
+      suggestions.push(`Optimize TTFB and server response time (currently ${responseTimeMs}ms) using browser caching, CDN delivery, and HTTP compression.`);
+    }
+    if (!hasOgImage) {
+      suggestions.push(`Add an og:image meta tag with a 1200x630px high-resolution banner image for attractive social media shares.`);
+    }
+    if (h1Count !== 1) {
+      suggestions.push(`Ensure exactly one <h1> tag is present on the page containing your primary target focus keyword.`);
+    }
+    if (!isHttps) {
+      suggestions.push(`Install an SSL/TLS certificate and force automatic HTTP to HTTPS redirection.`);
+    }
+    if (!hasCanonical) {
+      suggestions.push(`Add <link rel="canonical" href="${parsedUrl.origin}/" /> to avoid search engine duplicate indexing.`);
+    }
+    suggestions.push(`Implement Schema.org JSON-LD structured data (Organization / WebSite) for rich Google Search snippet snippets.`);
+    suggestions.push(`Convert standard PNG/JPEG images to modern WebP or AVIF formats for smaller payload size.`);
+
+    res.json({
+      success: true,
+      url: parsedUrl.href,
+      domain: parsedUrl.hostname,
+      audit: {
+        domain: parsedUrl.hostname,
+        protocol: parsedUrl.protocol,
+        statusCode,
+        responseTimeMs,
+        seoScore,
+        speedScore,
+        mobileScore,
+        securityScore,
+        accessibilityScore,
+        uiuxScore,
+        contentScore,
+        meta: {
+          title,
+          titleLength,
+          description,
+          descriptionLength,
+          h1Count,
+          h2Count,
+          h3Count,
+          totalImages,
+          imagesWithoutAlt,
+          hasViewport,
+          hasCanonical,
+          hasFavicon,
+          hasOgImage,
+          isHttps
+        },
+        issues,
+        suggestions
+      }
+    });
+  } catch (err) {
+    console.error('[auditWebsite Error]:', err.message);
+    next(err);
+  }
 };

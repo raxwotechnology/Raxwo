@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   FiX, FiCheck, FiUpload, FiFileText, FiFile,
@@ -688,25 +689,25 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   // ────────────────────────────────────────────────────────────────────
   // RENDER
   // ────────────────────────────────────────────────────────────────────
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
         key="doc-sign-modal-backdrop"
         className="fixed inset-0 flex items-center justify-center p-3"
-        style={{ zIndex: 99999, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(8px)' }}
+        style={{ zIndex: 999999, background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(8px)' }}
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
       >
         <motion.div
           key="doc-sign-modal-panel"
-          className="flex flex-col w-full bg-white rounded-2xl overflow-hidden shadow-2xl"
-          style={{ maxWidth: '1200px', height: '92vh' }}
+          className="flex flex-col w-full bg-white rounded-2xl overflow-hidden shadow-2xl relative"
+          style={{ maxWidth: '1200px', height: '92vh', zIndex: 1000000 }}
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
           transition={{ type: 'spring', damping: 28, stiffness: 380 }}
         >
           {/* ─── HEADER ─────────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 flex-shrink-0">
+          <div className="flex items-center gap-3 px-5 py-3.5 bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 flex-shrink-0 relative z-[10]">
             {/* Icon + Title */}
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
@@ -948,141 +949,139 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
                   'bg-slate-100 border-slate-200'
                 }`}>
                   <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">Format</p>
-                  <p className={`text-sm font-extrabold ${
-                    isDocxMode ? 'text-blue-700' :
-                    mode === 'pdf' ? 'text-red-700' :
-                    mode === 'image' ? 'text-purple-700' : 'text-slate-600'
-                  }`}>
-                    {isDocxMode ? '📄 DOCX → Saves as .docx' :
-                     mode === 'pdf' ? '📑 PDF → Saves as .pdf' :
-                     mode === 'image' ? '🖼 Image → Saves as .pdf' : '—'}
+                  <p className="font-bold text-slate-800 text-xs">
+                    {isDocxMode ? 'Microsoft Word (.docx)' : mode === 'pdf' ? 'PDF Document (.pdf)' : mode === 'image' ? 'Image File' : 'Unknown'}
                   </p>
                 </div>
 
-                {/* Stamp Library */}
-                <div className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-3 shadow-sm">
-                  <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <FiBookmark className="text-blue-600" size={12} /> Stamp Library
-                  </h4>
-                  {isDocxMode && (
-                    <p className="text-[10px] text-blue-600 font-semibold bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-1.5 text-center">
-                      ✏️ Click to place on Word document
+                {/* Stamp Library Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <FiBookmark className="text-blue-600" /> Saved Stamps
                     </p>
-                  )}
-                  {loadingLibrary ? (
-                    <p className="text-xs text-slate-400">Loading…</p>
-                  ) : savedLibrary.length > 0 ? (
-                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                    <span className="text-[10px] text-slate-400 font-semibold">{savedLibrary.length} item(s)</span>
+                  </div>
+
+                  {savedLibrary.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
                       {savedLibrary.map(st => {
-                        const src = (st.imageUrl?.startsWith('data:') || st.imageUrl?.startsWith('blob:'))
-                          ? st.imageUrl : mediaUrl(st.imageUrl)
+                        const src = (st.imageUrl && (st.imageUrl.startsWith('data:') || st.imageUrl.startsWith('blob:')))
+                          ? st.imageUrl
+                          : mediaUrl(st.imageUrl)
                         return (
                           <button
                             key={st._id}
+                            type="button"
                             onClick={() => {
-                              if (isDocxMode) return addDocxStamp(st.title, st.type, st.imageUrl)
-                              if (isSignMode) return addStampInstance(st.title, st.type, st.imageUrl)
-                              toast.error('Load a document first')
+                              if (isDocxMode) addDocxStamp(st.title, st.type, src)
+                              else if (isSignMode) addStampInstance(st.title, st.type, src)
+                              else toast.error('Load a document first')
                             }}
-                            className="p-2 border border-slate-200 hover:border-blue-400 bg-slate-50 hover:bg-blue-50 rounded-xl text-center transition-all flex flex-col items-center gap-1 group"
-                            title={`Place ${st.title}`}
+                            className="p-2 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl transition-all flex flex-col items-center text-center group shadow-2xs"
                           >
-                            {src && <img src={src} alt={st.title} className="w-14 h-10 object-contain" onError={e => e.target.style.display = 'none'} />}
-                            <span className="text-[10px] font-semibold text-slate-600 truncate w-full text-center">{st.title}</span>
-                            <span className="text-[9px] text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-all">+ Place</span>
+                            <div className="w-12 h-12 bg-slate-50 rounded-lg p-1 border border-slate-100 flex items-center justify-center mb-1 group-hover:scale-105 transition-transform">
+                              <img src={src} alt={st.title} className="max-h-full object-contain" />
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-800 truncate w-full">{st.title}</span>
+                            <span className="text-[9px] uppercase font-semibold text-slate-400">{st.type}</span>
                           </button>
                         )
                       })}
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-400 text-center py-2">No saved stamps. Add one below.</p>
+                    <p className="text-xs text-slate-400 italic text-center py-2">No stamps saved in library</p>
                   )}
+
+                  {/* Add Stamp Buttons */}
+                  <div className="pt-2 space-y-2 border-t border-slate-200">
+                    <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Quick Upload Stamp</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => pickAndAddStamp('Signature', 'signature')}
+                        className="py-2 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1 shadow-2xs transition-all"
+                      >
+                        ✒️ Signature
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => pickAndAddStamp('Company Seal', 'seal')}
+                        className="py-2 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1 shadow-2xs transition-all"
+                      >
+                        🏵️ Seal
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Add Signature / Seal */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => pickAndAddStamp('Signature', 'signature')}
-                    className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                  >
-                    <FiEdit3 size={12} /> Signature
-                  </button>
-                  <button
-                    onClick={() => pickAndAddStamp('Company Seal', 'seal')}
-                    className="py-2.5 px-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm"
-                  >
-                    <FiLayers size={12} /> Seal
-                  </button>
-                </div>
-
-                {/* Placed stamps list */}
-                {activeStamps.length > 0 && (
-                  <div className="bg-white border border-slate-200 rounded-2xl p-3.5 space-y-2 shadow-sm">
-                    <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                      Placed ({activeStamps.length})
-                    </h4>
-                    <div className="space-y-1 max-h-40 overflow-y-auto custom-scrollbar">
-                      {activeStamps.map((s) => (
+                {/* Placed Stamps List */}
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <p className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <FiLayers className="text-blue-600" /> Placed Stamps ({activeStamps.length})
+                  </p>
+                  {activeStamps.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {activeStamps.map(st => (
                         <div
-                          key={s.id}
-                          onClick={() => setSelectedStampId(s.id)}
-                          className={`flex items-center gap-2 px-2.5 py-2 rounded-xl cursor-pointer transition-all ${
-                            s.id === selectedStampId
-                              ? 'bg-blue-50 border border-blue-200'
-                              : 'bg-slate-50 border border-transparent hover:border-slate-200'
+                          key={st.id}
+                          onClick={() => setSelectedStampId(st.id)}
+                          className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer text-xs transition-all ${
+                            selectedStampId === st.id ? 'bg-blue-50 border-blue-300 font-bold text-blue-900' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          <div className={`w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                            s.type === 'seal' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'
-                          }`}>
-                            {s.type === 'seal' ? <FiLayers size={11} /> : <FiEdit3 size={11} />}
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="w-2 h-2 rounded-full bg-blue-500" />
+                            <span className="truncate">{st.title || st.type}</span>
                           </div>
-                          <span className="text-[11px] font-semibold text-slate-700 flex-1 truncate">{s.title}</span>
                           <button
-                            onClick={e => {
+                            type="button"
+                            onClick={(e) => {
                               e.stopPropagation()
-                              if (isDocxMode) handleDeleteDocxStamp(s.id)
-                              else setPlacedStamps(prev => prev.filter(p => p.id !== s.id))
+                              if (isDocxMode) handleDeleteDocxStamp(st.id)
+                              else handleDeletePlacedStamp(st.id)
                             }}
-                            className="w-5 h-5 rounded-lg bg-red-100 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center transition-all"
+                            className="p-1 text-slate-400 hover:text-red-600 rounded-lg"
                           >
-                            <FiTrash2 size={10} />
+                            <FiTrash2 size={13} />
                           </button>
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {/* Selected stamp opacity */}
-                {selectedStamp && (
-                  <div className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-sm space-y-2">
-                    <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Opacity</h4>
-                    <input
-                      type="range" min="0.1" max="1" step="0.05"
-                      value={selectedStamp.opacity}
-                      onChange={e => {
-                        const v = parseFloat(e.target.value)
-                        if (isDocxMode) setDocxStamps(prev => prev.map(s => s.id === selectedStamp.id ? { ...s, opacity: v } : s))
-                        else setPlacedStamps(prev => prev.map(s => s.id === selectedStamp.id ? { ...s, opacity: v } : s))
-                      }}
-                      className="w-full accent-blue-600"
-                    />
-                    <p className="text-[10px] text-slate-500 text-center">{Math.round(selectedStamp.opacity * 100)}%</p>
-                  </div>
-                )}
-
-                {/* Tips */}
-                <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3.5">
-                  <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
-                    {isDocxMode
-                      ? '💡 Click Signature/Seal → drag it anywhere on the Word document → "Apply & Save" to upload as .docx'
-                      : '💡 Drag stamps on the document. Use arrow keys for fine-tuning. Apply & Save to upload as .pdf'}
-                  </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 italic text-center py-2">Click a stamp to place on document</p>
+                  )}
                 </div>
+
+                {/* Selected Stamp Adjustments */}
+                {selectedStamp && (
+                  <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-2.5">
+                    <p className="text-xs font-bold text-blue-900">Selected Stamp Controls</p>
+                    <div>
+                      <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                        <span>Width</span>
+                        <span>{selectedStamp.width}px</span>
+                      </div>
+                      <input
+                        type="range" min={30} max={400}
+                        value={selectedStamp.width}
+                        onChange={(e) => {
+                          const w = Number(e.target.value)
+                          const ratio = selectedStamp.height / selectedStamp.width
+                          const h = Math.round(w * ratio)
+                          if (isDocxMode) {
+                            setDocxStamps(prev => prev.map(s => s.id === selectedStamp.id ? { ...s, width: w, height: h } : s))
+                          } else {
+                            setPlacedStamps(prev => prev.map(s => s.id === selectedStamp.id ? { ...s, width: w, height: h } : s))
+                          }
+                        }}
+                        className="w-full accent-blue-600"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* ── Bottom action buttons ─────────────────────────────── */}
               <div className="p-4 border-t border-slate-200 space-y-2.5 flex-shrink-0 bg-white">
                 <button
                   onClick={handleFinalize}
@@ -1116,7 +1115,8 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }
 

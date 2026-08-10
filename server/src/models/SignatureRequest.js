@@ -3,6 +3,15 @@ const mongoose = require('mongoose');
 const signatureRequestSchema = new mongoose.Schema({
   requestRef: { type: String, index: true },
   requester: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  recipientType: {
+    type: String,
+    enum: ['general', 'client', 'employee'],
+    default: 'general',
+    index: true
+  },
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'ClientProfile' },
+  clientName: { type: String },
+  clientEmail: { type: String },
   employeeId: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   employeeName: { type: String },
   employeeEmail: { type: String },

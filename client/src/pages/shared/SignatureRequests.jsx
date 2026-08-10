@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -39,16 +40,34 @@ export default function SignatureRequests() {
   const [rejectingRequest, setRejectingRequest] = useState(null)
   const [deletingRequest, setDeletingRequest] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
 
-  // Submit Request Form State (Employee)
+  // Submit Request Form State
   const [submitForm, setSubmitForm] = useState({
     title: '',
     documentType: 'Internship Certificate',
     reason: '',
     urgency: 'normal',
     notes: '',
+    recipientType: 'general', // 'general' | 'client' | 'employee'
+    clientId: '',
+    employeeId: '',
     file: null
   })
+
+  // Fetch Clients & Employees for Modal Selection
+  const { data: clientsData } = useQuery({
+    queryKey: ['clients-lookup-list'],
+    queryFn: () => api.get('/clients').then(r => r.data).catch(() => ({ clients: [] })),
+    enabled: showSubmitModal
+  })
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees-lookup-list'],
+    queryFn: () => api.get('/employees').then(r => r.data).catch(() => ({ employees: [] })),
+    enabled: showSubmitModal
+  })
+  const clientsList = clientsData?.clients || clientsData?.users || []
+  const employeesList = employeesData?.employees || []
 
   // Add Stamp Form State (Admin / Owner Library)
   const [newStampForm, setNewStampForm] = useState({
@@ -92,7 +111,7 @@ export default function SignatureRequests() {
   const signedCount = requests.filter(r => r.status === 'signed').length
   const rejectedCount = requests.filter(r => r.status === 'rejected').length
 
-  // Submit Request Mutation (Employee)
+  // Submit Request Mutation
   const submitMut = useMutation({
     mutationFn: async (formData) => {
       const res = await api.post('/signature-requests', formData, {
@@ -109,6 +128,9 @@ export default function SignatureRequests() {
         reason: '',
         urgency: 'normal',
         notes: '',
+        recipientType: 'general',
+        clientId: '',
+        employeeId: '',
         file: null
       })
       queryClient.invalidateQueries(['signature-requests'])
@@ -168,19 +190,20 @@ export default function SignatureRequests() {
     }
   })
 
-  // Hard Delete Request Mutation (Admin / Owner)
+  // Hard Delete Request Mutation (Admin / Owner — Password Protected)
   const deleteRequestMut = useMutation({
-    mutationFn: async (id) => {
-      const res = await api.delete(`/signature-requests/${id}`)
+    mutationFn: async ({ id, password }) => {
+      const res = await api.delete(`/signature-requests/${id}`, { data: { password } })
       return res.data
     },
     onSuccess: () => {
       toast.success('Signature request permanently deleted!')
       setDeletingRequest(null)
+      setAdminPassword('')
       queryClient.invalidateQueries(['signature-requests'])
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete request')
+      toast.error(err.response?.data?.message || 'Failed to delete request. Check password.')
     }
   })
 
@@ -189,12 +212,25 @@ export default function SignatureRequests() {
     if (!submitForm.title || !submitForm.reason || !submitForm.file) {
       return toast.error('Please fill all required fields and upload document')
     }
+    if (submitForm.recipientType === 'client' && !submitForm.clientId) {
+      return toast.error('Please select a Customer / Client')
+    }
+    if (submitForm.recipientType === 'employee' && !submitForm.employeeId) {
+      return toast.error('Please select an Employee / Intern')
+    }
     const fd = new FormData()
     fd.append('title', submitForm.title)
     fd.append('documentType', submitForm.documentType)
     fd.append('reason', submitForm.reason)
     fd.append('urgency', submitForm.urgency)
     fd.append('notes', submitForm.notes)
+    fd.append('recipientType', submitForm.recipientType)
+    if (submitForm.recipientType === 'client' && submitForm.clientId) {
+      fd.append('clientId', submitForm.clientId)
+    }
+    if (submitForm.recipientType === 'employee' && submitForm.employeeId) {
+      fd.append('employeeId', submitForm.employeeId)
+    }
     fd.append('file', submitForm.file)
     submitMut.mutate(fd)
   }
@@ -434,15 +470,22 @@ export default function SignatureRequests() {
                       </div>
                     </td>
 
-                    {/* Requester */}
+                    {/* Requester & Target Recipient */}
                     <td>
                       <div className="flex items-center gap-3 min-w-[160px]">
                         <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
-                          {req.employeeName ? req.employeeName.charAt(0).toUpperCase() : 'U'}
+                          {req.recipientType === 'client' ? (req.clientName ? req.clientName.charAt(0).toUpperCase() : 'C') :
+                           req.employeeName ? req.employeeName.charAt(0).toUpperCase() : 'U'}
                         </div>
                         <div>
-                          <p className="font-medium text-gray-800 text-sm">{req.employeeName}</p>
-                          <p className="text-xs text-gray-400 capitalize">{req.employeeType || 'Permanent'}</p>
+                          <p className="font-medium text-gray-800 text-sm">
+                            {req.recipientType === 'client' ? (req.clientName || 'Client') : req.employeeName}
+                          </p>
+                          <p className="text-[11px] text-gray-400 font-medium">
+                            {req.recipientType === 'client' ? '🏢 Target: Client' :
+                             req.recipientType === 'employee' ? '👤 Target: Employee' :
+                             '🌐 Target: System Only'}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -602,14 +645,21 @@ export default function SignatureRequests() {
                 </div>
               </div>
 
-              {/* Requester Info */}
+              {/* Requester / Target Info */}
               <div className="flex items-center gap-2.5 py-1">
                 <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-xs shrink-0">
-                  {req.employeeName ? req.employeeName.charAt(0).toUpperCase() : 'U'}
+                  {req.recipientType === 'client' ? (req.clientName ? req.clientName.charAt(0).toUpperCase() : 'C') :
+                   req.employeeName ? req.employeeName.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-slate-800 text-xs truncate">{req.employeeName}</p>
-                  <p className="text-[11px] text-slate-400 capitalize">{req.employeeType || 'Permanent'}</p>
+                  <p className="font-semibold text-slate-800 text-xs truncate">
+                    {req.recipientType === 'client' ? (req.clientName || 'Client') : req.employeeName}
+                  </p>
+                  <p className="text-[11px] font-medium text-slate-400">
+                    {req.recipientType === 'client' ? '🏢 Target: Client' :
+                     req.recipientType === 'employee' ? '👤 Target: Employee' :
+                     '🌐 Target: System Only'}
+                  </p>
                 </div>
               </div>
 
@@ -729,6 +779,73 @@ export default function SignatureRequests() {
                   />
                 </div>
 
+                {/* ── Recipient / Target Audience Assignment ─────────────────────────── */}
+                <div className="space-y-3 bg-blue-50/50 border border-blue-100 p-4 rounded-2xl">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                      Document Assignment &amp; Routing Target *
+                    </label>
+                    <select
+                      value={submitForm.recipientType}
+                      onChange={(e) => setSubmitForm(p => ({ ...p, recipientType: e.target.value, clientId: '', employeeId: '' }))}
+                      className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="general">🌐 System Only / General (Direct to System)</option>
+                      <option value="client">🏢 Customer / Client (Assign to Client Profile)</option>
+                      <option value="employee">👤 Employee / Intern (Assign to Employee Profile)</option>
+                    </select>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      {submitForm.recipientType === 'general' ? 'This document will be saved directly into the system records.' :
+                       submitForm.recipientType === 'client' ? 'Assigns and routes this document to a specific client portal/profile.' :
+                       'Assigns and routes this document to a specific employee/intern profile.'}
+                    </p>
+                  </div>
+
+                  {/* Dynamic Selection for Customer / Client */}
+                  {submitForm.recipientType === 'client' && (
+                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                        Select Customer / Client *
+                      </label>
+                      <select
+                        required
+                        value={submitForm.clientId}
+                        onChange={(e) => setSubmitForm(p => ({ ...p, clientId: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20"
+                      >
+                        <option value="">-- Select Customer / Client --</option>
+                        {clientsList.map(c => {
+                          const nameLabel = c.companyName ? `${c.companyName} (${c.contactPerson || c.name || 'Client'})` : (c.name || c.contactPerson || 'Client')
+                          return <option key={c._id} value={c._id}>{nameLabel}</option>
+                        })}
+                      </select>
+                    </motion.div>
+                  )}
+
+                  {/* Dynamic Selection for Employee / Intern */}
+                  {submitForm.recipientType === 'employee' && (
+                    <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">
+                        Select Employee / Intern *
+                      </label>
+                      <select
+                        required
+                        value={submitForm.employeeId}
+                        onChange={(e) => setSubmitForm(p => ({ ...p, employeeId: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500/20"
+                      >
+                        <option value="">-- Select Employee / Intern --</option>
+                        {employeesList.map(e => {
+                          const empUser = e.userId || {}
+                          const empName = empUser.name || (e.firstName ? `${e.firstName} ${e.lastName || ''}`.trim() : 'Employee')
+                          const dept = e.department ? ` • ${e.department}` : ''
+                          return <option key={e._id} value={e._id}>{empName}{dept} ({e.employmentType || 'Employee'})</option>
+                        })}
+                      </select>
+                    </motion.div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
@@ -820,55 +937,58 @@ export default function SignatureRequests() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-200"
+              className="w-full max-w-xl bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-200"
             >
               <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <FiBookmark className="text-blue-600" /> My Stamp Library (අත්සන් හා මුද්‍රා කළමනාකරණය)
+                  <FiBookmark className="text-blue-600" /> Signature &amp; Seal Library
                 </h3>
                 <button onClick={() => setShowStampsModal(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl">
                   <FiX size={20} />
                 </button>
               </div>
 
-              <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                {/* Add New Stamp to Library Form */}
-                <form onSubmit={handleAddStampToLibrary} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                    <FiPlus className="text-blue-600" /> Add New Stamp to Library
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <input
-                      type="text"
-                      required
-                      placeholder="Stamp Title (e.g. Director Sig)"
-                      value={newStampForm.title}
-                      onChange={(e) => setNewStampForm(p => ({ ...p, title: e.target.value }))}
-                      className="px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-900"
-                    />
-                    <select
-                      value={newStampForm.type}
-                      onChange={(e) => setNewStampForm(p => ({ ...p, type: e.target.value }))}
-                      className="px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800"
-                    >
-                      <option value="signature">Type: Signature ✒️</option>
-                      <option value="seal">Type: Company Seal 🏵️</option>
-                    </select>
+              <div className="p-6 space-y-6">
+                <form onSubmit={handleAddStampToLibrary} className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Add Stamp / Signature to Library</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">Stamp Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Official Seal 2026"
+                        value={newStampForm.title}
+                        onChange={(e) => setNewStampForm(p => ({ ...p, title: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">Type</label>
+                      <select
+                        value={newStampForm.type}
+                        onChange={(e) => setNewStampForm(p => ({ ...p, type: e.target.value }))}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-medium"
+                      >
+                        <option value="signature">Signature</option>
+                        <option value="seal">Company Seal</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 pt-1">
                     <input
                       type="file"
-                      required
                       accept="image/*"
                       onChange={(e) => setNewStampForm(p => ({ ...p, file: e.target.files?.[0] || null }))}
-                      className="text-[11px] text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-700 font-bold"
+                      className="text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-100 file:text-blue-700"
                     />
+                    <button
+                      type="submit"
+                      disabled={addStampMut.isPending}
+                      className="px-4 py-2 bg-blue-600 text-white font-bold text-xs rounded-xl hover:bg-blue-700 shrink-0"
+                    >
+                      {addStampMut.isPending ? 'Saving...' : 'Save Stamp'}
+                    </button>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={addStampMut.isPending}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all"
-                  >
-                    {addStampMut.isPending ? 'Saving...' : 'Save Stamp to Library'}
-                  </button>
                 </form>
 
                 {/* Saved Stamps List */}
@@ -976,15 +1096,32 @@ export default function SignatureRequests() {
                 Are you sure you want to permanently delete <span className="font-bold text-slate-800">{deletingRequest.title}</span> ({deletingRequest.requestRef})? This action cannot be undone and will delete the record and files from server storage.
               </p>
 
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Enter Admin Password to Confirm *
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Admin Password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                />
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <button
-                  onClick={() => setDeletingRequest(null)}
+                  onClick={() => { setDeletingRequest(null); setAdminPassword(''); }}
                   className="px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition-all"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => deleteRequestMut.mutate(deletingRequest._id)}
+                  onClick={() => {
+                    if (!adminPassword.trim()) return toast.error('Admin Password is required to confirm deletion')
+                    deleteRequestMut.mutate({ id: deletingRequest._id, password: adminPassword })
+                  }}
                   disabled={deleteRequestMut.isPending}
                   className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/20 flex items-center gap-1.5 transition-all"
                 >

@@ -241,12 +241,25 @@ export default function AdminAIAnalyzer() {
   ]
 
   const analyzeWebsite = async () => {
-    if (!websiteUrl) return
-    setAnalyzing(true)
-    await new Promise(r => setTimeout(r, 2500))
-    setWebsiteResult(genWebsiteData(websiteUrl))
-    setAnalyzing(false)
-  }
+    if (!websiteUrl || !websiteUrl.trim()) {
+      return toast.error('Please enter a website URL (e.g. zage.lk or raxwo.net)');
+    }
+    setAnalyzing(true);
+    try {
+      const res = await api.post('/analytics/website-audit', { url: websiteUrl });
+      if (res.data?.success && res.data?.audit) {
+        setWebsiteResult(res.data.audit);
+        toast.success(`Live SEO audit completed for ${res.data.domain || websiteUrl}!`);
+      } else {
+        toast.error('Could not parse audit response');
+      }
+    } catch (err) {
+      console.error('[Website Audit Error]:', err);
+      toast.error(apiErrorMessage(err, 'Website audit failed — please verify URL'));
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const runMarketingAnalysis = async (platformKey, force = false) => {
     setMktgPlatform(platformKey)
@@ -509,8 +522,25 @@ export default function AdminAIAnalyzer() {
 
           {websiteResult && !analyzing && (
             <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} className="space-y-5">
+              {/* Overall Scores Gauge Grid */}
               <div className="card card-body">
-                <h3 className="font-bold text-primary mb-4">Analysis Results — {websiteUrl}</h3>
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-4 pb-2 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-primary text-base flex items-center gap-2">
+                      <FiGlobe className="text-secondary" /> Live Audit Summary — <span className="text-blue-600 font-mono">{websiteResult.domain || websiteUrl}</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Real-time HTTP audit &amp; SEO diagnostics</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${websiteResult.meta?.isHttps ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                      {websiteResult.meta?.isHttps ? '🔒 HTTPS Secured' : '⚠️ HTTP Unencrypted'}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+                      ⏱️ {websiteResult.responseTimeMs || 0}ms Response
+                    </span>
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap gap-6 justify-around">
                   <ScoreGauge label="SEO" score={websiteResult.seoScore} color="#3B82F6"/>
                   <ScoreGauge label="Speed" score={websiteResult.speedScore} color="#10B981"/>
@@ -521,25 +551,81 @@ export default function AdminAIAnalyzer() {
                   <ScoreGauge label="Content" score={websiteResult.contentScore} color="#84CC16"/>
                 </div>
               </div>
+
+              {/* Scraped Website Metadata Details Breakdown */}
+              {websiteResult.meta && (
+                <div className="card card-body bg-slate-50/70 border border-slate-200/80">
+                  <h4 className="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                    <FiSearch className="text-blue-600" /> Scraped HTML Tags &amp; On-Page Diagnostics
+                  </h4>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <p className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Page Title</p>
+                      <p className="font-semibold text-slate-800 mt-1 truncate" title={websiteResult.meta.title}>
+                        {websiteResult.meta.title || <span className="text-red-500 italic">Missing</span>}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{websiteResult.meta.titleLength || 0} characters</p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <p className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Meta Description</p>
+                      <p className="font-semibold text-slate-800 mt-1 truncate" title={websiteResult.meta.description}>
+                        {websiteResult.meta.description || <span className="text-red-500 italic">Missing</span>}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{websiteResult.meta.descriptionLength || 0} characters</p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <p className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Image Alt Text</p>
+                      <p className="font-semibold text-slate-800 mt-1">
+                        {websiteResult.meta.totalImages || 0} total images
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">
+                        {websiteResult.meta.imagesWithoutAlt > 0 ? (
+                          <span className="text-amber-600 font-bold">⚠️ {websiteResult.meta.imagesWithoutAlt} missing alt tag(s)</span>
+                        ) : (
+                          <span className="text-emerald-600 font-bold">✅ All images have alt text</span>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-slate-200">
+                      <p className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Heading Tags Hierarchy</p>
+                      <p className="font-semibold text-slate-800 mt-1">
+                        H1: {websiteResult.meta.h1Count} · H2: {websiteResult.meta.h2Count} · H3: {websiteResult.meta.h3Count}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {websiteResult.meta.hasViewport ? '📱 Mobile Viewport Set' : '❌ No Viewport Meta'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic Issues & Suggestions Grid */}
               <div className="grid md:grid-cols-2 gap-5">
                 <div className="card card-body">
-                  <h4 className="font-bold text-primary mb-3">⚠️ Issues Found</h4>
-                  <ul className="space-y-2">
-                    {websiteResult.issues.map((iss, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-2 shrink-0"/>
-                        {iss}
+                  <h4 className="font-bold text-primary mb-3 flex items-center gap-2">
+                    <span className="p-1 bg-amber-100 text-amber-700 rounded-lg text-xs">⚠️</span> Real-Time Audit Issues ({websiteResult.issues?.length || 0})
+                  </h4>
+                  <ul className="space-y-2.5">
+                    {(websiteResult.issues || []).map((iss, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-xs font-semibold text-slate-700 bg-amber-50/50 p-2.5 rounded-xl border border-amber-200/60">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0"/>
+                        <span>{iss}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
                 <div className="card card-body">
-                  <h4 className="font-bold text-primary mb-3">💡 Suggestions</h4>
-                  <ul className="space-y-2">
-                    {websiteResult.suggestions.map((s, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                  <h4 className="font-bold text-primary mb-3 flex items-center gap-2">
+                    <span className="p-1 bg-blue-100 text-blue-700 rounded-lg text-xs">💡</span> Tailored AI Suggestions ({websiteResult.suggestions?.length || 0})
+                  </h4>
+                  <ul className="space-y-2.5">
+                    {(websiteResult.suggestions || []).map((s, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-xs font-semibold text-slate-700 bg-blue-50/50 p-2.5 rounded-xl border border-blue-200/60">
                         <FiZap size={14} className="text-secondary shrink-0 mt-0.5"/>
-                        {s}
+                        <span>{s}</span>
                       </li>
                     ))}
                   </ul>

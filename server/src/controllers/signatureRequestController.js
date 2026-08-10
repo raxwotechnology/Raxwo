@@ -1,8 +1,10 @@
 const SignatureRequest = require('../models/SignatureRequest');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
+const ClientProfile = require('../models/ClientProfile');
 const SiteSetting = require('../models/SiteSetting');
 const SavedStamp = require('../models/SavedStamp');
+const { verifyActionPassword } = require('../utils/actionPassword');
 const { createNotification } = require('../services/notificationService');
 const { sendMail } = require('../utils/mailer');
 const { toRelativeUploadUrl, getUploadsRoot } = require('../utils/uploadsPath');
@@ -24,10 +26,10 @@ async function sendNotificationEmail(toEmail, subject, textContent, htmlContent)
   }
 }
 
-// 1. Create a new Signature Request (Employee / Intern)
+// 1. Create a new Signature Request (System / General, Client, or Employee)
 exports.createRequest = async (req, res, next) => {
   try {
-    const { title, documentType, reason, urgency, notes } = req.body;
+    const { title, documentType, reason, urgency, notes, recipientType, clientId, employeeId } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, message: 'Document Title is required' });
@@ -43,16 +45,44 @@ exports.createRequest = async (req, res, next) => {
     const rawPath = req.file.path || req.file.filename || ''
     const docPath = rawPath.startsWith('data:') ? rawPath : `/uploads/documents/${req.file.filename}`
 
-    // Resolve employee details
-    const emp = await Employee.findOne({ userId: req.user._id }).populate('userId', 'name email phone');
-    const empName = req.user.name || (emp && emp.userId?.name) || 'Employee';
-    const empEmail = req.user.email || (emp && emp.userId?.email) || '';
-    const empPhone = emp?.mobile || emp?.phone || req.user.phone || '';
-    const empType = emp?.employmentType || 'permanent';
+    // Resolve employee / requester details
+    const loggedEmp = await Employee.findOne({ userId: req.user._id }).populate('userId', 'name email phone');
+    let empName = req.user.name || (loggedEmp && loggedEmp.userId?.name) || 'User';
+    let empEmail = req.user.email || (loggedEmp && loggedEmp.userId?.email) || '';
+    let empPhone = loggedEmp?.mobile || loggedEmp?.phone || req.user.phone || '';
+    let empType = loggedEmp?.employmentType || 'permanent';
+
+    const reqType = recipientType || 'general';
+    let targetClientId = null;
+    let clientName = '';
+    let clientEmail = '';
+    let targetEmployeeId = loggedEmp?._id || null;
+
+    if (reqType === 'client' && clientId) {
+      const clientProf = await ClientProfile.findById(clientId).populate('userId', 'name email');
+      if (clientProf) {
+        targetClientId = clientProf._id;
+        clientName = clientProf.companyName || clientProf.contactPerson || clientProf.userId?.name || 'Client';
+        clientEmail = clientProf.userId?.email || '';
+      }
+    } else if (reqType === 'employee' && employeeId) {
+      const targetEmp = await Employee.findById(employeeId).populate('userId', 'name email phone');
+      if (targetEmp) {
+        targetEmployeeId = targetEmp._id;
+        empName = targetEmp.userId?.name || (targetEmp.firstName ? `${targetEmp.firstName} ${targetEmp.lastName || ''}`.trim() : 'Employee');
+        empEmail = targetEmp.userId?.email || '';
+        empPhone = targetEmp.mobile || targetEmp.phone || '';
+        empType = targetEmp.employmentType || 'permanent';
+      }
+    }
 
     const sigReq = await SignatureRequest.create({
       requester: req.user._id,
-      employeeId: emp?._id || null,
+      recipientType: reqType,
+      clientId: targetClientId,
+      clientName: clientName,
+      clientEmail: clientEmail,
+      employeeId: targetEmployeeId,
       employeeName: empName,
       employeeEmail: empEmail,
       employeePhone: empPhone,
@@ -145,18 +175,34 @@ function repairUploadUrl(url) {
   return url;
 }
 
-// 2. Get Requests (With filters for Admin/Owner and scoped for Employees)
+// 2. Get Requests (With filters for Admin/Owner and scoped for Employees/Clients)
 exports.getRequests = async (req, res, next) => {
   try {
-    const { status, documentType, urgency, employeeId, signedBy, search, startDate, endDate } = req.query;
+    const { status, documentType, urgency, employeeId, clientId, recipientType, signedBy, search, startDate, endDate } = req.query;
     const isManagement = ['admin', 'owner', 'manager'].includes(req.user.role);
 
     const query = {};
 
     if (!isManagement) {
-      query.requester = req.user._id;
+      if (req.user.role === 'client') {
+        const clientProf = await ClientProfile.findOne({ userId: req.user._id });
+        query.$or = [
+          { requester: req.user._id },
+          ...(clientProf ? [{ clientId: clientProf._id }] : []),
+          { clientEmail: req.user.email }
+        ];
+      } else {
+        const emp = await Employee.findOne({ userId: req.user._id });
+        query.$or = [
+          { requester: req.user._id },
+          ...(emp ? [{ employeeId: emp._id }] : []),
+          { recipientType: 'general' }
+        ];
+      }
     } else {
       if (employeeId) query.employeeId = employeeId;
+      if (clientId) query.clientId = clientId;
+      if (recipientType) query.recipientType = recipientType;
       if (signedBy) query.signedBy = signedBy;
     }
 
@@ -172,17 +218,25 @@ exports.getRequests = async (req, res, next) => {
 
     if (search && search.trim()) {
       const regex = new RegExp(search.trim(), 'i');
-      query.$or = [
+      const searchConditions = [
         { title: regex },
         { reason: regex },
         { requestRef: regex },
-        { employeeName: regex }
+        { employeeName: regex },
+        { clientName: regex }
       ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchConditions }];
+        delete query.$or;
+      } else {
+        query.$or = searchConditions;
+      }
     }
 
     const requests = await SignatureRequest.find(query)
       .sort({ createdAt: -1 })
       .populate('requester', 'name email avatar role')
+      .populate('clientId', 'companyName contactPerson')
       .populate('signedBy', 'name email role');
 
     const cleanedRequests = requests.map(r => {
@@ -506,10 +560,17 @@ function tryDeleteFile(urlPath) {
   }
 }
 
-// Hard Delete a Signature Request (Admin / Owner only)
+// Hard Delete a Signature Request (Admin / Owner only — requires Admin Password)
 exports.deleteRequest = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const password = req.body?.password || req.headers['x-admin-password'] || req.query?.password;
+
+    const pwCheck = await verifyActionPassword(req.user._id, password);
+    if (!pwCheck.ok) {
+      return res.status(pwCheck.status).json({ success: false, message: pwCheck.message });
+    }
+
     const sigReq = await SignatureRequest.findById(id);
     if (!sigReq) {
       return res.status(404).json({ success: false, message: 'Signature request not found' });
