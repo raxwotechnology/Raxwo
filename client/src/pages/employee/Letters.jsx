@@ -40,12 +40,16 @@ export default function EmployeeLetters() {
   }
 
   const print = (l) => {
+    let bodyHtml = l.content || ''
+    if (bodyHtml && typeof bodyHtml === 'string' && l.letterRef) {
+      bodyHtml = bodyHtml.replace(/LTR-\d{4}-XXXX/g, l.letterRef).replace(/LTR-XXXX/g, l.letterRef)
+    }
     openLetterPrint({
       company,
       letterTitle: l.title,
       letterRef: l.letterRef,
       issuedDate: l.issuedDate ? new Date(l.issuedDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' }) : '',
-      bodyHtml: l.content,
+      bodyHtml,
       signatures: l.signatures,
       isFullHtml: Boolean(l.structuredData),
     })

@@ -281,92 +281,92 @@ export default function SignatureRequests() {
   const defaultSeal = savedStamps.find(s => s.type === 'seal' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'seal')?.imageUrl || ''
 
   return (
-    <div className="p-6 md:p-10 space-y-8 max-w-[1600px] mx-auto text-slate-800">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 animate-fade-in">
       {/* ── High-Impact Executive Top Banner ──────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white p-8 md:p-10 rounded-3xl shadow-2xl relative overflow-hidden border border-blue-800/40">
-        <div className="absolute right-0 top-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 md:p-8 rounded-2xl shadow-xl relative overflow-hidden border border-slate-800/80">
+        <div className="absolute right-0 top-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-500/20 border border-blue-400/30 rounded-full text-blue-200 text-xs font-bold tracking-wide uppercase">
-              <FiShield size={14} className="text-blue-400" /> Official E-Signature & Stamp Portal
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-full text-blue-300 text-[11px] font-bold tracking-wide uppercase">
+              <FiShield size={13} className="text-blue-400" /> Official E-Signature & Stamp Portal
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight drop-shadow-md">
+            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
               Document Signature Requests
             </h1>
-            <p className="text-sm text-blue-100/90 max-w-2xl font-medium leading-relaxed">
+            <p className="text-xs md:text-sm text-slate-300 max-w-2xl font-normal leading-relaxed">
               Submit employee document verification requests, drag & place official digital signatures and company seals, and track approval status with audit filtering.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             {isManagement && (
               <button
                 onClick={() => setShowStampsModal(true)}
-                className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-2xl border border-white/25 backdrop-blur-md flex items-center gap-2 transition-all shadow-lg"
+                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 backdrop-blur-md flex items-center gap-2 transition-all shadow-md"
               >
-                <FiBookmark size={16} className="text-blue-300" /> My Stamp Library ({savedStamps.length})
+                <FiBookmark size={15} className="text-blue-300" /> Stamp Library ({savedStamps.length})
               </button>
             )}
 
             <button
               onClick={() => setShowSubmitModal(true)}
-              className="px-6 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-blue-600/30 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
             >
-              <FiPlus size={18} /> Submit Document for Signature
+              <FiPlus size={16} /> Submit Document
             </button>
           </div>
         </div>
       </div>
 
       {/* ── Executive Metric KPI Cards ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Requests</p>
-            <p className="text-3xl font-extrabold text-slate-900">{totalCount}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div className="space-y-0.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Requests</p>
+            <p className="text-2xl font-extrabold text-slate-900">{totalCount}</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-            <FiLayers size={22} />
-          </div>
-        </div>
-
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-wider text-amber-600">Pending Review</p>
-            <p className="text-3xl font-extrabold text-amber-600">{pendingCount}</p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-            <FiClock size={22} />
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <FiLayers size={18} />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Signed & Sealed</p>
-            <p className="text-3xl font-extrabold text-emerald-600">{signedCount}</p>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div className="space-y-0.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Pending Review</p>
+            <p className="text-2xl font-extrabold text-amber-600">{pendingCount}</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            <FiCheckCircle size={22} />
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            <FiClock size={18} />
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-wider text-red-600">Rejected</p>
-            <p className="text-3xl font-extrabold text-red-600">{rejectedCount}</p>
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div className="space-y-0.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Signed & Sealed</p>
+            <p className="text-2xl font-extrabold text-emerald-600">{signedCount}</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
-            <FiXCircle size={22} />
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <FiCheckCircle size={18} />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+          <div className="space-y-0.5">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-red-600">Rejected</p>
+            <p className="text-2xl font-extrabold text-red-600">{rejectedCount}</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
+            <FiXCircle size={18} />
           </div>
         </div>
       </div>
 
       {/* ── High Contrast Audit Filters & Search Bar ─────────────────────────── */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/90 space-y-4">
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-            <FiFilter className="text-blue-600" size={16} /> Audit Filters & Search
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <FiFilter className="text-blue-600" size={14} /> Audit Filters & Search
           </h3>
           <button
             onClick={() => {
@@ -375,22 +375,22 @@ export default function SignatureRequests() {
               setUrgencyFilter('All')
               setSearchTerm('')
             }}
-            className="text-xs font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
+            className="text-[11px] font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
           >
-            <FiRefreshCw size={13} /> Reset Filters
+            <FiRefreshCw size={12} /> Reset Filters
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {/* Search Box */}
           <div className="relative">
-            <FiSearch className="absolute left-3.5 top-3.5 text-slate-400" size={16} />
+            <FiSearch className="absolute left-3 top-2.5 text-slate-400" size={15} />
             <input
               type="text"
               placeholder="Search title, ref, employee..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300/80 rounded-2xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
             />
           </div>
 
@@ -398,7 +398,7 @@ export default function SignatureRequests() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-50 border border-slate-300/80 rounded-2xl text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
           >
             <option value="All">Status: All Statuses</option>
             <option value="Pending">Status: Pending Review</option>
@@ -410,7 +410,7 @@ export default function SignatureRequests() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-50 border border-slate-300/80 rounded-2xl text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
           >
             <option value="All">Category: All Categories</option>
             {DOC_TYPES.map(t => (
@@ -422,7 +422,7 @@ export default function SignatureRequests() {
           <select
             value={urgencyFilter}
             onChange={(e) => setUrgencyFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-50 border border-slate-300/80 rounded-2xl text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
           >
             <option value="All">Priority: All Priorities</option>
             <option value="Normal">Normal Priority</option>
@@ -432,129 +432,129 @@ export default function SignatureRequests() {
       </div>
 
       {/* ── High Contrast Document Requests Data Table ───────────────────────── */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/90 overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-            <FiFileText className="text-blue-600" /> Signature Requests Records ({requests.length})
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <FiFileText className="text-blue-600" size={16} /> Signature Requests Records ({requests.length})
           </h2>
         </div>
 
         {isLoading ? (
-          <div className="p-16 text-center text-slate-400 space-y-3">
-            <span className="w-9 h-9 border-3 border-blue-600 border-t-transparent rounded-full animate-spin inline-block" />
+          <div className="p-12 text-center text-slate-400 space-y-2">
+            <span className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin inline-block" />
             <p className="text-xs font-bold text-slate-600">Loading document request records...</p>
           </div>
         ) : requests.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
-                <tr className="bg-slate-100/80 text-[11px] font-extrabold text-slate-700 uppercase tracking-wider border-b border-slate-200">
-                  <th className="py-4 px-6 w-64">Ref & Title</th>
-                  <th className="py-4 px-6 w-48">Requester</th>
-                  <th className="py-4 px-6 w-44">Category</th>
-                  <th className="py-4 px-6">Reason for Request</th>
-                  <th className="py-4 px-6 w-28">Priority</th>
-                  <th className="py-4 px-6 w-40">Status</th>
-                  <th className="py-4 px-6 text-right w-44">Actions</th>
+                <tr className="bg-slate-100/90 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200">
+                  <th className="py-2.5 px-4 w-56">Ref & Title</th>
+                  <th className="py-2.5 px-4 w-44">Requester</th>
+                  <th className="py-2.5 px-4 w-36">Category</th>
+                  <th className="py-2.5 px-4">Reason for Request</th>
+                  <th className="py-2.5 px-4 w-24">Priority</th>
+                  <th className="py-2.5 px-4 w-36">Status</th>
+                  <th className="py-2.5 px-4 text-right w-44">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
                 {requests.map((req) => (
                   <tr key={req._id} className="hover:bg-slate-50/80 transition-colors">
                     {/* Ref & Title */}
-                    <td className="py-4 px-6">
-                      <div className="space-y-1">
-                        <span className="font-mono text-[11px] font-bold text-blue-700 bg-blue-100/70 border border-blue-200 px-2.5 py-0.5 rounded-md inline-block">
+                    <td className="py-2.5 px-4">
+                      <div className="space-y-0.5">
+                        <span className="font-mono text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded inline-block">
                           {req.requestRef}
                         </span>
-                        <p className="font-bold text-slate-900 text-sm leading-snug">{req.title}</p>
-                        <p className="text-[11px] text-slate-500 font-semibold">{new Date(req.createdAt).toLocaleDateString()}</p>
+                        <p className="font-bold text-slate-900 text-xs leading-tight line-clamp-1">{req.title}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{new Date(req.createdAt).toLocaleDateString()}</p>
                       </div>
                     </td>
 
                     {/* Requester */}
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+                    <td className="py-2.5 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-[10px] uppercase shrink-0 shadow-xs">
                           {req.employeeName ? req.employeeName[0] : 'U'}
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-900 text-xs">{req.employeeName}</p>
-                          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{req.employeeType}</span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 text-xs truncate">{req.employeeName}</p>
+                          <span className="text-[9px] text-slate-400 font-semibold uppercase tracking-wider block">{req.employeeType}</span>
                         </div>
                       </div>
                     </td>
 
                     {/* Category */}
-                    <td className="py-4 px-6">
-                      <span className="px-3 py-1 bg-slate-100 text-slate-800 rounded-full text-[11px] font-bold border border-slate-200 whitespace-nowrap inline-block">
+                    <td className="py-2.5 px-4">
+                      <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[11px] font-semibold border border-slate-200/80 whitespace-nowrap inline-block">
                         {req.documentType}
                       </span>
                     </td>
 
                     {/* Reason */}
-                    <td className="py-4 px-6">
-                      <p className="text-slate-700 text-xs line-clamp-2 font-medium" title={req.reason}>
+                    <td className="py-2.5 px-4">
+                      <p className="text-slate-600 text-xs line-clamp-1 font-normal" title={req.reason}>
                         {req.reason}
                       </p>
                     </td>
 
                     {/* Urgency */}
-                    <td className="py-4 px-6">
+                    <td className="py-2.5 px-4">
                       {req.urgency === 'urgent' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 border border-red-300 px-2.5 py-1 rounded-full animate-pulse whitespace-nowrap">
-                          <FiAlertCircle size={12} /> URGENT
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md animate-pulse whitespace-nowrap">
+                          <FiAlertCircle size={11} /> URGENT
                         </span>
                       ) : (
-                        <span className="text-[11px] font-bold text-slate-600">Normal</span>
+                        <span className="text-[11px] text-slate-500 font-medium">Normal</span>
                       )}
                     </td>
 
                     {/* Status */}
-                    <td className="py-4 px-6">
+                    <td className="py-2.5 px-4">
                       {req.status === 'signed' ? (
-                        <div className="space-y-1">
-                          <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1 rounded-full whitespace-nowrap">
-                            <FiCheckCircle size={14} className="text-emerald-700" /> Signed & Sealed
+                        <div>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md whitespace-nowrap">
+                            <FiCheckCircle size={12} className="text-emerald-600" /> Signed & Sealed
                           </span>
                           {req.signedByName && (
-                            <p className="text-[10px] text-slate-500 font-semibold">By {req.signedByName}</p>
+                            <p className="text-[9px] text-slate-400 font-medium mt-0.5">By {req.signedByName}</p>
                           )}
                         </div>
                       ) : req.status === 'rejected' ? (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-red-800 bg-red-100 border border-red-300 px-3 py-1 rounded-full whitespace-nowrap">
-                          <FiXCircle size={14} className="text-red-700" /> Rejected
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-800 bg-red-50 border border-red-200 px-2.5 py-0.5 rounded-md whitespace-nowrap">
+                          <FiXCircle size={12} className="text-red-600" /> Rejected
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-amber-800 bg-amber-100 border border-amber-300 px-3 py-1 rounded-full whitespace-nowrap">
-                          <FiClock size={14} className="text-amber-700" /> Pending Review
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md whitespace-nowrap">
+                          <FiClock size={12} className="text-amber-600" /> Pending Review
                         </span>
                       )}
                     </td>
 
                     {/* Actions */}
-                    <td className="py-4 px-6 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-2 justify-end">
+                    <td className="py-2.5 px-4 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
                         {req.status === 'signed' && req.signedDocUrl ? (
                           <button
                             onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
-                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1 transition-all cursor-pointer"
                           >
-                            <FiDownload size={15} /> Download Signed
+                            <FiDownload size={13} /> Download
                           </button>
                         ) : isManagement && req.status === 'pending' ? (
                           <>
                             <button
                               onClick={() => setActiveEditorRequest(req)}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-600/20 inline-flex items-center gap-1.5 transition-all"
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-xs inline-flex items-center gap-1 transition-all"
                             >
-                              <FiEdit3 size={15} /> Sign & Stamp
+                              <FiEdit3 size={13} /> Sign & Stamp
                             </button>
                             <button
                               onClick={() => setRejectingRequest(req)}
-                              className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-xl border border-red-200 inline-flex items-center gap-1 transition-all"
+                              className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-xs rounded-lg border border-red-200 inline-flex items-center gap-1 transition-all"
                             >
-                              <FiX size={15} /> Decline
+                              <FiX size={13} /> Decline
                             </button>
                           </>
                         ) : (
@@ -562,19 +562,19 @@ export default function SignatureRequests() {
                             href={mediaUrl(req.originalDocUrl)}
                             target="_blank"
                             rel="noreferrer"
-                            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 inline-flex items-center gap-1.5"
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 inline-flex items-center gap-1"
                           >
-                            <FiFileText size={14} /> View Doc
+                            <FiFileText size={13} /> View Doc
                           </a>
                         )}
 
                         {isManagement && (
                           <button
                             onClick={() => setDeletingRequest(req)}
-                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-200"
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                             title="Permanently Delete Request"
                           >
-                            <FiTrash2 size={16} />
+                            <FiTrash2 size={14} />
                           </button>
                         )}
                       </div>

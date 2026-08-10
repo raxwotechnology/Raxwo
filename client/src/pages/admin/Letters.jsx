@@ -328,8 +328,11 @@ export default function AdminLetters() {
   const openPreview = (l) => {
     let finalContent = l.content
     if (l.type === 'custom' && l.structuredData) {
-      const parts = generateLetterParts(l.structuredData, company, l.structuredData.sections || { header: true, from: false, to: true, info: true, body: true, signatures: true, footer: true })
+      const sData = { ...l.structuredData, letterRef: l.letterRef || l.structuredData.letterRef }
+      const parts = generateLetterParts(sData, company, l.structuredData.sections || { header: true, from: false, to: true, info: true, body: true, signatures: true, footer: true })
       finalContent = parts.full
+    } else if (finalContent && typeof finalContent === 'string' && l.letterRef) {
+      finalContent = finalContent.replace(/LTR-\d{4}-XXXX/g, l.letterRef).replace(/LTR-XXXX/g, l.letterRef)
     }
     setPreview({ ...l, content: finalContent })
     setEditContent(finalContent)
@@ -340,14 +343,19 @@ export default function AdminLetters() {
 
   const resolveLetterBody = (letter) => {
     if (letter.type === 'custom' && letter.structuredData) {
+      const sData = { ...letter.structuredData, letterRef: letter.letterRef || letter.structuredData.letterRef }
       const parts = generateLetterParts(
-        letter.structuredData,
+        sData,
         company,
         letter.structuredData.sections || { header: true, from: false, to: true, info: true, body: true, signatures: true, footer: true },
       )
       return { bodyHtml: parts.full, isFullHtml: true }
     }
-    return { bodyHtml: letter.content, isFullHtml: Boolean(letter.structuredData) }
+    let bodyHtml = letter.content
+    if (bodyHtml && typeof bodyHtml === 'string' && letter.letterRef) {
+      bodyHtml = bodyHtml.replace(/LTR-\d{4}-XXXX/g, letter.letterRef).replace(/LTR-XXXX/g, letter.letterRef)
+    }
+    return { bodyHtml, isFullHtml: Boolean(letter.structuredData) }
   }
 
   const printOpts = (letter, sigState = signatures, bodyOverride) => {

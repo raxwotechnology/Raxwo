@@ -39,8 +39,19 @@ async function renderPdfToPageImages(source) {
     const u8 = new Uint8Array(raw.length)
     for (let i = 0; i < raw.length; i++) u8[i] = raw.charCodeAt(i)
     loadingTask = window.pdfjsLib.getDocument({ data: u8 })
+  } else if (source instanceof Uint8Array || source instanceof ArrayBuffer) {
+    const u8 = source instanceof ArrayBuffer ? new Uint8Array(source) : source
+    loadingTask = window.pdfjsLib.getDocument({ data: u8 })
   } else if (typeof source === 'string' && (source.startsWith('http') || source.startsWith('/'))) {
-    const buf = await (await fetch(source)).arrayBuffer()
+    let buf
+    try {
+      const res = await api.get(source, { responseType: 'arraybuffer' })
+      buf = res.data
+    } catch {
+      const res = await fetch(source)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      buf = await res.arrayBuffer()
+    }
     loadingTask = window.pdfjsLib.getDocument({ data: new Uint8Array(buf) })
   } else {
     loadingTask = window.pdfjsLib.getDocument({ url: source })
@@ -143,35 +154,48 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
         if (pm > 0) rawUrl = `data:application/pdf;base64,${b64.substring(pm)}`
         else if (pm === 0) rawUrl = `data:application/pdf;base64,${b64}`
       }
-      const fullUrl = absoluteMediaUrl(rawUrl)
-      const isPdf = /\.pdf$/i.test(rawUrl) || /\.pdf$/i.test(fullUrl) ||
+      const pathUrl = mediaUrl(rawUrl)
+      const absUrl = absoluteMediaUrl(rawUrl)
+      const isPdf = /\.pdf$/i.test(rawUrl) || /\.pdf$/i.test(pathUrl) || /\.pdf$/i.test(absUrl) ||
                     /^data:application\/pdf/i.test(rawUrl) || rawUrl.includes('JVBERi')
       try {
-        const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
-        if (isPdf || /\.pdf$/i.test(target)) {
-          const imgs = await renderPdfToPageImages(target)
+        let targets = rawUrl.startsWith('data:') ? [rawUrl] : [pathUrl, absUrl, rawUrl]
+        let loaded = false
+        for (const target of targets) {
+          if (!target) continue
+          try {
+            if (isPdf || /\.pdf$/i.test(target)) {
+              const imgs = await renderPdfToPageImages(target)
+              setPageImages(imgs)
+              setCurrentPage(0)
+              isPdfRef.current = true
+              loaded = true
+              break
+            } else {
+              const img = new Image()
+              img.crossOrigin = 'anonymous'
+              await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = target })
+              setPageImages([img])
+              setCurrentPage(0)
+              isPdfRef.current = false
+              loaded = true
+              break
+            }
+          } catch (e) {
+            console.warn('Document load attempt failed for target:', target, e)
+          }
+        }
+        if (!loaded) {
+          // Fallback via authenticated api arrayBuffer request
+          const res = await api.get(pathUrl || absUrl, { responseType: 'arraybuffer' })
+          const imgs = await renderPdfToPageImages(res.data)
           setPageImages(imgs)
           setCurrentPage(0)
           isPdfRef.current = true
-        } else {
-          const img = new Image()
-          img.crossOrigin = 'anonymous'
-          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = target })
-          setPageImages([img])
-          setCurrentPage(0)
-          isPdfRef.current = false
         }
       } catch (err) {
-        // Try PDF as last resort
-        try {
-          const target = rawUrl.startsWith('data:') ? rawUrl : fullUrl
-          const imgs = await renderPdfToPageImages(target)
-          setPageImages(imgs)
-          setCurrentPage(0)
-          isPdfRef.current = true
-        } catch {
-          toast.error('Could not load document. Use "Load Local File".')
-        }
+        console.error('Failed to load document:', err)
+        toast.error('Could not load document. Use "Load Local File".')
       } finally {
         setDocLoading(false)
       }
@@ -389,15 +413,15 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
         className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[94vh] flex flex-col overflow-hidden"
       >
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-3.5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex-shrink-0 border-b border-slate-800">
           <div>
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <FiLayers className="text-blue-600" /> Sign &amp; Stamp Editor
+            <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+              <FiLayers className="text-blue-400" /> Sign &amp; Stamp Editor
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Ref: <span className="font-mono font-bold text-slate-700">{request.requestRef}</span>
-              {' '}| Requester: <span className="font-semibold text-slate-700">{request.employeeName} ({request.employeeType})</span>
-              {totalPages > 1 && <span className="ml-2 bg-blue-100 text-blue-700 font-bold px-2 py-0.5 rounded-full">{totalPages} pages</span>}
+            <p className="text-xs text-slate-300 mt-0.5">
+              Ref: <span className="font-mono font-bold text-blue-200">{request.requestRef}</span>
+              {' '}| Requester: <span className="font-semibold text-slate-200">{request.employeeName} ({request.employeeType})</span>
+              {totalPages > 1 && <span className="ml-2 bg-blue-500/20 text-blue-300 border border-blue-400/30 font-bold px-2 py-0.5 rounded-full text-[10px]">{totalPages} pages</span>}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -406,16 +430,16 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
                 const url = absoluteMediaUrl(request.originalDocUrl)
                 window.open(url.startsWith('data:') ? url : url, '_blank')
               }}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all"
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 border border-white/20 transition-all"
             >
               <FiFileText size={13} /> Open Original
             </button>
-            <label className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer border border-blue-200 transition-all">
+            <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-md transition-all">
               <FiUpload size={13} /> Replace File
               <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
             </label>
-            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
-              <FiX size={20} />
+            <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all">
+              <FiX size={18} />
             </button>
           </div>
         </div>

@@ -175,7 +175,23 @@ exports.generateLetter = async (req, res, next) => {
     };
     const title = data.title || `${typeLabels[type] || type}${employee ? ` — ${employee.userId.name}` : client ? ` — ${client.name}` : ''}`;
 
-    const content = data.content ? data.content : buildLetterBodyHtml(type, employee || client || {}, data, company);
+    // Pre-generate letterRef if not explicitly provided so content and structuredData get the actual ref
+    let letterRef = data.letterRef;
+    if (!letterRef || letterRef.includes('XXXX')) {
+      const y = new Date().getFullYear();
+      const count = await Letter.countDocuments();
+      letterRef = `LTR-${y}-${String(count + 1).padStart(5, '0')}`;
+    }
+
+    let structuredData = data.structuredData || null;
+    if (structuredData && typeof structuredData === 'object') {
+      structuredData = { ...structuredData, letterRef };
+    }
+
+    let content = data.content ? data.content : buildLetterBodyHtml(type, employee || client || {}, data, company);
+    if (content && typeof content === 'string') {
+      content = content.replace(/LTR-\d{4}-XXXX/g, letterRef).replace(/LTR-XXXX/g, letterRef);
+    }
 
     const letter = await Letter.create({
       recipientType: recipientType || 'employee',
@@ -184,10 +200,11 @@ exports.generateLetter = async (req, res, next) => {
       type,
       title,
       content,
+      letterRef,
       bodyFormat: 'html',
       issuedBy: req.user._id,
       approvalStatus: approvalStatus && ['none', 'pending', 'approved'].includes(approvalStatus) ? approvalStatus : 'none',
-      structuredData: data.structuredData || null,
+      structuredData,
       signatures: data.signatures || undefined,
     });
 
