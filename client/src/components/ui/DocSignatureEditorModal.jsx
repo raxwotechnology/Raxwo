@@ -54,6 +54,13 @@ async function ensureDocxPreview() {
   if (!window.docx) throw new Error('docx-preview did not initialize')
 }
 
+// ── mammoth.js Lazy Loader (bulletproof HTML fallback for DOCX) ──────────────
+async function ensureMammoth() {
+  if (window.mammoth) return
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js')
+  if (!window.mammoth) throw new Error('mammoth did not initialize')
+}
+
 // ── Render PDF pages to HTMLImageElement array ─────────────────────────────
 async function renderPdfToPageImages(source) {
   await ensurePdfJs()
@@ -231,22 +238,49 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     })()
   }, [])
 
-  // ── Render DOCX ──────────────────────────────────────────────────────
+  // ── Render DOCX (Dual Engine: docx-preview + Mammoth fallback) ───────────
   const renderDocxIntoContainer = useCallback(async (arrayBuf) => {
     if (!docxContainerRef.current) return
-    await ensureDocxPreview()
     const container = docxContainerRef.current
     container.innerHTML = ''
     let buf = arrayBuf
     if (buf instanceof ArrayBuffer === false && buf?.buffer) buf = buf.buffer
-    await window.docx.renderAsync(buf, container, null, {
-      className: 'docx-page', inWrapper: true, ignoreWidth: false,
-      ignoreHeight: false, ignoreFonts: false, breakPages: true,
-      ignoreLastRenderedPageBreak: false, trimXmlDeclaration: true,
-      renderHeaders: true, renderFooters: true, renderFootnotes: true,
-      renderEndnotes: true, useBase64URL: true,
-    })
-    const pages = container.querySelectorAll('section[data-page-nr], .docx-page, article')
+
+    let renderedOk = false
+
+    // Engine 1: docx-preview
+    try {
+      await ensureDocxPreview()
+      await window.docx.renderAsync(buf, container, null, {
+        className: 'docx-page', inWrapper: true, ignoreWidth: false,
+        ignoreHeight: false, ignoreFonts: false, breakPages: true,
+        ignoreLastRenderedPageBreak: false, trimXmlDeclaration: true,
+        renderHeaders: true, renderFooters: true, renderFootnotes: true,
+        renderEndnotes: true, useBase64URL: true,
+      })
+      if (container.innerText && container.innerText.trim().length > 0) {
+        renderedOk = true
+      }
+    } catch (e) {
+      console.warn('docx-preview engine warning:', e)
+      renderedOk = false
+    }
+
+    // Engine 2: Mammoth.js fallback (guarantees text + formatting display)
+    if (!renderedOk) {
+      try {
+        await ensureMammoth()
+        const res = await window.mammoth.convertToHtml({ arrayBuffer: buf })
+        if (res?.value) {
+          container.innerHTML = `<div class="docx-a4-page">${res.value}</div>`
+          renderedOk = true
+        }
+      } catch (err) {
+        console.warn('Mammoth fallback warning:', err)
+      }
+    }
+
+    const pages = container.querySelectorAll('section[data-page-nr], .docx-page, .docx-a4-page, article')
     setDocxPageCount(Math.max(pages.length, 1))
   }, [])
 
@@ -750,9 +784,9 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
                     onMouseUp={handleDocxMouseUp}
                     onMouseLeave={handleDocxMouseUp}
                   >
-                    {/* docx-preview renders here */}
+                    {/* docx-preview + mammoth fallback styling */}
                     <style>{`
-                      .docx-render-container { color: #000000 !important; text-align: left; width: 100%; min-height: 80vh; }
+                      .docx-render-container { color: #0f172a !important; text-align: left; width: 100%; min-height: 80vh; }
                       .docx-render-container p, .docx-render-container span, .docx-render-container td, .docx-render-container th,
                       .docx-render-container h1, .docx-render-container h2, .docx-render-container h3, .docx-render-container h4 {
                         color: #0f172a !important;
@@ -766,6 +800,23 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
                         padding: 40px !important;
                         border-radius: 8px !important;
                       }
+                      .docx-a4-page {
+                        background: #ffffff !important;
+                        color: #0f172a !important;
+                        padding: 48px 56px !important;
+                        min-height: 800px !important;
+                        box-shadow: 0 10px 40px rgba(0,0,0,0.15) !important;
+                        border-radius: 8px !important;
+                        font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+                        font-size: 14px !important;
+                        line-height: 1.6 !important;
+                        text-align: left !important;
+                      }
+                      .docx-a4-page p { margin-bottom: 12px !important; color: #0f172a !important; }
+                      .docx-a4-page h1, .docx-a4-page h2, .docx-a4-page h3 { font-weight: 700 !important; color: #0f172a !important; margin-top: 16px !important; margin-bottom: 8px !important; }
+                      .docx-a4-page table { width: 100% !important; border-collapse: collapse !important; margin: 16px 0 !important; }
+                      .docx-a4-page th, .docx-a4-page td { border: 1px solid #cbd5e1 !important; padding: 8px 12px !important; color: #0f172a !important; }
+                      .docx-a4-page img { max-width: 100% !important; height: auto !important; }
                     `}</style>
                     <div ref={docxContainerRef} className="docx-render-container" />
 
