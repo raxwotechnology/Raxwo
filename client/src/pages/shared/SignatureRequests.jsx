@@ -281,116 +281,52 @@ export default function SignatureRequests() {
   const defaultSeal = savedStamps.find(s => s.type === 'seal' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'seal')?.imageUrl || ''
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto text-slate-800 animate-fade-in">
-      {/* ── High-Impact Executive Top Banner ──────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 md:p-8 rounded-2xl shadow-xl relative overflow-hidden border border-slate-800/80">
-        <div className="absolute right-0 top-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative z-10">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-full text-blue-300 text-[11px] font-bold tracking-wide uppercase">
-              <FiShield size={13} className="text-blue-400" /> Official E-Signature & Stamp Portal
-            </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight drop-shadow-md">
-              Document Signature Requests
-            </h1>
-            <p className="text-xs md:text-sm text-slate-300 max-w-2xl font-normal leading-relaxed">
-              Submit employee document verification requests, drag & place official digital signatures and company seals, and track approval status with audit filtering.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {isManagement && (
-              <button
-                onClick={() => setShowStampsModal(true)}
-                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 backdrop-blur-md flex items-center gap-2 transition-all shadow-md"
-              >
-                <FiBookmark size={15} className="text-blue-300" /> Stamp Library ({savedStamps.length})
-              </button>
-            )}
-
+    <div className="erp-module space-y-6 animate-fade-in pb-12">
+      {/* ── Page Header ─────────────────────────────────────────────────────── */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Signature & Seal Requests</h1>
+          <p className="page-subtitle">Corporate e-signatures, stamp verification requests, and document approvals</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {isManagement && (
             <button
-              onClick={() => setShowSubmitModal(true)}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-600/25 flex items-center gap-2 transition-all transform hover:-translate-y-0.5"
+              type="button"
+              onClick={() => setShowStampsModal(true)}
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 shadow-xs flex items-center gap-1.5 transition-all"
             >
-              <FiPlus size={16} /> Submit Document
+              <FiBookmark size={14} className="text-blue-600" /> Stamp Library ({savedStamps.length})
             </button>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* ── Executive Metric KPI Cards ──────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-0.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Requests</p>
-            <p className="text-2xl font-extrabold text-slate-900">{totalCount}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-            <FiLayers size={18} />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-0.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">Pending Review</p>
-            <p className="text-2xl font-extrabold text-amber-600">{pendingCount}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-            <FiClock size={18} />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-0.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Signed & Sealed</p>
-            <p className="text-2xl font-extrabold text-emerald-600">{signedCount}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            <FiCheckCircle size={18} />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
-          <div className="space-y-0.5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-red-600">Rejected</p>
-            <p className="text-2xl font-extrabold text-red-600">{rejectedCount}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold">
-            <FiXCircle size={18} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── High Contrast Audit Filters & Search Bar ─────────────────────────── */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/90 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            <FiFilter className="text-blue-600" size={14} /> Audit Filters & Search
-          </h3>
           <button
-            onClick={() => {
-              setStatusFilter('All')
-              setCategoryFilter('All')
-              setUrgencyFilter('All')
-              setSearchTerm('')
-            }}
-            className="text-[11px] font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+            type="button"
+            onClick={() => setShowSubmitModal(true)}
+            className="btn-primary gap-2"
           >
-            <FiRefreshCw size={12} /> Reset Filters
+            <FiPlus size={16} /> Submit Document
           </button>
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+      {/* ── Main Requests Table Section ─────────────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="text-xs font-bold text-slate-800 uppercase tracking-widest">ISSUED REQUESTS</h2>
+          <span className="text-xs text-slate-400 font-medium">{requests.length} on file</span>
+        </div>
+
+        {/* ── Simple Inline Search & Filters Bar ────────────────────────────────── */}
+        <div className="bg-white rounded-xl p-3 shadow-xs border border-slate-200/80 flex flex-wrap items-center gap-3">
           {/* Search Box */}
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-2.5 text-slate-400" size={15} />
+          <div className="relative flex-1 min-w-[240px]">
+            <FiSearch className="absolute left-3 top-2.5 text-slate-400" size={14} />
             <input
               type="text"
-              placeholder="Search title, ref, employee..."
+              placeholder="Search by name, reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
             />
           </div>
 
@@ -398,21 +334,21 @@ export default function SignatureRequests() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
           >
-            <option value="All">Status: All Statuses</option>
-            <option value="Pending">Status: Pending Review</option>
-            <option value="Signed">Status: Signed & Sealed</option>
-            <option value="Rejected">Status: Rejected</option>
+            <option value="All">All Statuses</option>
+            <option value="Pending">Pending Review</option>
+            <option value="Signed">Signed & Sealed</option>
+            <option value="Rejected">Rejected</option>
           </select>
 
           {/* Category Filter */}
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
           >
-            <option value="All">Category: All Categories</option>
+            <option value="All">All Categories</option>
             {DOC_TYPES.map(t => (
               <option key={t} value={t}>{t}</option>
             ))}
@@ -422,43 +358,48 @@ export default function SignatureRequests() {
           <select
             value={urgencyFilter}
             onChange={(e) => setUrgencyFilter(e.target.value)}
-            className="px-3 py-2 bg-slate-50 border border-slate-300/80 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-blue-500 transition-all outline-none"
+            className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-slate-400 transition-all outline-none"
           >
-            <option value="All">Priority: All Priorities</option>
+            <option value="All">All Priorities</option>
             <option value="Normal">Normal Priority</option>
-            <option value="Urgent">🔴 Urgent Approval Needed</option>
+            <option value="Urgent">🔴 Urgent Priority</option>
           </select>
-        </div>
-      </div>
 
-      {/* ── High Contrast Document Requests Data Table ───────────────────────── */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <FiFileText className="text-blue-600" size={16} /> Signature Requests Records ({requests.length})
-          </h2>
+          <button
+            onClick={() => {
+              setStatusFilter('All')
+              setCategoryFilter('All')
+              setUrgencyFilter('All')
+              setSearchTerm('')
+            }}
+            className="px-3 py-2 text-[11px] font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 transition-colors"
+          >
+            <FiRefreshCw size={12} /> Reset
+          </button>
         </div>
 
-        {isLoading ? (
-          <div className="p-12 text-center text-slate-400 space-y-2">
-            <span className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin inline-block" />
-            <p className="text-xs font-bold text-slate-600">Loading document request records...</p>
-          </div>
-        ) : requests.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
-              <thead>
-                <tr className="bg-slate-100/90 text-[11px] font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200">
-                  <th className="py-2.5 px-4 w-56">Ref & Title</th>
-                  <th className="py-2.5 px-4 w-44">Requester</th>
-                  <th className="py-2.5 px-4 w-36">Category</th>
-                  <th className="py-2.5 px-4">Reason for Request</th>
-                  <th className="py-2.5 px-4 w-24">Priority</th>
-                  <th className="py-2.5 px-4 w-36">Status</th>
-                  <th className="py-2.5 px-4 text-right w-44">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
+        {/* ── Document Requests Data Table ────────────────────────────────────── */}
+        <div className="bg-white rounded-xl shadow-xs border border-slate-200/80 overflow-hidden">
+          {isLoading ? (
+            <div className="p-12 text-center text-slate-400 space-y-2">
+              <span className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin inline-block" />
+              <p className="text-xs font-semibold text-slate-500">Loading document requests...</p>
+            </div>
+          ) : requests.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[900px]">
+                <thead>
+                  <tr className="bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider border-b border-slate-200/80">
+                    <th className="py-3 px-4 w-52">Reference</th>
+                    <th className="py-3 px-4 w-44">Employee / Requester</th>
+                    <th className="py-3 px-4 w-36">Type</th>
+                    <th className="py-3 px-4">Reason</th>
+                    <th className="py-3 px-4 w-24">Priority</th>
+                    <th className="py-3 px-4 w-36">Status</th>
+                    <th className="py-3 px-4 text-right w-44">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
                 {requests.map((req) => (
                   <tr key={req._id} className="hover:bg-slate-50/80 transition-colors">
                     {/* Ref & Title */}
@@ -592,6 +533,7 @@ export default function SignatureRequests() {
           </div>
         )}
       </div>
+    </section>
 
       {/* ── Submit Request Modal (Employee) ─────────────────────────────────── */}
       <AnimatePresence>
@@ -674,15 +616,18 @@ export default function SignatureRequests() {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Upload Document (PDF or Image) *
+                    Upload Document (PDF or Image Recommended) *
                   </label>
                   <input
                     type="file"
                     required
-                    accept=".pdf,image/*"
+                    accept=".pdf,image/*,.doc,.docx"
                     onChange={(e) => setSubmitForm(p => ({ ...p, file: e.target.files?.[0] || null }))}
                     className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
+                  <p className="text-[10px] text-slate-500 font-medium mt-1">
+                    📌 Recommended format: <span className="font-bold text-slate-700">PDF (.pdf)</span> or <span className="font-bold text-slate-700">Image (.png, .jpg)</span> for interactive digital signing & seal placement.
+                  </p>
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">

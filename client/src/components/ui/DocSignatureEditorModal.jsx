@@ -83,6 +83,8 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   const [docLoading,     setDocLoading]     = useState(true)
   const [loading,        setLoading]        = useState(false)
   const [zoom,           setZoom]           = useState(1)
+  const [isWordDoc,      setIsWordDoc]      = useState(false)
+  const [docLoadError,   setDocLoadError]   = useState(false)
 
   // Stamps — each has a `.page` so stamps are per-page
   const [placedStamps,   setPlacedStamps]   = useState([])
@@ -144,6 +146,9 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   useEffect(() => {
     if (!request?.originalDocUrl) return
     setDocLoading(true)
+    setIsWordDoc(false)
+    setDocLoadError(false)
+
     ;(async () => {
       let rawUrl = request.originalDocUrl || ''
       // Legacy base64 repair
@@ -156,6 +161,15 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       }
       const pathUrl = mediaUrl(rawUrl)
       const absUrl = absoluteMediaUrl(rawUrl)
+
+      // Check if it's a Word document (.doc / .docx)
+      const checkWordDoc = /\.docx?$/i.test(rawUrl) || /\.docx?$/i.test(pathUrl) || /\.docx?$/i.test(absUrl)
+      if (checkWordDoc) {
+        setIsWordDoc(true)
+        setDocLoading(false)
+        return
+      }
+
       const isPdf = /\.pdf$/i.test(rawUrl) || /\.pdf$/i.test(pathUrl) || /\.pdf$/i.test(absUrl) ||
                     /^data:application\/pdf/i.test(rawUrl) || rawUrl.includes('JVBERi')
       try {
@@ -182,7 +196,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
               break
             }
           } catch (e) {
-            console.warn('Document load attempt failed for target:', target, e)
+            console.warn('Document load attempt failed for target:', target)
           }
         }
         if (!loaded) {
@@ -195,7 +209,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
         }
       } catch (err) {
         console.error('Failed to load document:', err)
-        toast.error('Could not load document. Use "Load Local File".')
+        setDocLoadError(true)
       } finally {
         setDocLoading(false)
       }
@@ -206,9 +220,15 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   const handleCustomDocUpload = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) {
+      toast.error('Word (.docx) files cannot be rendered directly on canvas. Please select a PDF or Image file.')
+      return
+    }
     setDocLoading(true)
+    setIsWordDoc(false)
+    setDocLoadError(false)
     try {
-      if (file.type === 'application/pdf') {
+      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
         const url = URL.createObjectURL(file)
         const imgs = await renderPdfToPageImages(url)
         URL.revokeObjectURL(url)
@@ -505,13 +525,36 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
                   {totalPages > 0 && <p className="text-xs text-slate-400">Rendering pages…</p>}
                 </div>
               ) : pageImages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-4 mt-20 text-slate-400">
-                  <FiFileText size={48} />
-                  <p className="text-sm font-semibold">No document loaded</p>
-                  <label className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl cursor-pointer transition-all">
-                    Load Local File
-                    <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
-                  </label>
+                <div className="flex flex-col items-center justify-center gap-3 my-auto p-8 max-w-lg bg-slate-800/90 border border-slate-700 rounded-3xl text-center shadow-2xl animate-fade-in">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
+                    <FiFileText size={32} />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">
+                    {isWordDoc ? 'Word Document (.docx) Format Detected' : docLoadError ? 'Document File Missing on Server (404)' : 'No Document Rendered'}
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    {isWordDoc
+                      ? 'Interactive digital signing & stamp placement requires PDF or Image format (.pdf, .png, .jpg). Word files (.docx) cannot be drawn directly on canvas. Please select or upload a PDF/Image file below.'
+                      : docLoadError
+                      ? 'The uploaded file could not be found on server storage. You can select a local PDF or image file to proceed with signature placement.'
+                      : 'Please select a local PDF or image file to render on the signature canvas.'}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
+                    <label className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl cursor-pointer shadow-lg transition-all flex items-center gap-2">
+                      <FiUpload size={15} /> Select Local PDF / Image
+                      <input type="file" accept=".pdf,image/*" className="hidden" onChange={handleCustomDocUpload} />
+                    </label>
+                    {isWordDoc && request?.originalDocUrl && (
+                      <a
+                        href={absoluteMediaUrl(request.originalDocUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold text-xs rounded-xl transition-all flex items-center gap-1.5"
+                      >
+                        <FiDownload size={14} /> Download Original Word Doc
+                      </a>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div
