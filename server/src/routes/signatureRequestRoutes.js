@@ -42,8 +42,7 @@ router.get('/', protect, controller.getRequests);
 // 5. Get Single Request Details
 router.get('/:id', protect, controller.getRequestById);
 
-// 6. Sign and finalize request (Admin / Owner)
-// Uses disk storage → signed PNG saved as /uploads/documents/sigdoc_xxx.png
+// 6. Sign and finalize request (Admin / Owner) — primary route
 router.put(
   '/:id/sign',
   protect,
@@ -53,6 +52,20 @@ router.put(
       if (err) {
         console.warn('Upload signed document warning:', err.message);
       }
+      next();
+    });
+  },
+  controller.signAndFinalize
+);
+
+// 6b. Submit signed document — alias called by DocSignatureEditorModal
+router.post(
+  '/:id/submit-signed',
+  protect,
+  authorize('admin', 'owner', 'manager'),
+  (req, res, next) => {
+    uploadSigSignedDoc(req, res, (err) => {
+      if (err) console.warn('Upload signed document warning:', err.message);
       next();
     });
   },
