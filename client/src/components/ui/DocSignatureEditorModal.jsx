@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
-import { mediaUrl } from '../../lib/media'
+import { mediaUrl, absoluteMediaUrl } from '../../lib/media'
 
 // ── PDF.js Lazy Loader ─────────────────────────────────────────────────────
 async function ensurePdfJs() {
@@ -75,18 +75,24 @@ async function renderPdfToPageImages(source) {
   return images
 }
 
-// ── Fetch ArrayBuffer (with auth fallback) ────────────────────────────────
-async function fetchArrayBuffer(pathUrl, absUrl) {
+// ── Fetch ArrayBuffer — uses correct uploads URL (no /api prefix for static files) ──
+async function fetchArrayBuffer(pathUrl) {
+  // Build the correct absolute URL using absoluteMediaUrl which strips /api
+  const absUrl = absoluteMediaUrl(pathUrl)
+  // Try direct fetch first (correct URL for static files)
   try {
-    const res = await api.get(pathUrl || absUrl, { responseType: 'arraybuffer' })
+    const res = await fetch(absUrl, { credentials: 'same-origin' })
+    if (res.ok) return res.arrayBuffer()
+  } catch { /* try fallback */ }
+  // Fallback: try through API axios (works in dev with proxy)
+  try {
+    const res = await api.get(pathUrl, { responseType: 'arraybuffer' })
     const data = res.data
     if (data instanceof ArrayBuffer) return data
     if (data?.buffer instanceof ArrayBuffer) return data.buffer
     return data
   } catch {
-    const res = await fetch(absUrl || pathUrl)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.arrayBuffer()
+    throw new Error(`HTTP 404 — File not found on server: ${absUrl}`)
   }
 }
 
@@ -257,31 +263,28 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     ;(async () => {
       try {
         const pathUrl = request.originalDocUrl
-        const base = import.meta.env.VITE_API_URL || ''
-        const absUrl = pathUrl?.startsWith('http') ? pathUrl : `${base}${pathUrl}`
         const lower = (pathUrl || '').toLowerCase()
 
         if (lower.includes('.docx') || lower.includes('.doc')) {
-          const buf = await fetchArrayBuffer(pathUrl, absUrl)
+          const buf = await fetchArrayBuffer(pathUrl)
           docxBufRef.current = buf
           await renderDocxIntoContainer(buf)
           setMode('docx')
+        } else if (lower.includes('.pdf')) {
+          isPdfRef.current = true
+          const buf = await fetchArrayBuffer(pathUrl)
+          const imgs = await renderPdfToPageImages(buf)
+          setPageImages(imgs); setCurrentPage(0); setMode('pdf')
         } else {
-          const buf = await fetchArrayBuffer(pathUrl, absUrl)
-          const lower2 = (pathUrl || '').toLowerCase()
-          if (lower2.includes('.pdf') || buf instanceof ArrayBuffer) {
-            isPdfRef.current = true
-            const imgs = await renderPdfToPageImages(buf)
-            setPageImages(imgs); setCurrentPage(0); setMode('pdf')
-          } else {
-            const img = new Image(); img.crossOrigin = 'anonymous'
-            await new Promise((res, rej) => {
-              img.onload = res; img.onerror = rej
-              img.src = absUrl
-            })
-            isPdfRef.current = false
-            setPageImages([img]); setCurrentPage(0); setMode('image')
-          }
+          // Try as image
+          const absUrl = absoluteMediaUrl(pathUrl)
+          const img = new Image(); img.crossOrigin = 'anonymous'
+          await new Promise((res, rej) => {
+            img.onload = res; img.onerror = rej
+            img.src = absUrl
+          })
+          isPdfRef.current = false
+          setPageImages([img]); setCurrentPage(0); setMode('image')
         }
       } catch (err) {
         console.error('Doc load failed:', err)
@@ -458,9 +461,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   // ── Download original ─────────────────────────────────────────────────
   const handleDownloadOriginal = () => {
     if (!request?.originalDocUrl) return
-    const base = import.meta.env.VITE_API_URL || ''
-    const url = request.originalDocUrl?.startsWith('http')
-      ? request.originalDocUrl : `${base}${request.originalDocUrl}`
+    const url = absoluteMediaUrl(request.originalDocUrl)
     window.open(url, '_blank')
   }
 
