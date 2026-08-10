@@ -746,9 +746,9 @@ export default function SignatureRequests() {
     </section>
 
       {/* ── Submit Request Modal (Employee) ─────────────────────────────────── */}
-      <AnimatePresence>
-        {showSubmitModal && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm overflow-y-auto">
+      {showSubmitModal && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -903,7 +903,7 @@ export default function SignatureRequests() {
                     className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
                   <p className="text-[10px] text-slate-500 font-medium mt-1">
-                    📌 Recommended format: <span className="font-bold text-slate-700">PDF (.pdf)</span> or <span className="font-bold text-slate-700">Image (.png, .jpg)</span> for interactive digital signing & seal placement.
+                    📌 Recommended format: <span className="font-bold text-slate-700">PDF (.pdf)</span> or <span className="font-bold text-slate-700">Image (.png, .jpg)</span> for interactive digital signing &amp; seal placement.
                   </p>
                 </div>
 
@@ -926,13 +926,14 @@ export default function SignatureRequests() {
               </form>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* ── Saved Stamps Library Manager Modal (Admin / Owner) ───────────────── */}
-      <AnimatePresence>
-        {showStampsModal && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm overflow-y-auto">
+      {showStampsModal && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1038,13 +1039,14 @@ export default function SignatureRequests() {
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* ── Reject Modal ──────────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {rejectingRequest && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+      {rejectingRequest && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
             <div className="w-full max-w-md bg-white rounded-3xl p-6 space-y-4 shadow-2xl border border-slate-200">
               <h3 className="text-base font-bold text-slate-900">Reject Signature Request</h3>
               <p className="text-xs text-slate-500 font-medium">Specify why this request is being declined:</p>
@@ -1069,13 +1071,14 @@ export default function SignatureRequests() {
               </div>
             </div>
           </div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* ── Hard Delete Confirmation Modal ────────────────────────────────────── */}
-      <AnimatePresence>
-        {deletingRequest && (
-          <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
+      {deletingRequest && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1130,8 +1133,9 @@ export default function SignatureRequests() {
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* ── Interactive Sign & Stamp Editor Modal ───────────────────────────── */}
       {activeEditorRequest && (
