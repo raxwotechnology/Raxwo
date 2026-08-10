@@ -39,15 +39,18 @@ async function loadScript(src) {
 
 // ── docx-preview Lazy Loader (requires JSZip) ─────────────────────────────
 async function ensureDocxPreview() {
-  if (window.docx) return
   if (!document.querySelector('#docx-preview-css')) {
-    const link = document.createElement('link')
-    link.id = 'docx-preview-css'; link.rel = 'stylesheet'
-    link.href = 'https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.css'
-    document.head.appendChild(link)
+    await new Promise((resolve) => {
+      const link = document.createElement('link')
+      link.id = 'docx-preview-css'; link.rel = 'stylesheet'
+      link.href = 'https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.css'
+      link.onload = resolve
+      link.onerror = resolve
+      document.head.appendChild(link)
+    })
   }
   if (!window.JSZip) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js')
-  await loadScript('https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.js')
+  if (!window.docx) await loadScript('https://cdn.jsdelivr.net/npm/docx-preview@0.1.22/dist/docx-preview.min.js')
   if (!window.docx) throw new Error('docx-preview did not initialize')
 }
 
@@ -736,7 +739,23 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
                     onMouseLeave={handleDocxMouseUp}
                   >
                     {/* docx-preview renders here */}
-                    <div ref={docxContainerRef} />
+                    <style>{`
+                      .docx-render-container { color: #000000 !important; text-align: left; width: 100%; min-height: 80vh; }
+                      .docx-render-container p, .docx-render-container span, .docx-render-container td, .docx-render-container th,
+                      .docx-render-container h1, .docx-render-container h2, .docx-render-container h3, .docx-render-container h4 {
+                        color: #0f172a !important;
+                      }
+                      .docx-wrapper { background: transparent !important; padding: 15px !important; }
+                      .docx-wrapper > section.docx-page {
+                        background: #ffffff !important;
+                        color: #0f172a !important;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+                        margin: 0 auto 20px auto !important;
+                        padding: 40px !important;
+                        border-radius: 8px !important;
+                      }
+                    `}</style>
+                    <div ref={docxContainerRef} className="docx-render-container" />
 
                     {/* Draggable stamp overlay */}
                     <div ref={docxOverlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
