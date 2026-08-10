@@ -85,23 +85,35 @@ async function fetchArrayBuffer(pathUrl) {
     const res = await fetch(pathUrl)
     return res.arrayBuffer()
   }
-  // Build the correct absolute URL using absoluteMediaUrl which strips /api
+
   const absUrl = absoluteMediaUrl(pathUrl)
-  // Try direct fetch first (correct URL for static files)
+  let buf = null
+
+  // 1. Try direct fetch first (correct URL for static files)
   try {
     const res = await fetch(absUrl, { credentials: 'same-origin' })
-    if (res.ok) return res.arrayBuffer()
-  } catch { /* try fallback */ }
-  // Fallback: try through API axios (works in dev with proxy)
-  try {
-    const res = await api.get(pathUrl, { responseType: 'arraybuffer' })
-    const data = res.data
-    if (data instanceof ArrayBuffer) return data
-    if (data?.buffer instanceof ArrayBuffer) return data.buffer
-    return data
-  } catch {
-    throw new Error(`HTTP 404 — File not found on server: ${absUrl}`)
+    if (res.ok) buf = await res.arrayBuffer()
+  } catch { /* ignore */ }
+
+  // 2. Fallback: try through API axios if direct fetch failed
+  if (!buf) {
+    try {
+      const res = await api.get(pathUrl, { responseType: 'arraybuffer' })
+      const data = res.data
+      if (data instanceof ArrayBuffer) buf = data
+      else if (data?.buffer instanceof ArrayBuffer) buf = data.buffer
+    } catch { /* ignore */ }
   }
+
+  // 3. Validate buffer: must be > 100 bytes and NOT an HTML error page (starts with '<' -> 0x3C)
+  if (buf && buf.byteLength > 100) {
+    const u8 = new Uint8Array(buf)
+    if (u8[0] !== 0x3C) {
+      return buf
+    }
+  }
+
+  throw new Error(`HTTP 404 — File not found on server: ${absUrl}`)
 }
 
 // ── Inject stamp images into DOCX via JSZip XML manipulation ─────────────
