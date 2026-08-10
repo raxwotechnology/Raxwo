@@ -222,10 +222,13 @@ export default function SignatureRequests() {
       if (fileUrl.startsWith('data:') && fileUrl.includes('base64,')) {
         const commaIdx = fileUrl.indexOf('base64,') + 7
         let b64Content = fileUrl.substring(commaIdx)
-        const pdfMagic = b64Content.indexOf('JVBERi')
-        const pngMagic = b64Content.indexOf('iVBORw')
+        const pdfMagic  = b64Content.indexOf('JVBERi')  // PDF  %PDF
+        const pngMagic  = b64Content.indexOf('iVBORw')  // PNG
+        const docxMagic = b64Content.indexOf('UEsD')    // DOCX PK\x03\x04
         if (pdfMagic > 0) {
           fileUrl = `data:application/pdf;base64,${b64Content.substring(pdfMagic)}`
+        } else if (docxMagic > 0) {
+          fileUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${b64Content.substring(docxMagic)}`
         } else if (pngMagic > 0) {
           fileUrl = `data:image/png;base64,${b64Content.substring(pngMagic)}`
         }
@@ -237,16 +240,20 @@ export default function SignatureRequests() {
         const content = fileUrl.substring(idx + 7)
         if (prefix.includes('pdf') || content.includes('JVBERi')) {
           fileUrl = `data:application/pdf;base64,${content}`
+        } else if (prefix.includes('word') || prefix.includes('docx') || content.startsWith('UEsD')) {
+          fileUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${content}`
         } else {
           fileUrl = `data:image/png;base64,${content}`
         }
       }
       // Handle /uploads/ paths that are actually base64 (legacy corrupt entries)
-      else if (fileUrl.includes('/uploads/') && (fileUrl.includes('==') || fileUrl.includes('iVBORw') || fileUrl.includes('JVBERi') || fileUrl.length > 150)) {
+      else if (fileUrl.includes('/uploads/') && (fileUrl.includes('==') || fileUrl.includes('iVBORw') || fileUrl.includes('JVBERi') || fileUrl.includes('UEsD') || fileUrl.length > 150)) {
         const lastSlash = fileUrl.lastIndexOf('/')
         const base64Str = fileUrl.substring(lastSlash + 1)
         if (base64Str.includes('JVBERi')) {
           fileUrl = `data:application/pdf;base64,${base64Str}`
+        } else if (base64Str.includes('UEsD') || base64Str.startsWith('UEsD')) {
+          fileUrl = `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Str}`
         } else {
           fileUrl = `data:image/png;base64,${base64Str}`
         }
@@ -257,8 +264,22 @@ export default function SignatureRequests() {
       const blob = await response.blob()
       const blobUrl = URL.createObjectURL(blob)
 
-      const isPdf = blob.type.includes('pdf') || fileUrl.includes('JVBERi') || fileUrl.endsWith('.pdf')
-      const ext = isPdf ? 'pdf' : 'png'
+      // ── Magic-byte detection (same logic as DocSignatureEditorModal) ──
+      // Read first 4 bytes from the blob to determine actual file type
+      const headerBuf = await blob.slice(0, 4).arrayBuffer()
+      const hdr = new Uint8Array(headerBuf)
+      let ext
+      if (hdr[0] === 0x50 && hdr[1] === 0x4B) {
+        // PK header → ZIP-based format (DOCX, XLSX, etc.)
+        ext = 'docx'
+      } else if (hdr[0] === 0x25 && hdr[1] === 0x50 && hdr[2] === 0x44 && hdr[3] === 0x46) {
+        // %PDF header
+        ext = 'pdf'
+      } else if (blob.type.includes('pdf') || fileUrl.includes('JVBERi') || fileUrl.endsWith('.pdf')) {
+        ext = 'pdf'
+      } else {
+        ext = 'png'
+      }
       const filename = `Signed_${requestRef || 'Document'}.${ext}`
 
       const a = document.createElement('a')
@@ -281,19 +302,19 @@ export default function SignatureRequests() {
   const defaultSeal = savedStamps.find(s => s.type === 'seal' && s.isDefault)?.imageUrl || savedStamps.find(s => s.type === 'seal')?.imageUrl || ''
 
   return (
-    <div className="erp-module space-y-6 animate-fade-in pb-12">
+    <div className="w-full space-y-6 animate-fade-in pb-12">
       {/* ── Page Header ─────────────────────────────────────────────────────── */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Signature & Seal Requests</h1>
+          <h1 className="page-title">Signature &amp; Seal Requests</h1>
           <p className="page-subtitle">Corporate e-signatures, stamp verification requests, and document approvals</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto mt-3 sm:mt-0 justify-start sm:justify-end">
           {isManagement && (
             <button
               type="button"
               onClick={() => setShowStampsModal(true)}
-              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 shadow-xs flex items-center gap-1.5 transition-all"
+              className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 shadow-xs flex items-center gap-1.5 transition-all w-full sm:w-auto justify-center"
             >
               <FiBookmark size={14} className="text-blue-600" /> Stamp Library ({savedStamps.length})
             </button>
@@ -302,7 +323,7 @@ export default function SignatureRequests() {
           <button
             type="button"
             onClick={() => setShowSubmitModal(true)}
-            className="btn-primary gap-2"
+            className="btn-primary gap-2 w-full sm:w-auto justify-center"
           >
             <FiPlus size={16} /> Submit Document
           </button>
@@ -317,16 +338,16 @@ export default function SignatureRequests() {
         </div>
 
         {/* ── Simple Inline Search & Filters Bar ────────────────────────────────── */}
-        <div className="bg-white rounded-xl p-3 shadow-xs border border-slate-200/80 flex flex-wrap items-center gap-3">
+        <div className="bg-white rounded-2xl p-3.5 shadow-card border border-slate-200/80 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[240px]">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+          <div className="relative flex-1 w-full sm:w-auto min-w-0 sm:min-w-[240px]">
+            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
             <input
               type="text"
               placeholder="Search by name, reference..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="form-input !pl-9 py-2 text-sm"
+              className="form-input !pl-10 py-2.5 text-sm w-full"
             />
           </div>
 
@@ -334,11 +355,11 @@ export default function SignatureRequests() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="form-select w-auto py-2 text-sm"
+            className="form-select w-full sm:w-44 py-2.5 text-sm"
           >
             <option value="All">All Statuses</option>
             <option value="Pending">Pending Review</option>
-            <option value="Signed">Signed & Sealed</option>
+            <option value="Signed">Signed &amp; Sealed</option>
             <option value="Rejected">Rejected</option>
           </select>
 
@@ -346,7 +367,7 @@ export default function SignatureRequests() {
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="form-select w-auto py-2 text-sm"
+            className="form-select w-full sm:w-48 py-2.5 text-sm"
           >
             <option value="All">All Categories</option>
             {DOC_TYPES.map(t => (
@@ -358,7 +379,7 @@ export default function SignatureRequests() {
           <select
             value={urgencyFilter}
             onChange={(e) => setUrgencyFilter(e.target.value)}
-            className="form-select w-auto py-2 text-sm"
+            className="form-select w-full sm:w-44 py-2.5 text-sm"
           >
             <option value="All">All Priorities</option>
             <option value="Normal">Normal Priority</option>
@@ -372,14 +393,14 @@ export default function SignatureRequests() {
               setUrgencyFilter('All')
               setSearchTerm('')
             }}
-            className="px-3 py-2 text-sm font-semibold text-slate-500 hover:text-blue-600 flex items-center gap-1.5 transition-colors"
+            className="px-3.5 py-2.5 text-sm font-semibold text-slate-500 hover:text-blue-600 flex items-center justify-center gap-1.5 transition-colors bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none"
           >
             <FiRefreshCw size={14} /> Reset
           </button>
         </div>
 
-        {/* ── Document Requests Data Table ────────────────────────────────────── */}
-        <div className="table-container">
+        {/* ── Document Requests Desktop Data Table ────────────────────────────── */}
+        <div className="table-container hidden lg:block">
           {isLoading ? (
             <div className="p-12 text-center text-slate-400 space-y-2">
               <span className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto block" />
@@ -539,6 +560,137 @@ export default function SignatureRequests() {
             <p className="text-base font-semibold text-gray-700">No document signature requests found</p>
             <p className="text-xs text-gray-400 font-normal">Submit a new request or adjust filters to view documents.</p>
           </div>
+        )}
+      </div>
+
+      {/* ── Document Requests Mobile Card View ──────────────────────────────── */}
+      <div className="block lg:hidden space-y-3">
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto"/>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 bg-white rounded-2xl border border-slate-200 p-6 space-y-2">
+            <FiFileText size={32} className="mx-auto text-slate-300"/>
+            <p className="font-semibold text-slate-700 text-sm">No document signature requests found</p>
+          </div>
+        ) : (
+          requests.map(req => (
+            <div key={req._id} className="bg-white rounded-2xl border border-slate-200/80 p-4 space-y-3 shadow-card">
+              {/* Top Header */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="space-y-1 min-w-0">
+                  <span className="font-mono text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200/80 px-2 py-0.5 rounded-md inline-block">
+                    {req.requestRef}
+                  </span>
+                  <h3 className="font-bold text-slate-800 text-sm leading-tight truncate">{req.title}</h3>
+                </div>
+                <div className="shrink-0">
+                  {req.status === 'signed' ? (
+                    <span className="badge badge-green text-[10px]">
+                      <FiCheckCircle size={10} /> Signed
+                    </span>
+                  ) : req.status === 'rejected' ? (
+                    <span className="badge badge-red text-[10px]">
+                      <FiXCircle size={10} /> Rejected
+                    </span>
+                  ) : (
+                    <span className="badge badge-yellow text-[10px]">
+                      <FiClock size={10} /> Pending
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Requester Info */}
+              <div className="flex items-center gap-2.5 py-1">
+                <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-xs shrink-0">
+                  {req.employeeName ? req.employeeName.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-800 text-xs truncate">{req.employeeName}</p>
+                  <p className="text-[11px] text-slate-400 capitalize">{req.employeeType || 'Permanent'}</p>
+                </div>
+              </div>
+
+              {/* Info Grid */}
+              <div className="grid grid-cols-2 gap-2 text-xs border-t border-b border-slate-100 py-2.5">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Category</span>
+                  <p className="font-medium text-slate-700 truncate">{req.documentType}</p>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Priority</span>
+                  <p className="font-medium text-slate-700">
+                    {req.urgency === 'urgent' ? (
+                      <span className="text-red-600 font-bold flex items-center gap-1"><FiAlertCircle size={11}/> Urgent</span>
+                    ) : (
+                      'Normal'
+                    )}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Reason</span>
+                  <p className="font-normal text-slate-600 line-clamp-2">{req.reason}</p>
+                </div>
+              </div>
+
+              {/* Mobile Action Buttons */}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {new Date(req.createdAt).toLocaleDateString()}
+                </span>
+
+                <div className="flex items-center gap-2">
+                  {req.status === 'signed' && req.signedDocUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                    >
+                      <FiDownload size={13} /> Download
+                    </button>
+                  ) : isManagement && req.status === 'pending' ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setActiveEditorRequest(req)}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                      >
+                        <FiEdit3 size={13} /> Sign
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRejectingRequest(req)}
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
+                      >
+                        <FiX size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <a
+                      href={mediaUrl(req.originalDocUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 flex items-center gap-1"
+                    >
+                      <FiFileText size={13} /> View
+                    </a>
+                  )}
+
+                  {isManagement && (
+                    <button
+                      type="button"
+                      onClick={() => setDeletingRequest(req)}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <FiTrash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
     </section>
