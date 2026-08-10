@@ -190,9 +190,17 @@ const possibleDistPaths = [
   path.resolve(__dirname, '../../client/dist'),
   path.resolve(__dirname, '../client/dist'),
   path.resolve(__dirname, '../../../client/dist'),
+  path.resolve(__dirname, '../../dist'),
+  path.resolve(__dirname, '../dist'),
+  path.resolve(__dirname, '../../public_html'),
+  path.resolve(__dirname, '../../../public_html'),
   path.resolve(process.cwd(), 'client/dist'),
   path.resolve(process.cwd(), '../client/dist'),
   path.resolve(process.cwd(), 'dist'),
+  path.resolve(process.cwd(), '../dist'),
+  path.resolve(process.cwd(), 'public_html'),
+  path.resolve(process.cwd(), '../public_html'),
+  path.resolve(process.cwd(), '../../public_html'),
 ];
 
 let distDir = possibleDistPaths.find(p => fs.existsSync(path.join(p, 'index.html')));
@@ -208,8 +216,42 @@ if (distDir) {
   });
 } else {
   console.log(`⚠️ React Frontend dist directory not found in: ${possibleDistPaths.join(', ')}`);
-  app.get('/', (req, res) => {
-    res.json({ success: true, message: 'Raxwo API Server is running', timestamp: new Date().toISOString() });
+  app.get('*', (req, res, next) => {
+    if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
+      return next();
+    }
+    // If client URL is configured differently, offer HTML redirect page
+    const clientUrl = process.env.CLIENT_URL || '';
+    if (clientUrl && !clientUrl.includes(req.headers.host || '')) {
+      return res.redirect(clientUrl);
+    }
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Raxwo API Server & Portal Status</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; text-align: center; }
+            .card { background: #1e293b; border: 1px solid #334155; padding: 32px; max-width: 480px; width: 100%; border-radius: 20px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+            h1 { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 8px; }
+            p { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; }
+            .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: #fff; text-decoration: none; font-weight: 700; font-size: 13px; border-radius: 12px; transition: all 0.2s; }
+            .btn:hover { background: #1d4ed8; }
+            .status { font-family: monospace; font-size: 11px; background: #0f172a; color: #38bdf8; padding: 6px 12px; border-radius: 8px; margin-top: 20px; display: inline-block; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Raxwo Management System</h1>
+            <p>The backend API server is online. If you are accessing the management portal, please deploy the <code>client/dist</code> build folder into your hosting web root.</p>
+            ${clientUrl ? `<a href="${clientUrl}" class="btn">Open Web App Portal &rarr;</a>` : ''}
+            <br/>
+            <div class="status">&bull; API Online &bull; ${new Date().toISOString()}</div>
+          </div>
+        </body>
+      </html>
+    `);
   });
 }
 
