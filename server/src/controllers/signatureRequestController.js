@@ -110,6 +110,12 @@ exports.createRequest = async (req, res, next) => {
 function repairUploadUrl(url) {
   if (!url || typeof url !== 'string') return url;
 
+  // 1. If already a valid Data URI or Blob URI, return directly without modification
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+
+  // 2. Fix broken/prefixed base64 strings while preserving proper MIME types
   if (url.includes('base64,')) {
     const idx = url.indexOf('base64,');
     const prefix = url.substring(0, idx);
@@ -117,16 +123,21 @@ function repairUploadUrl(url) {
     if (prefix.includes('pdf') || content.includes('JVBERi')) {
       return `data:application/pdf;base64,${content}`;
     }
+    if (prefix.includes('word') || prefix.includes('officedocument') || prefix.includes('docx') || content.startsWith('UEsDB')) {
+      return `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${content}`;
+    }
     return `data:image/png;base64,${content}`;
   }
 
-  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
-
-  if (url.includes('/uploads/') && (url.includes('==') || url.includes('iVBORw') || url.includes('JVBERi') || url.length > 150)) {
+  // 3. Fix base64 strings incorrectly saved inside upload path
+  if (url.includes('/uploads/') && (url.includes('==') || url.includes('iVBORw') || url.includes('JVBERi') || url.includes('UEsDB') || url.length > 200)) {
     const lastSlash = url.lastIndexOf('/');
     const base64Content = url.substring(lastSlash + 1);
     if (base64Content.includes('JVBERi')) {
       return `data:application/pdf;base64,${base64Content}`;
+    }
+    if (base64Content.startsWith('UEsDB')) {
+      return `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64Content}`;
     }
     return `data:image/png;base64,${base64Content}`;
   }

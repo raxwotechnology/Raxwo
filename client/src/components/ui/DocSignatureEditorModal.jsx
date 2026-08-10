@@ -283,19 +283,19 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
           const imgs = await renderPdfToPageImages(buf)
           setPageImages(imgs); setCurrentPage(0); setMode('pdf')
         } else {
-          // Try as image
           const absUrl = pathUrl.startsWith('data:') || pathUrl.startsWith('blob:')
             ? pathUrl : absoluteMediaUrl(pathUrl)
           const img = new Image(); img.crossOrigin = 'anonymous'
           await new Promise((res, rej) => {
-            img.onload = res; img.onerror = rej
+            img.onload = res
+            img.onerror = () => rej(new Error(`Failed to load document/image file: 404 or invalid format`))
             img.src = absUrl
           })
           isPdfRef.current = false
           setPageImages([img]); setCurrentPage(0); setMode('image')
         }
       } catch (err) {
-        console.error('Doc load failed:', err)
+        console.warn('Doc load failed:', err?.message || err)
         setMode('error')
       }
     })()
