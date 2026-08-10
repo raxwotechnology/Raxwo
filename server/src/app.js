@@ -124,6 +124,39 @@ app.use('/uploads', (req, res) => {
   `);
 });
 
+// ── Diagnostic endpoint (unauthenticated, read-only) ─────────────────────────
+// Visit https://backend.raxwo.net/api/debug/uploads to inspect file storage
+app.get('/api/debug/uploads', (req, res) => {
+  try {
+    const uploadsRoot = getUploadsRoot();
+    const docsDir = path.join(uploadsRoot, 'documents');
+    let files = [];
+    let canWrite = false;
+    try {
+      files = fs.readdirSync(docsDir).slice(0, 50); // list up to 50 files
+    } catch (e) { files = [`ERROR reading dir: ${e.message}`]; }
+    try {
+      const testFile = path.join(docsDir, `_write_test_${Date.now()}.tmp`);
+      fs.writeFileSync(testFile, 'test');
+      fs.unlinkSync(testFile);
+      canWrite = true;
+    } catch (e) { canWrite = false; }
+    res.json({
+      uploadsRoot,
+      docsDir,
+      canWrite,
+      fileCount: files.length,
+      files,
+      cwd: process.cwd(),
+      __dirname: __dirname,
+      env_UPLOADS_DIR: process.env.UPLOADS_DIR || null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
