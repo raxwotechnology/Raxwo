@@ -284,11 +284,23 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     setDocxPageCount(Math.max(pages.length, 1))
   }, [])
 
-  // ── Render DOCX whenever mode === 'docx' and container is mounted ──────────
+  // ── Render DOCX whenever mode === 'docx' — waits for container to mount ──────
   useEffect(() => {
-    if (mode === 'docx' && docxBufRef.current && docxContainerRef.current) {
-      renderDocxIntoContainer(docxBufRef.current)
+    if (mode !== 'docx' || !docxBufRef.current) return
+    let cancelled = false
+    // Poll until docxContainerRef is mounted (React paints after state change)
+    const tryRender = async (attempts = 0) => {
+      if (cancelled) return
+      if (docxContainerRef.current) {
+        await renderDocxIntoContainer(docxBufRef.current)
+      } else if (attempts < 20) {
+        // Retry up to 20 times × 50ms = 1 second max
+        setTimeout(() => tryRender(attempts + 1), 50)
+      }
     }
+    // Small initial delay to let React commit the DOM
+    setTimeout(() => tryRender(), 0)
+    return () => { cancelled = true }
   }, [mode, renderDocxIntoContainer])
 
   // ── Draw canvas ───────────────────────────────────────────────────────
