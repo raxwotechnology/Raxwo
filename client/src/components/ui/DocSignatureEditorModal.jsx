@@ -75,8 +75,13 @@ async function renderPdfToPageImages(source) {
   return images
 }
 
-// ── Fetch ArrayBuffer — uses correct uploads URL (no /api prefix for static files) ──
+// ── Fetch ArrayBuffer — supports Data URIs, blob URIs, and server static files ──
 async function fetchArrayBuffer(pathUrl) {
+  if (!pathUrl) throw new Error('No path URL provided')
+  if (pathUrl.startsWith('data:') || pathUrl.startsWith('blob:')) {
+    const res = await fetch(pathUrl)
+    return res.arrayBuffer()
+  }
   // Build the correct absolute URL using absoluteMediaUrl which strips /api
   const absUrl = absoluteMediaUrl(pathUrl)
   // Try direct fetch first (correct URL for static files)
@@ -264,20 +269,23 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       try {
         const pathUrl = request.originalDocUrl
         const lower = (pathUrl || '').toLowerCase()
+        const isDocx = lower.includes('.docx') || lower.includes('.doc') || lower.includes('wordprocessingml') || lower.includes('msword')
+        const isPdf = lower.includes('.pdf') || lower.includes('application/pdf')
 
-        if (lower.includes('.docx') || lower.includes('.doc')) {
+        if (isDocx) {
           const buf = await fetchArrayBuffer(pathUrl)
           docxBufRef.current = buf
           await renderDocxIntoContainer(buf)
           setMode('docx')
-        } else if (lower.includes('.pdf')) {
+        } else if (isPdf) {
           isPdfRef.current = true
           const buf = await fetchArrayBuffer(pathUrl)
           const imgs = await renderPdfToPageImages(buf)
           setPageImages(imgs); setCurrentPage(0); setMode('pdf')
         } else {
           // Try as image
-          const absUrl = absoluteMediaUrl(pathUrl)
+          const absUrl = pathUrl.startsWith('data:') || pathUrl.startsWith('blob:')
+            ? pathUrl : absoluteMediaUrl(pathUrl)
           const img = new Image(); img.crossOrigin = 'anonymous'
           await new Promise((res, rej) => {
             img.onload = res; img.onerror = rej

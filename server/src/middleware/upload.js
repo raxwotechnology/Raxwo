@@ -141,15 +141,23 @@ const sigDocFilter = (req, file, cb) => {
   }
 };
 
-/** Upload original document submitted with a signature request (saved to disk). */
+/** Upload original document submitted with a signature request (saved to MongoDB as Base64). */
 exports.uploadSigOriginalDoc = multer({
-  storage: sigDocDiskStorage,
+  storage: unifiedStorage,
   fileFilter: sigDocFilter,
   limits: { fileSize: 25 * 1024 * 1024 } // 25MB
 }).single('file');
 
-/** Upload the finalized signed document canvas PNG (saved to disk). */
-exports.uploadSigSignedDoc = multer({
-  storage: sigDocDiskStorage,
-  limits: { fileSize: 25 * 1024 * 1024 } // 25MB
-}).single('file');
+/** Upload the finalized signed document (handles both 'signedDoc' and 'file' field names). */
+exports.uploadSigSignedDoc = (req, res, next) => {
+  multer({
+    storage: unifiedStorage,
+    limits: { fileSize: 25 * 1024 * 1024 }
+  }).any()(req, res, (err) => {
+    if (err) return next(err);
+    if (req.files && req.files.length > 0) {
+      req.file = req.files.find(f => f.fieldname === 'signedDoc') || req.files[0];
+    }
+    next();
+  });
+};

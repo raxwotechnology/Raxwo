@@ -39,8 +39,9 @@ exports.createRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please upload a document file' });
     }
 
-    // Build reliable relative path from just the filename (Hostinger absolute paths don't contain /uploads/)
-    const docPath = `/uploads/documents/${req.file.filename}`;
+    // Save Data URI directly if using unifiedStorage, or relative path if disk storage
+    const rawPath = req.file.path || req.file.filename || ''
+    const docPath = rawPath.startsWith('data:') ? rawPath : `/uploads/documents/${req.file.filename}`
 
     // Resolve employee details
     const emp = await Employee.findOne({ userId: req.user._id }).populate('userId', 'name email phone');
@@ -223,8 +224,8 @@ exports.signAndFinalize = async (req, res, next) => {
 
     let finalSignedUrl = signedDocUrl;
     if (req.file) {
-      // Use filename directly for reliable path on Hostinger (absolute paths may not contain /uploads/)
-      finalSignedUrl = `/uploads/documents/${req.file.filename}`;
+      const rawPath = req.file.path || req.file.filename || '';
+      finalSignedUrl = rawPath.startsWith('data:') ? rawPath : `/uploads/documents/${req.file.filename}`;
     }
 
     if (!finalSignedUrl) {
