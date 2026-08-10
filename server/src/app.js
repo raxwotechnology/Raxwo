@@ -187,21 +187,28 @@ app.get('/api/health', (req, res) => {
 
 // Serve client build if available (for single-domain or proxy deployments)
 const possibleDistPaths = [
+  process.env.DIST_PATH,
   path.resolve(__dirname, '../../client/dist'),
   path.resolve(__dirname, '../client/dist'),
   path.resolve(__dirname, '../../../client/dist'),
   path.resolve(__dirname, '../../dist'),
   path.resolve(__dirname, '../dist'),
+  path.resolve(__dirname, '../public'),
+  path.resolve(__dirname, '../../public'),
   path.resolve(__dirname, '../../public_html'),
   path.resolve(__dirname, '../../../public_html'),
+  path.resolve(__dirname, '..'),
+  path.resolve(__dirname, '../..'),
   path.resolve(process.cwd(), 'client/dist'),
   path.resolve(process.cwd(), '../client/dist'),
   path.resolve(process.cwd(), 'dist'),
   path.resolve(process.cwd(), '../dist'),
+  path.resolve(process.cwd(), 'public'),
   path.resolve(process.cwd(), 'public_html'),
   path.resolve(process.cwd(), '../public_html'),
   path.resolve(process.cwd(), '../../public_html'),
-];
+  path.resolve(process.cwd()),
+].filter(Boolean);
 
 let distDir = possibleDistPaths.find(p => fs.existsSync(path.join(p, 'index.html')));
 
