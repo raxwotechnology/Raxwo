@@ -98,9 +98,10 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote, o
   const rawSummary = item.tagline || stripHtml(item.description)
   const summaryText = rawSummary || 'Full-featured enterprise software solution tailored for business growth.'
 
-  // Formatted price string
-  const formattedPrice = item.priceText
-    || (item.price ? `${item.currency || 'LKR'} ${Number(item.price).toLocaleString()} / ${item.billingPeriod || 'mo'}` : 'Custom Pricing')
+  // Formatted price string (LKR only)
+  const formattedPrice = item.priceText?.includes('LKR')
+    ? item.priceText
+    : (item.price ? `LKR ${Number(item.price).toLocaleString()} / ${item.billingPeriod || 'mo'}` : 'Custom Pricing (LKR)')
 
   return (
     <motion.div

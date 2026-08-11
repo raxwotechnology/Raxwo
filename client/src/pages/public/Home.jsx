@@ -21,6 +21,7 @@ import useAuthStore from '../../store/authStore'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { mediaUrl } from '../../lib/media'
+import ContactForm from '../../components/public/ContactForm'
 
 const ICON_MAP = { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiLayers, FiPackage }
 
@@ -190,12 +191,12 @@ function HomeNav() {
           </div>
         </div>
 
-        <a
-          href="https://raxwo.net/lets-talk/"
+        <Link
+          to="/contact"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
         >
           <FiMessageSquare size={16} /> Let's Talk
-        </a>
+        </Link>
         <Link
           to="/careers"
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all"
@@ -435,7 +436,7 @@ export default function Home() {
                 <Link to="/booking" className="btn-primary btn-lg !rounded-xl w-full sm:w-auto justify-center">
                   Book a Service <FiArrowRight />
                 </Link>
-                <Link to="/booking" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 !rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto transition-all">
+                <Link to="/contact" className="btn-secondary btn-lg bg-[#20b2f5] hover:bg-blue-400 text-white border-[#20b2f5] hover:border-blue-400 !rounded-xl flex items-center justify-center gap-2 w-full sm:w-auto transition-all">
                   Get a Free Quote
                 </Link>
                 <Link to="/services" className="btn-outline btn-lg border-white/30 text-white hover:bg-white/10 hover:text-white !rounded-xl flex items-center justify-center w-full sm:w-auto">
@@ -507,7 +508,9 @@ export default function Home() {
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="text-center mb-14">
             <span className="badge badge-blue mb-4">Our Services</span>
             <h2 className="text-4xl font-bold text-primary font-heading mb-4">What We Build</h2>
-            <p className="text-gray-500 max-w-2xl mx-auto">End-to-end software solutions tailored for Sri Lankan businesses and global clients.</p>
+            <p className="text-slate-600 max-w-3xl mx-auto text-base md:text-lg leading-relaxed font-medium">
+              End-to-end software solutions tailored for Sri Lankan businesses and global clients.
+            </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-12 lg:gap-14">
@@ -544,9 +547,11 @@ export default function Home() {
       <section className="section-padding bg-gray-50">
         <div className="container-max">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} className="text-center mb-14">
-            <span className="badge badge-green mb-4">Software Products</span>
+            <span className="badge bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-xs mb-4 inline-block">Software Products</span>
             <h2 className="text-4xl font-bold text-primary font-heading mb-4">Ready-Made Business Systems</h2>
-            <p className="text-gray-500 max-w-2xl mx-auto">Our off-the-shelf ERP and management systems — customizable for your business needs.</p>
+            <p className="text-slate-600 max-w-3xl mx-auto text-base md:text-lg leading-relaxed font-medium">
+              Our off-the-shelf ERP and management systems — customizable for your business needs.
+            </p>
           </motion.div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 lg:gap-14">
             {displayProducts.map((s, i) => {
@@ -577,34 +582,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Start Your Business CTA ──────────────────────────────────────── */}
-      <section className="bg-slate-50 section-padding pb-24">
+      {/* ── Start Your Business / Let's Talk Section with ContactForm ───────────────── */}
+      <section className="bg-slate-900 section-padding py-20 text-white">
         <div className="container-max">
-          <div className="bg-[#0C0227] rounded-3xl relative overflow-hidden py-24 px-8 shadow-2xl border border-slate-800">
-            <div className="relative z-10 text-center max-w-4xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ type: 'spring', stiffness: 100 }}
-              >
-                <h2 className="text-3xl lg:text-4xl font-bold text-white font-heading mb-3 leading-tight">
-                  Start your business with <br />
-                  <span className="text-[#20b2f5] mt-2 block">Raxwo</span>
-                </h2>
-                <p className="text-white/80 max-w-2xl mx-auto text-base md:text-lg leading-relaxed mt-4 font-normal">
-                  Raxwo Pvt Ltd delivers custom software, web development, and marketing solutions tailored to help businesses grow locally and globally.
-                </p>
-                <div className="mt-10">
-                  <a href="https://raxwo.net/lets-talk/" className="btn-secondary btn-lg bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 hover:border-emerald-600 inline-flex items-center gap-2 px-8">
-                    Let's Talk <FiArrowRight />
-                  </a>
-                </div>
-              </motion.div>
-            </div>
+          <div className="max-w-4xl mx-auto">
+            <ContactForm
+              title="Have an Idea or Specification? Let's Talk"
+              subtitle="Raxwo Pvt Ltd delivers custom software, web development, and ERP solutions tailored to help businesses grow locally and globally."
+            />
           </div>
         </div>
       </section>
+
 
     </div>
   )

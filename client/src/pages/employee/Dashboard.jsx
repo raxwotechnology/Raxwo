@@ -57,33 +57,35 @@ export default function EmployeeDashboard() {
     ...leaves.slice(0, 2).map((l) => ({ text: `Leave ${l.status}: ${l.leaveType}`, type: 'leave' })),
   ].slice(0, 6)
 
+  const rolePath = ['developer', 'designer', 'marketing'].includes(user?.role) ? user.role : 'developer'
+
   const quickLinks = [
-    { label: 'My Projects', to: `/${user?.role || 'developer'}/projects`, icon: FiTrendingUp, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
-    { label: 'Request Leave', to: `/${user?.role || 'developer'}/leaves`, icon: FiCalendar, color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
-    { label: 'View Payslips', to: `/${user?.role || 'developer'}/payslips`, icon: FiDollarSign, color: 'bg-green-50 text-green-600 hover:bg-green-100' },
-    { label: 'My Tasks', to: `/${user?.role || 'developer'}/tasks`, icon: FiCheckSquare, color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
-    { label: 'My Tools', to: `/${user?.role || 'developer'}/tools`, icon: FiKey, color: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' },
-    { label: 'My Requests', to: `/${user?.role || 'developer'}/requests`, icon: FiFileText, color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
-    { label: 'Performance', to: `/${user?.role || 'developer'}/performance`, icon: FiTarget, color: 'bg-rose-50 text-rose-600 hover:bg-rose-100' },
-    { label: 'Work Logs', to: `/${user?.role || 'developer'}/work-logs`, icon: FiClock, color: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100' },
+    { label: 'My Projects', to: `/${rolePath}/projects`, icon: FiTrendingUp, color: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
+    { label: 'Request Leave', to: `/${rolePath}/leaves`, icon: FiCalendar, color: 'bg-amber-50 text-amber-600 hover:bg-amber-100' },
+    { label: 'View Payslips', to: `/${rolePath}/payslips`, icon: FiDollarSign, color: 'bg-green-50 text-green-600 hover:bg-green-100' },
+    { label: 'My Tasks', to: `/${rolePath}/tasks`, icon: FiCheckSquare, color: 'bg-purple-50 text-purple-600 hover:bg-purple-100' },
+    { label: 'My Tools', to: `/${rolePath}/tools`, icon: FiKey, color: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' },
+    { label: 'My Requests', to: `/${rolePath}/requests`, icon: FiFileText, color: 'bg-orange-50 text-orange-600 hover:bg-orange-100' },
+    { label: 'Performance', to: `/${rolePath}/performance`, icon: FiTarget, color: 'bg-rose-50 text-rose-600 hover:bg-rose-100' },
+    { label: 'Work Logs', to: `/${rolePath}/work-logs`, icon: FiClock, color: 'bg-cyan-50 text-cyan-600 hover:bg-cyan-100' },
   ]
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome */}
-      <div className="bg-gradient-hero rounded-3xl p-7 md:p-8 relative overflow-hidden shadow-navy">
+      <div className="bg-gradient-hero rounded-3xl p-6 sm:p-7 md:p-8 relative overflow-hidden shadow-navy">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2"/>
         </div>
         <div className="relative">
           <p className="text-white/60 text-sm mb-1">Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'} 👋</p>
-          <h1 className="text-3xl font-bold text-white font-heading">{user?.name}</h1>
-          {emp && <p className="text-white/70 mt-1">{emp.designation} · {emp.department} · <span className="font-medium">{emp.employeeNo}</span></p>}
+          <h1 className="text-2xl sm:text-3xl font-bold text-white font-heading">{user?.name}</h1>
+          {emp && <p className="text-white/70 mt-1 text-xs sm:text-sm">{emp.designation} · {emp.department} · <span className="font-medium">{emp.employeeNo}</span></p>}
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
           { label: 'Approved Leaves', value: approvedLeaves, icon: FiCalendar, sub: `${pendingLeaves} pending`, color: 'kpi-blue' },
           { label: 'Total Projects', value: projects.length, icon: FiTrendingUp, sub: 'Assigned projects', color: 'kpi-navy' },
@@ -100,21 +102,22 @@ export default function EmployeeDashboard() {
                 <p className="text-xl font-bold text-primary font-heading">{s.value}</p>
                 <p className="text-xs text-gray-400 mt-0.5">{s.sub}</p>
               </div>
-              <s.icon className="text-gray-300" size={22}/>
+              <s.icon className="text-gray-300 shrink-0" size={22}/>
             </div>
           </motion.div>
         ))}
       </div>
 
       {/* Quick links */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3">
         {quickLinks.map(q => (
-          <Link key={q.label} to={q.to} className={`dashboard-shell p-3 flex flex-col items-center gap-2 text-center transition-colors ${q.color} rounded-2xl`}>
+          <Link key={q.label} to={q.to} className={`dashboard-shell p-3.5 flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105 active:scale-95 ${q.color} rounded-2xl border border-slate-100 shadow-xs`}>
             <q.icon size={20}/>
-            <span className="text-xs font-medium leading-tight">{q.label}</span>
+            <span className="text-xs font-semibold leading-tight">{q.label}</span>
           </Link>
         ))}
       </div>
+
 
       <div className="grid xl:grid-cols-2 gap-6">
         <div className="card card-body">

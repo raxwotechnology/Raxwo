@@ -390,11 +390,12 @@ export default function DashboardLayout({ role }) {
               <button
                 ref={notifButtonRef}
                 onClick={() => setShowNotif(!showNotif)}
-                className="relative w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 hover:bg-gray-100 flex items-center justify-center transition-colors"
+                className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shadow-xs"
+                title="Notifications"
               >
-                <FiBell size={18} className="text-gray-600" />
+                <FiBell size={22} className="text-slate-700" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold border-2 border-white shadow-xs leading-none z-10">
+                  <span className="absolute -top-1 -right-1 min-w-[22px] h-5 px-1.5 bg-red-500 text-white text-[11px] rounded-full flex items-center justify-center font-extrabold border-2 border-white shadow-sm leading-none z-10">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -413,15 +414,15 @@ export default function DashboardLayout({ role }) {
                       initial={{ opacity: 0, y: 10, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.96 }}
-                      className="absolute right-0 top-12 w-[calc(100vw-24px)] max-w-[340px] sm:w-80 bg-white rounded-2xl shadow-2xl z-[1000] border border-slate-200 origin-top-right"
+                      className="absolute right-0 top-14 w-[calc(100vw-24px)] max-w-[340px] sm:w-80 bg-white rounded-2xl shadow-2xl z-[1000] border border-slate-200 origin-top-right overflow-hidden"
                     >
-                      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 rounded-t-2xl">
-                        <h3 className="font-semibold text-gray-800 text-base">Notifications</h3>
+                      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
+                        <h3 className="font-bold text-slate-900 text-base">Notifications</h3>
                         <span className="badge badge-blue">{unreadCount} new</span>
                       </div>
                       <div className="max-h-[65vh] sm:max-h-80 overflow-y-auto custom-scrollbar pb-2">
                         {notifications.length === 0 ? (
-                          <p className="text-center text-gray-400 text-sm py-12 sm:py-8">No notifications</p>
+                          <p className="text-center text-slate-400 text-sm py-12 sm:py-8">No notifications</p>
                         ) : notifications.slice(0, 8).map(n => (
                           <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-4 sm:p-3.5 border-b border-slate-50 transition-all flex items-start gap-3 relative group ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-[#20b2f5]/5 hover:bg-[#20b2f5]/10'}`}>
                             {!n.read && <div className="absolute top-1/2 -translate-y-1/2 left-0 w-1 h-0 group-hover:h-8 transition-all bg-[#20b2f5] rounded-r-md" />}
@@ -446,11 +447,11 @@ export default function DashboardLayout({ role }) {
             <div className="relative z-[240]">
               <button
                 onClick={() => setShowProfileMenu((s) => !s)}
-                className="h-10 px-2 sm:px-2.5 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center gap-2 text-secondary font-semibold text-sm hover:bg-secondary/15 transition-colors"
+                className="h-11 px-3 sm:px-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 flex items-center gap-2.5 text-slate-800 font-semibold text-sm transition-all hover:scale-105 active:scale-95 shadow-xs"
               >
-                <UserAvatar user={user} className="w-7 h-7 rounded-lg bg-white" imgClassName="w-full h-full rounded-lg object-cover" />
-                <span className="hidden sm:inline max-w-[8rem] truncate">{user?.name?.split(' ')[0]}</span>
-                <FiChevronDown size={14} className="hidden sm:block" />
+                <UserAvatar user={user} className="w-8 h-8 rounded-xl bg-white border border-slate-200" imgClassName="w-full h-full rounded-xl object-cover" />
+                <span className="hidden sm:inline max-w-[8rem] truncate font-bold text-slate-900">{user?.name?.split(' ')[0]}</span>
+                <FiChevronDown size={16} className="text-slate-500 hidden sm:block" />
               </button>
               <AnimatePresence>
                 {showProfileMenu && (
@@ -464,32 +465,54 @@ export default function DashboardLayout({ role }) {
                       initial={{ opacity: 0, y: 8, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      className="absolute right-0 top-12 w-56 sm:w-52 p-2 z-[270] rounded-2xl border border-slate-200 bg-white shadow-2xl origin-top-right"
+                      className="absolute right-0 top-14 w-64 sm:w-64 p-3 z-[270] rounded-2xl border border-slate-200 bg-white shadow-2xl origin-top-right overflow-hidden space-y-1"
                     >
-                      <div className="px-3 py-2 mb-2 border-b border-slate-100 sm:hidden flex justify-between items-start">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-800 truncate">{user?.name}</p>
-                          <p className="text-xs text-slate-400 capitalize">{user?.role}</p>
+                      {/* Profile Header Header Box */}
+                      <div className="p-3 mb-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
+                        <UserAvatar user={user} className="w-10 h-10 rounded-xl bg-white border border-slate-200 shrink-0" imgClassName="w-full h-full rounded-xl object-cover" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-900 text-sm truncate leading-tight">{user?.name}</p>
+                          <p className="text-xs text-slate-500 truncate mt-0.5">{user?.email}</p>
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-extrabold uppercase tracking-wider rounded-md border border-blue-100">
+                            {user?.role}
+                          </span>
                         </div>
-                        <button onClick={() => setShowProfileMenu(false)} className="p-1.5 -mr-1.5 -mt-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg shrink-0">
-                          <FiX size={18} />
+                      </div>
+
+                      <NavLink
+                        to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/profile` : user?.role === 'manager' ? '/manager' : '/admin/settings'}
+                        onClick={() => setShowProfileMenu(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 transition-all text-left"
+                      >
+                        <FiUser size={16} className="text-slate-400" />
+                        <span>View Profile</span>
+                      </NavLink>
+
+                      <NavLink
+                        to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/notifications` : user?.role === 'manager' ? '/manager/profile' : '/admin/settings'}
+                        onClick={() => setShowProfileMenu(false)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 hover:text-blue-600 hover:bg-blue-50/70 transition-all text-left"
+                      >
+                        <FiSettings size={16} className="text-slate-400" />
+                        <span>Settings</span>
+                      </NavLink>
+
+                      <div className="pt-1 mt-1 border-t border-slate-100">
+                        <button
+                          onClick={() => { setShowProfileMenu(false); handleLogout(); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 transition-all text-left"
+                        >
+                          <FiLogOut size={16} className="text-red-500" />
+                          <span>Logout</span>
                         </button>
                       </div>
-                      <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/profile` : user?.role === 'manager' ? '/manager' : '/admin/settings'} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2">
-                        View Profile
-                      </NavLink>
-                      <NavLink to={['developer', 'designer', 'marketing'].includes(user?.role) ? `/${user?.role}/notifications` : user?.role === 'manager' ? '/manager/profile' : '/admin/settings'} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2">
-                        Settings
-                      </NavLink>
-                      <button onClick={handleLogout} className="btn-ghost w-full justify-start text-[15px] sm:text-sm py-2.5 sm:py-2 text-red-500 hover:text-red-600 hover:bg-red-50">
-                        Logout
-                      </button>
                     </motion.div>
                   </>
                 )}
               </AnimatePresence>
             </div>
           </div>
+
         </header>
 
         {/* Page content */}

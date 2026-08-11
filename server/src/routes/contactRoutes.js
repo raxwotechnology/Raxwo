@@ -3,6 +3,38 @@ const router = express.Router();
 const { sendMail } = require('../utils/mailer');
 const { uploadCV } = require('../middleware/upload');
 
+// General Contact Inquiry Handler
+router.post('/', async (req, res) => {
+  try {
+    const { name, email, phone, subject, message } = req.body;
+
+    if (!name || !email || !message) {
+      return res.status(400).json({ success: false, message: 'Missing required fields (name, email, message)' });
+    }
+
+    const html = `
+      <h2>New Contact Inquiry Received</h2>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone:</strong> ${phone || 'N/A'}</p>
+      <p><strong>Subject:</strong> ${subject || 'General Inquiry'}</p>
+      <h3>Message:</h3>
+      <p>${String(message).replace(/\n/g, '<br/>')}</p>
+    `;
+
+    const mailRes = await sendMail({
+      to: 'raxwotechnology@gmail.com',
+      subject: `Inquiry: ${subject || 'General Contact'} - ${name}`,
+      html,
+    });
+
+    return res.json({ success: true, message: 'Inquiry received successfully' });
+  } catch (error) {
+    console.error('General Contact Error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.post('/apply', uploadCV, async (req, res) => {
   try {
     const { name, email, phone, position, resumeLink, message } = req.body;
@@ -50,3 +82,4 @@ router.post('/apply', uploadCV, async (req, res) => {
 });
 
 module.exports = router;
+

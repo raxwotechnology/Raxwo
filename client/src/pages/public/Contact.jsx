@@ -1,39 +1,16 @@
-import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { useForm } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
-import { FiMapPin, FiPhone, FiMail, FiClock, FiSend } from 'react-icons/fi'
+import { FiMapPin, FiPhone, FiMail } from 'react-icons/fi'
 import api from '../../lib/api'
+import GoogleReviews from '../../components/public/GoogleReviews'
+import ContactForm from '../../components/public/ContactForm'
 
 export default function Contact() {
-  const [loading, setLoading] = useState(false)
-  const { register, handleSubmit, reset, formState: { errors } } = useForm()
   const { data: siteData } = useQuery({
     queryKey: ['site-settings-public'],
     queryFn: () => api.get('/site-settings').then((r) => r.data),
   })
   const settings = siteData?.settings || {}
-
-  const onSubmit = async (data) => {
-    setLoading(true)
-    try {
-      const fd = new FormData();
-      Object.entries(data).forEach(([key, val]) => {
-        if (key !== 'cv' && val) fd.append(key, val);
-      });
-      if (data.cv && data.cv.length > 0) {
-        fd.append('cv', data.cv[0]);
-      }
-      await api.post('/contact/apply', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-      toast.success('Application sent! We\'ll get back to you soon.')
-      reset()
-    } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to send application.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <div>
@@ -68,26 +45,26 @@ export default function Contact() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
-              className="text-white/80 max-w-2xl mx-auto text-xl md:text-2xl leading-relaxed font-normal"
+              className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal"
             >
-              Ready to start your project? Get a free consultation and quote from our expert team.
+              Ready to start your project? Get a free consultation and quote from our expert software engineering team.
             </motion.p>
           </motion.div>
         </div>
       </section>
 
-      <section className="section-padding bg-gray-50">
+      <section className="section-padding bg-slate-50/70">
         <div className="container-max">
-          <div className="grid lg:grid-cols-3 gap-10">
+          <div className="grid lg:grid-cols-3 gap-10 items-start">
             {/* Contact Info */}
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold text-primary font-heading mb-2">Let's Talk</h2>
-                <p className="text-gray-500 text-sm leading-relaxed">Fill out the form and our team will respond within one business day.</p>
+                <h2 className="text-2xl font-bold text-slate-900 font-heading mb-2">Let's Talk</h2>
+                <p className="text-slate-600 text-sm leading-relaxed">Fill out the form and our team will respond within one business day.</p>
               </div>
               {/* Info Items */}
               {[
-                { icon: FiMapPin, label: 'Company', value: settings.siteName || 'Raxwo Technology' },
+                { icon: FiMapPin, label: 'Company', value: settings.siteName || 'Raxwo Technology (Pvt) Ltd' },
                 { icon: FiPhone, label: 'Phone', value: settings.contactPhone || '+94 11 234 5678' },
                 { icon: FiMail, label: 'Email', value: settings.contactEmail || 'hello@raxwo.com' },
               ].map((info, i) => (
@@ -97,72 +74,30 @@ export default function Contact() {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1, type: 'spring' }}
-                  className="flex gap-4 hover:translate-x-2 transition-transform cursor-default group"
+                  className="flex gap-4 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all cursor-default group"
                 >
-                  <div className="w-11 h-11 rounded-xl bg-secondary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-secondary/20 transition-colors">
-                    <info.icon className="text-secondary" size={18} />
+                  <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
+                    <info.icon className="text-blue-600" size={18} />
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{info.label}</p>
-                    <p className="text-gray-700 text-sm whitespace-pre-line">{info.value}</p>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">{info.label}</p>
+                    <p className="text-slate-800 text-sm font-medium whitespace-pre-line">{info.value}</p>
                   </div>
                 </motion.div>
               ))}
-
-
             </div>
 
-            {/* Form */}
-            <div className="lg:col-span-2 card card-body">
-              <h3 className="text-xl font-bold text-primary font-heading mb-6">Send Us a Message</h3>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Full Name *</label>
-                    <input {...register('name', { required: 'Required' })} placeholder="John Silva" className="form-input" />
-                    {errors.name && <p className="form-error">{errors.name.message}</p>}
-                  </div>
-                  <div>
-                    <label className="form-label">Email *</label>
-                    <input {...register('email', { required: 'Required', pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' } })} type="email" placeholder="you@company.com" className="form-input" />
-                    {errors.email && <p className="form-error">{errors.email.message}</p>}
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Phone</label>
-                    <input {...register('phone')} placeholder="+94 77 xxx xxxx" className="form-input" />
-                  </div>
-                  <div>
-                    <label className="form-label">Position Applied For *</label>
-                    <input {...register('position', { required: 'Required' })} placeholder="e.g. Frontend Developer" className="form-input" />
-                    {errors.position && <p className="form-error">{errors.position.message}</p>}
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="form-label">Resume / Portfolio Link</label>
-                    <input {...register('resumeLink')} placeholder="https://linkedin.com/in/..." className="form-input" />
-                  </div>
-                  <div>
-                    <label className="form-label">Upload Resume (PDF)</label>
-                    <input {...register('cv')} type="file" accept=".pdf,.doc,.docx" className="form-input py-2" />
-                  </div>
-                </div>
-                <div>
-                  <label className="form-label">Cover Letter / Message *</label>
-                  <textarea {...register('message', { required: 'Required', minLength: { value: 20, message: 'Min 20 characters' } })}
-                    rows={5} placeholder="Tell us why you are a great fit for this position..." className="form-input resize-none" />
-                  {errors.message && <p className="form-error">{errors.message.message}</p>}
-                </div>
-                <button type="submit" disabled={loading} className="btn-primary btn-lg w-full justify-center">
-                  {loading ? <span className="spinner" /> : <><FiSend size={16} /> Submit Application</>}
-                </button>
-              </form>
+            {/* Reusable Contact Form Component */}
+            <div className="lg:col-span-2">
+              <ContactForm />
             </div>
           </div>
         </div>
       </section>
+
+      {/* Google Reviews Section */}
+      <GoogleReviews />
     </div>
   )
 }
+

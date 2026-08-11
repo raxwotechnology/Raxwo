@@ -95,10 +95,10 @@ const fadeUp = {
 }
 
 const TRUST_STATS = [
-  { icon: FiUsers, label: 'Active Clients', value: '500+', color: 'text-blue-600', bg: 'bg-blue-50' },
-  { icon: FiAward, label: 'Years Experience', value: '8+', color: 'text-violet-600', bg: 'bg-violet-50' },
-  { icon: FiHeadphones, label: 'Support', value: '24/7', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  { icon: FiBarChart2, label: 'Uptime SLA', value: '99.9%', color: 'text-amber-600', bg: 'bg-amber-50' },
+  { icon: FiUsers, label: 'Active Clients', value: '500+', color: 'text-red-500', bg: 'bg-red-50' },
+  { icon: FiAward, label: 'Years Experience', value: '8+', color: 'text-red-500', bg: 'bg-red-50' },
+  { icon: FiHeadphones, label: '24/7 Support', value: '24/7', color: 'text-red-500', bg: 'bg-red-50' },
+  { icon: FiBarChart2, label: 'Uptime SLA', value: '99.9%', color: 'text-red-500', bg: 'bg-red-50' },
 ]
 
 export default function ShowcaseDetailPage() {

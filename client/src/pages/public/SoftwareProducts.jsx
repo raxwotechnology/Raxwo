@@ -141,20 +141,20 @@ export default function SoftwareProducts() {
   return (
     <div className="bg-slate-50 text-slate-900 min-h-screen">
       {/* Hero Header */}
-      <section className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 section-padding pt-32 text-center relative overflow-hidden text-white">
+      <section className="bg-[#0C0227] section-padding pt-32 text-center relative overflow-hidden text-white">
         <div className="absolute inset-0">
           <div className="absolute top-20 right-20 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl" />
           <div className="absolute bottom-10 left-20 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl" />
         </div>
         <div className="container-max relative z-10">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="flex flex-col items-center">
-            <span className="badge bg-blue-500/20 text-blue-300 border border-blue-400/30 mb-6 shadow-xl px-4 py-2 text-xs uppercase font-bold tracking-wider">
+            <span className="badge bg-white/10 text-white border border-white/20 mb-6 shadow-xl px-4 py-2 text-xs uppercase font-bold tracking-wider">
               Ready-Made Software Solutions
             </span>
-            <h1 className="text-3xl sm:text-5xl font-extrabold text-white font-heading mb-6 tracking-tight drop-shadow-2xl">
+            <h1 className="text-3xl sm:text-5xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl">
               Corporate <span className="text-[#20b2f5]">Software Products</span> &amp; ERP Systems
             </h1>
-            <p className="text-slate-300 max-w-2xl mx-auto text-base sm:text-xl leading-relaxed font-normal">
+            <p className="text-white/80 max-w-2xl mx-auto text-base sm:text-xl leading-relaxed font-normal">
               High-performance, ready-to-deploy ERP and SaaS management systems built for Sri Lankan businesses with instant 1-Click Auto Login Demos.
             </p>
           </motion.div>
@@ -182,7 +182,7 @@ export default function SoftwareProducts() {
       </section>
 
       {/* Products Showcase Grid */}
-      <section className="section-padding bg-slate-50/70">
+      <section className="section-padding bg-slate-50">
         <div className="container-max">
           <AnimatePresence mode="wait">
             <motion.div
@@ -214,11 +214,11 @@ export default function SoftwareProducts() {
         </div>
       </section>
 
-      {/* Bottom CTA */}
-      <section className="section-padding bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white text-center">
+      {/* Bottom CTA Banner */}
+      <section className="section-padding bg-[#0C0227] text-white text-center">
         <div className="container-max">
-          <h2 className="text-3xl font-extrabold text-white mb-4">Need a Custom Software Module?</h2>
-          <p className="text-slate-300 mb-8 max-w-xl mx-auto text-sm leading-relaxed">
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">Need a Custom Software Module?</h2>
+          <p className="text-slate-300 mb-8 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
             All our products can be tailored and integrated into your exact business workflows. Contact our technical engineering team for a personalized solution.
           </p>
           <Link to="/contact" className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-xl inline-flex items-center gap-2 transition-all">
@@ -226,6 +226,7 @@ export default function SoftwareProducts() {
           </Link>
         </div>
       </section>
+
 
 
       {/* Modals */}
