@@ -1,5 +1,33 @@
+# robots.txt — Raxwo Management System (manage.raxwo.net)
+# © Raxwo Technology — https://manage.raxwo.net
+
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /_next/
+Disallow: /uploads/private/
 
+# Allow Google to crawl all public content
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+
+# Allow Bing
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+
+# Block bad bots
+User-agent: AhrefsBot
+Disallow: /
+User-agent: SemrushBot
+Disallow: /
+User-agent: MJ12bot
+Disallow: /
+User-agent: DotBot
+Disallow: /
+
+# Sitemaps
 Sitemap: https://manage.raxwo.net/sitemap.xml
