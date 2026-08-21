@@ -12,6 +12,17 @@ import {
   FiShield, FiUserCheck, FiBookOpen, FiX, FiActivity
 } from 'react-icons/fi'
 
+function highlightMatch(text, query) {
+  if (!query || !text) return text
+  const safeQ = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = String(text).split(new RegExp(`(${safeQ})`, 'gi'))
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <span key={i} className="font-extrabold text-secondary bg-secondary/15 rounded px-0.5">{part}</span>
+      : part
+  )
+}
+
 const LEAVE_STATUS_BADGE = {
   approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   pending: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -43,6 +54,11 @@ export default function TeamHub({ isManagerView = false }) {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignLeaderTarget, setAssignLeaderTarget] = useState('')
   const [assignSelectedEmps, setAssignSelectedEmps] = useState([])
+  const [modalLeaderSearch, setModalLeaderSearch] = useState('')
+  const [modalLeaderType, setModalLeaderType] = useState('all') // 'all' | 'managers' | 'staff'
+  const [modalMemberSearch, setModalMemberSearch] = useState('')
+  const [modalMemberType, setModalMemberType] = useState('all') // 'all' | 'intern' | 'permanent' | 'unassigned'
+  const [isChangingLeader, setIsChangingLeader] = useState(false)
 
   // Comment Modal state for work log
   const [commentLogId, setCommentLogId] = useState(null)
@@ -127,6 +143,52 @@ export default function TeamHub({ isManagerView = false }) {
       return matchSearch && matchType
     })
   }, [leaderTeamEmployees, search, typeFilter])
+
+  // Selected target leader object in assign modal
+  const selectedTargetLeaderObj = useMemo(() => {
+    if (!assignLeaderTarget || assignLeaderTarget === 'none') return null
+    return potentialLeaders.find(p => String(p._id) === String(assignLeaderTarget)) || null
+  }, [potentialLeaders, assignLeaderTarget])
+
+  // Search & Filter leaders inside Assign Modal
+  const filteredModalLeaders = useMemo(() => {
+    const q = modalLeaderSearch.toLowerCase().trim()
+    return potentialLeaders.filter(p => {
+      const name = (p.name || '').toLowerCase()
+      const desig = (p.designation || '').toLowerCase()
+      const dept = (p.department || '').toLowerCase()
+      const role = (p.role || '').toLowerCase()
+      const isMgr = p.role === 'manager' || p.role === 'admin'
+      
+      const matchSearch = !q || name.includes(q) || desig.includes(q) || dept.includes(q) || role.includes(q)
+      const matchType = modalLeaderType === 'all' || (modalLeaderType === 'managers' ? isMgr : !isMgr)
+      return matchSearch && matchType
+    })
+  }, [potentialLeaders, modalLeaderSearch, modalLeaderType])
+
+  // Search & Filter members inside Assign Modal
+  const filteredModalMembers = useMemo(() => {
+    const q = modalMemberSearch.toLowerCase().trim()
+    return allEmployees.filter(emp => {
+      const name = (emp.userId?.name || '').toLowerCase()
+      const desig = (emp.designation || '').toLowerCase()
+      const empNo = (emp.employeeNo || '').toLowerCase()
+      const dept = (emp.department || '').toLowerCase()
+      const leaderName = (emp.manager?.name || '').toLowerCase()
+      
+      const matchSearch = !q || name.includes(q) || desig.includes(q) || empNo.includes(q) || dept.includes(q) || leaderName.includes(q)
+      
+      const matchType = modalMemberType === 'all' ||
+        (modalMemberType === 'intern' && emp.employmentType === 'intern') ||
+        (modalMemberType === 'permanent' && emp.employmentType !== 'intern') ||
+        (modalMemberType === 'unassigned' && !emp.manager)
+
+      // Exclude employee from being assigned under themselves if they are selected as leader
+      const isSelf = assignLeaderTarget && String(emp.userId?._id || emp.userId) === String(assignLeaderTarget)
+
+      return matchSearch && matchType && !isSelf
+    })
+  }, [allEmployees, modalMemberSearch, modalMemberType, assignLeaderTarget])
 
   // Current selected employee object (if single employee is picked)
   const selectedEmployee = useMemo(() => {
@@ -1337,97 +1399,261 @@ export default function TeamHub({ isManagerView = false }) {
               </button>
             </div>
 
-            <form onSubmit={handleQuickAssignSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
-              {/* Select Leader */}
-              <div>
-                <label className="form-label">Target Team Leader / Manager *</label>
-                <select
-                  value={assignLeaderTarget}
-                  onChange={e => setAssignLeaderTarget(e.target.value)}
-                  className="form-select w-full"
-                >
-                  <option value="">Choose a team leader...</option>
-                  <option value="none" className="text-rose-600 font-bold">❌ Remove Leader (Mark Unassigned)</option>
+            <form onSubmit={handleQuickAssignSubmit} className="p-5 space-y-5 overflow-y-auto flex-1">
+              {/* ── 1. Target Leader Selection (Searchable) ── */}
+              <div className="space-y-2">
+                <label className="form-label mb-0 flex items-center justify-between">
+                  <span className="font-bold text-slate-800">1. Target Team Leader / Manager *</span>
+                  {selectedTargetLeaderObj && (
+                    <span className="text-[10px] text-secondary font-bold">Selected</span>
+                  )}
+                </label>
 
-                  {/* Group 1: Managers & Admin */}
-                  <optgroup label="Managers & Administrators">
-                    {potentialLeaders.filter(p => p.role === 'manager' || p.role === 'admin').map(p => (
-                      <option key={p._id} value={p._id}>
-                        👑 {p.name} ({p.designation || p.role})
-                      </option>
-                    ))}
-                  </optgroup>
-
-                  {/* Group 2: All Employees & Team Leads */}
-                  <optgroup label="Employees & Team Leads">
-                    {potentialLeaders.filter(p => p.role !== 'manager' && p.role !== 'admin').map(p => (
-                      <option key={p._id} value={p._id}>
-                        👤 {p.name} — {p.designation || 'Staff'} ({p.department || 'General'})
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  You can appoint any senior developer, staff member, or manager as a Team Leader.
-                </p>
-              </div>
-
-              {/* Select Members to assign */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="form-label mb-0">Select Team Members ({assignSelectedEmps.length} selected)</label>
-                  <div className="flex gap-2">
+                {/* Selected Leader Card or Unassigned Card */}
+                {assignLeaderTarget && !isChangingLeader ? (
+                  <div className={`p-3 rounded-xl border flex items-center justify-between ${
+                    assignLeaderTarget === 'none'
+                      ? 'border-rose-200 bg-rose-50/50'
+                      : 'border-secondary/30 bg-secondary/5'
+                  }`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm text-white shrink-0 ${
+                        assignLeaderTarget === 'none' ? 'bg-rose-500' : 'bg-secondary'
+                      }`}>
+                        {assignLeaderTarget === 'none' ? '❌' : (selectedTargetLeaderObj?.name || 'L').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">
+                          {assignLeaderTarget === 'none' ? 'Remove Leader (Mark as Independent / Unassigned)' : selectedTargetLeaderObj?.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {assignLeaderTarget === 'none' ? 'Members will have no assigned leader' : `${selectedTargetLeaderObj?.designation || selectedTargetLeaderObj?.role || 'Leader'} · ${selectedTargetLeaderObj?.department || 'General'}`}
+                        </p>
+                      </div>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => setAssignSelectedEmps(allEmployees.map(e => e._id))}
-                      className="text-[11px] text-secondary font-semibold hover:underline"
+                      onClick={() => setIsChangingLeader(true)}
+                      className="text-xs font-semibold text-secondary hover:underline px-2.5 py-1 rounded-lg hover:bg-secondary/10 shrink-0"
                     >
-                      Select All
+                      Change
                     </button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+                    {/* Search Input for Leaders */}
+                    <div className="relative">
+                      <FiSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search leader by name, designation, department..."
+                        value={modalLeaderSearch}
+                        onChange={e => setModalLeaderSearch(e.target.value)}
+                        className="form-input !pl-8 !py-1.5 !text-xs w-full bg-white"
+                      />
+                      {modalLeaderSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setModalLeaderSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <FiX size={12} />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Filter Pills for Leaders */}
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                      {[
+                        { id: 'all', label: `All (${potentialLeaders.length})` },
+                        { id: 'managers', label: `Managers (${potentialLeaders.filter(p => p.role === 'manager' || p.role === 'admin').length})` },
+                        { id: 'staff', label: `Staff Leads (${potentialLeaders.filter(p => p.role !== 'manager' && p.role !== 'admin').length})` },
+                      ].map(t => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setModalLeaderType(t.id)}
+                          className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold transition-all shrink-0 ${
+                            modalLeaderType === t.id
+                              ? 'bg-secondary text-white'
+                              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Leaders List */}
+                    <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 bg-white border border-slate-200 rounded-lg">
+                      {/* Unassign Option */}
+                      <button
+                        type="button"
+                        onClick={() => { setAssignLeaderTarget('none'); setIsChangingLeader(false); }}
+                        className={`w-full text-left p-2.5 hover:bg-rose-50/50 flex items-center justify-between text-xs text-rose-600 font-semibold transition-colors ${
+                          assignLeaderTarget === 'none' ? 'bg-rose-50' : ''
+                        }`}
+                      >
+                        <span>❌ Remove Leader (Mark Unassigned)</span>
+                        {assignLeaderTarget === 'none' && (
+                          <span className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">Selected</span>
+                        )}
+                      </button>
+
+                      {filteredModalLeaders.length === 0 ? (
+                        <p className="p-3 text-center text-xs text-slate-400">No leaders matching "{modalLeaderSearch}"</p>
+                      ) : (
+                        filteredModalLeaders.map(p => {
+                          const isSelected = String(assignLeaderTarget) === String(p._id)
+                          const isMgr = p.role === 'manager' || p.role === 'admin'
+                          return (
+                            <button
+                              key={p._id}
+                              type="button"
+                              onClick={() => { setAssignLeaderTarget(p._id); setIsChangingLeader(false); }}
+                              className={`w-full text-left p-2 hover:bg-secondary/5 flex items-center justify-between transition-colors ${
+                                isSelected ? 'bg-secondary/10 border-l-2 border-secondary' : ''
+                              }`}
+                            >
+                              <div className="min-w-0 pr-2">
+                                <p className="text-xs font-bold text-slate-800 truncate">
+                                  {isMgr ? '👑 ' : '👤 '}
+                                  {highlightMatch(p.name, modalLeaderSearch)}
+                                </p>
+                                <p className="text-[10px] text-slate-500 truncate">
+                                  {highlightMatch(p.designation || p.role || 'Staff', modalLeaderSearch)} · {highlightMatch(p.department || 'General', modalLeaderSearch)}
+                                </p>
+                              </div>
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                isMgr ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {isMgr ? 'Manager' : 'Staff Lead'}
+                              </span>
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── 2. Team Members Selection (Searchable) ── */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="form-label mb-0 font-bold text-slate-800">
+                    2. Select Team Members ({assignSelectedEmps.length} selected)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const matchingIds = filteredModalMembers.map(e => e._id)
+                        setAssignSelectedEmps(prev => Array.from(new Set([...prev, ...matchingIds])))
+                      }}
+                      className="text-[11px] text-secondary font-bold hover:underline"
+                    >
+                      Select All Matching ({filteredModalMembers.length})
+                    </button>
+                    <span className="text-slate-300">·</span>
                     <button
                       type="button"
                       onClick={() => setAssignSelectedEmps([])}
-                      className="text-[11px] text-slate-400 hover:underline"
+                      className="text-[11px] text-slate-400 hover:text-slate-600 hover:underline"
                     >
                       Clear
                     </button>
                   </div>
                 </div>
 
-                <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-60 overflow-y-auto">
-                  {allEmployees.map(emp => {
-                    const isChecked = assignSelectedEmps.includes(emp._id)
-                    const isIntern = emp.employmentType === 'intern'
-                    return (
-                      <label
-                        key={emp._id}
-                        className={`flex items-center justify-between p-3 cursor-pointer hover:bg-slate-50 transition-colors ${
-                          isChecked ? 'bg-secondary/5' : ''
+                {/* Member Search Bar & Category Filter Pills */}
+                <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div className="relative">
+                    <FiSearch size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Type to filter members by name, role, intern, ID..."
+                      value={modalMemberSearch}
+                      onChange={e => setModalMemberSearch(e.target.value)}
+                      className="form-input !pl-8 !py-1.5 !text-xs w-full bg-white"
+                    />
+                    {modalMemberSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setModalMemberSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <FiX size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                    {[
+                      { id: 'all', label: `All (${allEmployees.length})` },
+                      { id: 'intern', label: `Interns (${allEmployees.filter(e => e.employmentType === 'intern').length})` },
+                      { id: 'permanent', label: `Staff (${allEmployees.filter(e => e.employmentType !== 'intern').length})` },
+                      { id: 'unassigned', label: `Unassigned (${allEmployees.filter(e => !e.manager).length})` },
+                    ].map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setModalMemberType(t.id)}
+                        className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold transition-all shrink-0 ${
+                          modalMemberType === t.id
+                            ? 'bg-secondary text-white'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleSelectAssignEmp(emp._id)}
-                            className="rounded text-secondary focus:ring-secondary"
-                          />
-                          <div>
-                            <p className="text-xs font-bold text-slate-800">{emp.userId?.name}</p>
-                            <p className="text-[10px] text-slate-400">
-                              {emp.designation} · Current Leader: <span className="font-medium text-slate-600">{emp.manager?.name || 'None'}</span>
-                            </p>
-                          </div>
-                        </div>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
 
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                          isIntern ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
-                        }`}>
-                          {isIntern ? 'Intern' : 'Staff'}
-                        </span>
-                      </label>
-                    )
-                  })}
+                  {/* Members Checkbox List */}
+                  <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-52 overflow-y-auto bg-white">
+                    {filteredModalMembers.length === 0 ? (
+                      <p className="p-4 text-center text-xs text-slate-400">
+                        No team members matching "{modalMemberSearch}"
+                      </p>
+                    ) : (
+                      filteredModalMembers.map(emp => {
+                        const isChecked = assignSelectedEmps.includes(emp._id)
+                        const isIntern = emp.employmentType === 'intern'
+                        return (
+                          <label
+                            key={emp._id}
+                            className={`flex items-center justify-between p-2.5 cursor-pointer hover:bg-slate-50 transition-colors ${
+                              isChecked ? 'bg-secondary/5' : ''
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleSelectAssignEmp(emp._id)}
+                                className="rounded text-secondary focus:ring-secondary shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-800 truncate">
+                                  {highlightMatch(emp.userId?.name || '', modalMemberSearch)}
+                                </p>
+                                <p className="text-[10px] text-slate-400 truncate">
+                                  {highlightMatch(emp.designation || '', modalMemberSearch)} · Leader: <span className="font-semibold text-slate-600">{emp.manager?.name || 'None'}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                              isIntern ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                            }`}>
+                              {isIntern ? 'Intern' : 'Staff'}
+                            </span>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1441,7 +1667,7 @@ export default function TeamHub({ isManagerView = false }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={assignLeaderMutation.isPending}
+                  disabled={assignLeaderMutation.isPending || assignSelectedEmps.length === 0}
                   className="btn-primary flex-1 justify-center"
                 >
                   {assignLeaderMutation.isPending ? 'Assigning...' : `Assign ${assignSelectedEmps.length} Members`}

@@ -82,6 +82,7 @@ export default function AdminEmployees() {
   const watchedType = useWatch({ control, name: 'employmentType', defaultValue: 'permanent' })
   const watchedStatus = useWatch({ control, name: 'status', defaultValue: 'active' })
   const watchedEpfEnrolled = useWatch({ control, name: 'epfEtfEnrolled', defaultValue: false })
+  const watchedManager = useWatch({ control, name: 'manager', defaultValue: '' })
 
   const [empTypeFilter, setEmpTypeFilter] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
@@ -574,10 +575,12 @@ export default function AdminEmployees() {
                 branches={branches}
                 managers={leadersList}
                 register={register}
+                setValue={setValue}
                 errors={errors}
                 watchedType={watchedType}
                 watchedStatus={watchedStatus}
                 watchedEpfEnrolled={watchedEpfEnrolled}
+                watchedManager={watchedManager}
                 cvFile={cvFile}
                 setCvFile={setCvFile}
                 agreementFile={agreementFile}

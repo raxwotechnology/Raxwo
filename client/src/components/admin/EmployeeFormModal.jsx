@@ -1,11 +1,213 @@
-import { useRef } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast'
 import {
   FiUser, FiKey, FiBriefcase, FiDollarSign, FiPhone, FiUpload, FiFile, FiLink, FiTrash2, FiCreditCard,
+  FiSearch, FiX, FiCheck, FiChevronDown, FiShield,
 } from 'react-icons/fi'
 import { DEPARTMENTS, ROLES, EMPLOYEE_STATUSES } from '../../constants/employeeStatus'
 import { mediaUrl } from '../../lib/media'
 import EmployeePasswordPanel from './EmployeePasswordPanel'
+
+function highlightMatch(text, query) {
+  if (!query || !text) return text
+  const safeQ = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = String(text).split(new RegExp(`(${safeQ})`, 'gi'))
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <span key={i} className="font-extrabold text-secondary bg-secondary/15 rounded px-0.5">{part}</span>
+      : part
+  )
+}
+
+function SearchableLeaderSelect({ managers = [], value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filterType, setFilterType] = useState('all') // 'all' | 'managers' | 'staff'
+  const containerRef = useRef(null)
+
+  const activeManagers = useMemo(() => {
+    return managers.filter(m => m.isActive !== false && !['inactive', 'suspended', 'former', 'terminated', 'resigned', 'intern_ended'].includes(m.status))
+  }, [managers])
+
+  const selectedLeader = useMemo(() => {
+    if (!value) return null
+    return activeManagers.find(m => String(m._id || m.userId?._id) === String(value) || String(m.userId?._id || m._id) === String(value)) || null
+  }, [activeManagers, value])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const filteredList = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return activeManagers.filter(m => {
+      const name = (m.name || m.userId?.name || '').toLowerCase()
+      const desig = (m.designation || '').toLowerCase()
+      const dept = (m.department || '').toLowerCase()
+      const role = (m.role || m.userId?.role || '').toLowerCase()
+      const isMgr = m.role === 'manager' || m.role === 'admin' || m.userId?.role === 'manager' || m.userId?.role === 'admin'
+      
+      const matchSearch = !q || name.includes(q) || desig.includes(q) || dept.includes(q) || role.includes(q)
+      const matchType = filterType === 'all' || (filterType === 'managers' ? isMgr : !isMgr)
+      return matchSearch && matchType
+    })
+  }, [activeManagers, search, filterType])
+
+  return (
+    <div ref={containerRef} className="space-y-1.5 relative">
+      <label className="form-label mb-0 flex items-center justify-between">
+        <span>Reporting Leader / Manager</span>
+        {selectedLeader && (
+          <span className="text-[10px] text-secondary font-bold">Selected: {selectedLeader.name || selectedLeader.userId?.name}</span>
+        )}
+      </label>
+
+      {/* Auto-suggest typing input */}
+      <div className="relative">
+        <FiSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          value={open ? search : (selectedLeader ? `${selectedLeader.name || selectedLeader.userId?.name} (${selectedLeader.designation || selectedLeader.role || 'Leader'})` : search)}
+          onChange={e => {
+            setSearch(e.target.value)
+            if (!open) setOpen(true)
+          }}
+          onFocus={() => {
+            setOpen(true)
+            if (selectedLeader && !search) {
+              setSearch(selectedLeader.name || selectedLeader.userId?.name || '')
+            }
+          }}
+          placeholder="Type to search leaders by name, designation, department..."
+          className={`form-input !pl-9 !pr-8 w-full text-xs transition-all ${
+            selectedLeader && !open ? 'bg-secondary/5 font-semibold text-slate-800 border-secondary/40' : 'bg-white'
+          }`}
+        />
+        {(selectedLeader || search) && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange('')
+              setSearch('')
+              setOpen(false)
+            }}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors"
+            title="Clear / No Leader"
+          >
+            <FiX size={14} />
+          </button>
+        )}
+      </div>
+
+      {/* Instant Suggestions Dropdown as user types */}
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-1 p-3 bg-white rounded-xl border border-slate-200 shadow-2xl space-y-2 z-50 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Suggestions ({filteredList.length})
+            </span>
+            <div className="flex gap-1">
+              {[
+                { id: 'all', label: `All (${activeManagers.length})` },
+                { id: 'managers', label: `Managers` },
+                { id: 'staff', label: `Staff Leads` },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setFilterType(t.id)}
+                  className={`text-[9px] px-2 py-0.5 rounded-full font-semibold transition-colors ${
+                    filterType === t.id ? 'bg-secondary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-lg">
+            {/* Option to clear / mark as independent */}
+            <button
+              type="button"
+              onClick={() => { onChange(''); setSearch(''); setOpen(false); }}
+              className="w-full text-left p-2 hover:bg-rose-50/50 text-xs text-rose-600 font-semibold flex items-center justify-between transition-colors"
+            >
+              <span>❌ None / Independent (No Leader)</span>
+              {!value && <span className="text-[9px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded font-bold">Selected</span>}
+            </button>
+
+            {filteredList.length === 0 ? (
+              <p className="p-3 text-center text-xs text-slate-400">No leaders matching "{search}"</p>
+            ) : (
+              filteredList.map((m) => {
+                const id = m.userId?._id || m._id
+                const isSelected = String(value) === String(id)
+                const isMgr = m.role === 'manager' || m.role === 'admin' || m.userId?.role === 'manager'
+                const displayName = m.name || m.userId?.name || ''
+                const displayDesig = m.designation || m.role || 'Staff'
+                const displayDept = m.department || 'General'
+
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      onChange(id)
+                      setSearch('')
+                      setOpen(false)
+                    }}
+                    className={`w-full text-left p-2.5 hover:bg-secondary/5 transition-colors flex items-center justify-between gap-2 ${
+                      isSelected ? 'bg-secondary/10 border-l-2 border-secondary' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-secondary to-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">
+                          {isMgr ? '👑 ' : '👤 '}
+                          {highlightMatch(displayName, search)}
+                        </p>
+                        <p className="text-[10px] text-slate-500 truncate">
+                          {highlightMatch(displayDesig, search)} · {highlightMatch(displayDept, search)}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      isMgr ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {isMgr ? 'Manager' : 'Staff Lead'}
+                    </span>
+                  </button>
+                )
+              })
+            )}
+          </div>
+
+          <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+            <span className="text-[10px] text-slate-400">Click a suggestion to select</span>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-[11px] text-slate-500 hover:text-slate-700 font-medium"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 const FormSection = ({ title, icon: Icon, children }) => (
   <div className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
@@ -81,8 +283,8 @@ function FileUploadField({
 }
 
 export default function EmployeeFormModal({
-  editing, branches, managers = [], register, errors,
-  watchedType, watchedStatus, watchedEpfEnrolled,
+  editing, branches, managers = [], register, setValue, errors,
+  watchedType, watchedStatus, watchedEpfEnrolled, watchedManager,
   cvFile, setCvFile, agreementFile, setAgreementFile,
   nicFile, setNicFile, nicBackFile, setNicBackFile,
   cvToRemove, setCvToRemove, agreementToRemove, setAgreementToRemove,
@@ -212,7 +414,7 @@ export default function EmployeeFormModal({
           <div><label className="form-label">Designation *</label><input {...register('designation', { required: true })} className="form-input" placeholder="e.g. Senior Developer" /><FieldError message={errors.designation ? 'Required' : ''} /></div>
           <div><label className="form-label">Employment type</label><select {...register('employmentType')} className="form-select"><option value="permanent">Permanent</option><option value="intern">Intern</option><option value="contract">Contract</option><option value="part_time">Part Time</option></select></div>
           <div><label className="form-label">Branch</label><select {...register('branch')} className="form-select"><option value="">Select branch</option>{branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}</select></div>
-          <div><label className="form-label">Reporting Leader / Manager</label><select {...register('manager')} className="form-select"><option value="">Select leader (None / Independent)</option>{managers.filter(m => m.isActive !== false && !['inactive', 'suspended', 'former', 'terminated', 'resigned', 'intern_ended'].includes(m.status)).map((m) => (<option key={m._id || m.userId?._id} value={m.userId?._id || m._id}>{m.name || m.userId?.name} ({m.designation || m.role || m.userId?.role || 'Leader'})</option>))}</select></div>
+          <SearchableLeaderSelect managers={managers} value={watchedManager} onChange={(val) => setValue ? setValue('manager', val) : null} />
           <div><label className="form-label">Join date *</label><input {...register('joinedDate', { required: !editing })} type="date" className="form-input" /><FieldError message={errors.joinedDate ? 'Required' : ''} /></div>
           {editing && <div><label className="form-label">Status</label><select {...register('status')} className="form-select">{EMPLOYEE_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>}
         </div>
