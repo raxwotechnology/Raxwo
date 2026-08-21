@@ -651,7 +651,16 @@ exports.adminSendPasswordResetEmail = async (req, res, next) => {
 // @route   GET /api/employees/leaders/summary
 exports.getLeadersSummary = async (req, res, next) => {
   try {
-    // 1. Find all users who are managers/admins OR are assigned as manager on any employee
+    // 1. Fetch all active/internship employees with users
+    const allEmployees = await Employee.find({
+      status: { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] }
+    })
+      .populate('userId', 'name email phone avatar role isActive')
+      .populate('manager', 'name email avatar role')
+      .populate('branch', 'name')
+      .sort({ createdAt: -1 });
+
+    // 2. Find all users who are managers/admins OR are assigned as manager on any employee
     const assignedManagerIds = await Employee.distinct('manager', { manager: { $ne: null } });
     const leaderUsers = await User.find({
       $or: [
@@ -660,15 +669,6 @@ exports.getLeadersSummary = async (req, res, next) => {
       ],
       isActive: true,
     }).select('name email avatar role phone').sort({ name: 1 });
-
-    // 2. Fetch all active/internship employees
-    const allEmployees = await Employee.find({
-      status: { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] }
-    })
-      .populate('userId', 'name email phone avatar role')
-      .populate('manager', 'name email avatar role')
-      .populate('branch', 'name')
-      .sort({ createdAt: -1 });
 
     // Group employees by manager id
     const managerMap = {};
@@ -687,7 +687,16 @@ exports.getLeadersSummary = async (req, res, next) => {
     allEmployees.forEach((emp) => {
       if (!emp.userId) return;
       const mgrId = emp.manager?._id ? String(emp.manager._id) : (emp.manager ? String(emp.manager) : null);
-      if (mgrId && managerMap[mgrId]) {
+      if (mgrId) {
+        if (!managerMap[mgrId]) {
+          managerMap[mgrId] = {
+            leader: emp.manager,
+            members: [],
+            internsCount: 0,
+            regularCount: 0,
+            totalMembers: 0,
+          };
+        }
         managerMap[mgrId].members.push(emp);
         if (emp.employmentType === 'intern') {
           managerMap[mgrId].internsCount += 1;
@@ -700,11 +709,54 @@ exports.getLeadersSummary = async (req, res, next) => {
       }
     });
 
+    // 3. Build comprehensive list of all potential leaders (Managers + All Active Employees)
+    const potentialLeadersMap = new Map();
+
+    // Add admin / manager accounts first
+    const adminManagers = await User.find({
+      role: { $in: ['admin', 'manager'] },
+      isActive: true
+    }).select('name email role avatar').sort({ name: 1 });
+
+    adminManagers.forEach(u => {
+      potentialLeadersMap.set(String(u._id), {
+        _id: u._id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        avatar: u.avatar,
+        designation: u.role === 'admin' ? 'Administrator' : 'Manager',
+        department: 'Management',
+        employmentType: 'management',
+      });
+    });
+
+    // Add all employees as potential leaders
+    allEmployees.forEach(emp => {
+      if (emp.userId && emp.userId._id) {
+        const uid = String(emp.userId._id);
+        potentialLeadersMap.set(uid, {
+          _id: emp.userId._id,
+          employeeId: emp._id,
+          name: emp.userId.name,
+          email: emp.userId.email,
+          role: emp.userId.role,
+          avatar: emp.profilePhoto || emp.userId.avatar,
+          designation: emp.designation || 'Staff Member',
+          department: emp.department || 'General',
+          employmentType: emp.employmentType,
+          employeeNo: emp.employeeNo,
+        });
+      }
+    });
+
+    const potentialLeaders = Array.from(potentialLeadersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     const leaders = Object.values(managerMap);
 
     res.json({
       success: true,
       leaders,
+      potentialLeaders,
       unassigned,
       totalEmployees: allEmployees.length,
       totalUnassigned: unassigned.length,

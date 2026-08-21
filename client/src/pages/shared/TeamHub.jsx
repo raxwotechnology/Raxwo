@@ -62,6 +62,7 @@ export default function TeamHub({ isManagerView = false }) {
   })
 
   const leaders = leadersSummaryData?.leaders || []
+  const potentialLeaders = leadersSummaryData?.potentialLeaders || []
   const unassignedEmployees = leadersSummaryData?.unassigned || []
 
   // If in manager view and not yet selected, match current logged-in user
@@ -232,9 +233,14 @@ export default function TeamHub({ isManagerView = false }) {
       toast.error('Please select at least one employee')
       return
     }
+    if (!assignLeaderTarget) {
+      toast.error('Please choose a team leader or select "Remove Leader"')
+      return
+    }
+    const targetMgrId = assignLeaderTarget === 'none' ? null : assignLeaderTarget
     assignLeaderMutation.mutate({
       employeeIds: assignSelectedEmps,
-      managerId: assignLeaderTarget || null,
+      managerId: targetMgrId,
     })
   }
 
@@ -1318,15 +1324,31 @@ export default function TeamHub({ isManagerView = false }) {
                   value={assignLeaderTarget}
                   onChange={e => setAssignLeaderTarget(e.target.value)}
                   className="form-select w-full"
-                  required
                 >
-                  <option value="">Choose a leader...</option>
-                  {leaders.map(({ leader, totalMembers }) => (
-                    <option key={leader._id} value={leader._id}>
-                      {leader.name} ({leader.role || 'Leader'}) — Currently {totalMembers} members
-                    </option>
-                  ))}
+                  <option value="">Choose a team leader...</option>
+                  <option value="none" className="text-rose-600 font-bold">❌ Remove Leader (Mark Unassigned)</option>
+
+                  {/* Group 1: Managers & Admin */}
+                  <optgroup label="Managers & Administrators">
+                    {potentialLeaders.filter(p => p.role === 'manager' || p.role === 'admin').map(p => (
+                      <option key={p._id} value={p._id}>
+                        👑 {p.name} ({p.designation || p.role})
+                      </option>
+                    ))}
+                  </optgroup>
+
+                  {/* Group 2: All Employees & Team Leads */}
+                  <optgroup label="Employees & Team Leads">
+                    {potentialLeaders.filter(p => p.role !== 'manager' && p.role !== 'admin').map(p => (
+                      <option key={p._id} value={p._id}>
+                        👤 {p.name} — {p.designation || 'Staff'} ({p.department || 'General'})
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  You can appoint any senior developer, staff member, or manager as a Team Leader.
+                </p>
               </div>
 
               {/* Select Members to assign */}

@@ -94,7 +94,7 @@ export default function AdminEmployees() {
     queryKey: ['leaders-summary'],
     queryFn: () => api.get('/employees/leaders/summary').then(r => r.data),
   })
-  const leadersList = (leadersSummary?.leaders || []).map(l => l.leader).filter(Boolean)
+  const leadersList = leadersSummary?.potentialLeaders || (leadersSummary?.leaders || []).map(l => l.leader).filter(Boolean)
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees', deptFilter, empTypeFilter, branchFilter, statusFilter],
