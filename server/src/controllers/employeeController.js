@@ -652,23 +652,31 @@ exports.adminSendPasswordResetEmail = async (req, res, next) => {
 exports.getLeadersSummary = async (req, res, next) => {
   try {
     // 1. Fetch all active/internship employees with users
-    const allEmployees = await Employee.find({
-      status: { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] }
+    const allEmployeesRaw = await Employee.find({
+      status: { $in: ['active', 'internship', 'contract', 'on_leave'] }
     })
       .populate('userId', 'name email phone avatar role isActive')
-      .populate('manager', 'name email avatar role')
+      .populate('manager', 'name email avatar role isActive')
       .populate('branch', 'name')
       .sort({ createdAt: -1 });
 
-    // 2. Find all users who are managers/admins OR are assigned as manager on any employee
-    const assignedManagerIds = await Employee.distinct('manager', { manager: { $ne: null } });
+    // Filter to ensure only employees with active user accounts are included
+    const allEmployees = allEmployeesRaw.filter(e => e.userId && e.userId.isActive !== false);
+    const activeUserIds = new Set(allEmployees.map(e => String(e.userId._id)));
+
+    // 2. Find all users who are active managers/admins OR are assigned as manager on any active employee
+    const assignedManagerIds = await Employee.distinct('manager', {
+      manager: { $ne: null },
+      status: { $in: ['active', 'internship', 'contract', 'on_leave'] }
+    });
+    
     const leaderUsers = await User.find({
       $or: [
         { role: { $in: ['manager', 'admin'] } },
         { _id: { $in: assignedManagerIds } }
       ],
       isActive: true,
-    }).select('name email avatar role phone').sort({ name: 1 });
+    }).select('name email avatar role phone isActive').sort({ name: 1 });
 
     // Group employees by manager id
     const managerMap = {};
@@ -685,31 +693,37 @@ exports.getLeadersSummary = async (req, res, next) => {
     });
 
     allEmployees.forEach((emp) => {
-      if (!emp.userId) return;
       const mgrId = emp.manager?._id ? String(emp.manager._id) : (emp.manager ? String(emp.manager) : null);
       if (mgrId) {
         if (!managerMap[mgrId]) {
-          managerMap[mgrId] = {
-            leader: emp.manager,
-            members: [],
-            internsCount: 0,
-            regularCount: 0,
-            totalMembers: 0,
-          };
+          // If manager user is active
+          if (emp.manager && emp.manager.isActive !== false) {
+            managerMap[mgrId] = {
+              leader: emp.manager,
+              members: [],
+              internsCount: 0,
+              regularCount: 0,
+              totalMembers: 0,
+            };
+          }
         }
-        managerMap[mgrId].members.push(emp);
-        if (emp.employmentType === 'intern') {
-          managerMap[mgrId].internsCount += 1;
+        if (managerMap[mgrId]) {
+          managerMap[mgrId].members.push(emp);
+          if (emp.employmentType === 'intern') {
+            managerMap[mgrId].internsCount += 1;
+          } else {
+            managerMap[mgrId].regularCount += 1;
+          }
+          managerMap[mgrId].totalMembers += 1;
         } else {
-          managerMap[mgrId].regularCount += 1;
+          unassigned.push(emp);
         }
-        managerMap[mgrId].totalMembers += 1;
       } else {
         unassigned.push(emp);
       }
     });
 
-    // 3. Build comprehensive list of all potential leaders (Managers + All Active Employees)
+    // 3. Build comprehensive list of all potential leaders (Active Managers + All Active Employees)
     const potentialLeadersMap = new Map();
 
     // Add admin / manager accounts first
@@ -731,9 +745,9 @@ exports.getLeadersSummary = async (req, res, next) => {
       });
     });
 
-    // Add all employees as potential leaders
+    // Add active employees as potential leaders
     allEmployees.forEach(emp => {
-      if (emp.userId && emp.userId._id) {
+      if (emp.userId && emp.userId._id && emp.userId.isActive !== false) {
         const uid = String(emp.userId._id);
         potentialLeadersMap.set(uid, {
           _id: emp.userId._id,
@@ -751,7 +765,9 @@ exports.getLeadersSummary = async (req, res, next) => {
     });
 
     const potentialLeaders = Array.from(potentialLeadersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-    const leaders = Object.values(managerMap);
+    
+    // Only return leaders who are active and have at least 1 member or have admin/manager role
+    const leaders = Object.values(managerMap).filter(l => l.leader && l.leader.isActive !== false);
 
     res.json({
       success: true,

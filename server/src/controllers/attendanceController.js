@@ -282,16 +282,36 @@ exports.getMyAttendance = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.getAttendance = async (req, res, next) => {
   try {
-    const { month, year, employeeId, status, startDate, endDate, branch, manager } = req.query;
+    const { month, year, employeeId, status, startDate, endDate, branch, manager, includeFormer } = req.query;
+    
+    // Find active employees based on filters
+    const empStatusQuery = (includeFormer === 'true' || includeFormer === '1')
+      ? {}
+      : { status: { $in: ['active', 'internship', 'contract', 'on_leave'] } };
+
+    const activeEmps = await Employee.find({
+      ...empStatusQuery,
+      ...(manager ? { manager } : {}),
+      ...(branch ? { branch } : {})
+    }).populate('userId', 'name email avatar isActive');
+
+    // Strictly filter only employees with active user accounts
+    const validActiveEmps = (includeFormer === 'true' || includeFormer === '1')
+      ? activeEmps.filter(e => e.userId)
+      : activeEmps.filter(e => e.userId && e.userId.isActive !== false);
+
+    const validActiveEmpIds = new Set(validActiveEmps.map(e => String(e._id)));
+
     const query = {};
     if (employeeId) {
       query.employee = employeeId;
     } else if (manager) {
-      const empIds = await Employee.find({ manager }).select('_id');
-      query.employee = { $in: empIds.map(e => e._id) };
+      query.employee = { $in: Array.from(validActiveEmpIds) };
     } else if (branch) {
-      const empIds = await getEmpIds(branch);
-      if (empIds) query.employee = { $in: empIds };
+      query.employee = { $in: Array.from(validActiveEmpIds) };
+    } else if (includeFormer !== 'true' && includeFormer !== '1') {
+      // By default only return records of active employees
+      query.employee = { $in: Array.from(validActiveEmpIds) };
     }
 
     if (status) query.status = status;
@@ -304,16 +324,17 @@ exports.getAttendance = async (req, res, next) => {
       const end = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
       query.date = { $gte: start, $lte: end };
     }
+
     const records = await Attendance.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar isActive' } })
       .sort({ date: -1 });
 
-    const activeEmps = await Employee.find({
-      status: { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] },
-      ...(manager ? { manager } : {}),
-      ...(branch ? { branch } : {})
-    }).populate('userId', 'name email avatar');
-    
+    // Filter out any record where employee is inactive/null
+    const filteredRecords = records.filter(r => {
+      if (!r.employee || !r.employee._id) return false;
+      return validActiveEmpIds.has(String(r.employee._id));
+    });
+
     let dStart, dEnd;
     if (startDate && endDate) {
       dStart = new Date(startDate); dStart.setHours(0,0,0,0);
@@ -328,7 +349,7 @@ exports.getAttendance = async (req, res, next) => {
     const today = new Date();
     if (dEnd > today) dEnd = today;
 
-    const recordMap = new Set(records.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
+    const recordMap = new Set(filteredRecords.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
     const dummyRecords = [];
     
     if (!status || status === 'absent') {
@@ -336,9 +357,9 @@ exports.getAttendance = async (req, res, next) => {
       for (let d = new Date(dStart); d <= dEnd; d.setDate(d.getDate() + 1)) {
         days.push(new Date(d).toISOString().split('T')[0]);
       }
-      const empFilterSet = employeeId ? new Set([String(employeeId)]) : new Set(activeEmps.map(e => String(e._id)));
+      const empFilterSet = employeeId ? new Set([String(employeeId)]) : validActiveEmpIds;
       
-      for (const emp of activeEmps) {
+      for (const emp of validActiveEmps) {
         if (!empFilterSet.has(String(emp._id))) continue;
         for (const dayStr of days) {
           const key = `${emp._id}_${dayStr}`;
@@ -354,7 +375,7 @@ exports.getAttendance = async (req, res, next) => {
         }
       }
     }
-    const allRecords = [...records.map(r => r.toObject ? r.toObject() : r), ...dummyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const allRecords = [...filteredRecords.map(r => r.toObject ? r.toObject() : r), ...dummyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     res.json({ success: true, count: allRecords.length, records: allRecords });
   } catch (err) { next(err); }
@@ -444,16 +465,22 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
       end = new Date(year, month, 0, 23, 59, 59, 999);
     }
 
-    const query = { date: { $gte: start, $lte: end } };
-    if (branch) {
-      const empIds = await getEmpIds(branch);
-      if (empIds) query.employee = { $in: empIds };
-    }
+    const activeEmps = await Employee.find({
+      status: { $in: ['active', 'internship', 'contract', 'on_leave'] },
+      ...(branch ? { branch } : {})
+    }).populate('userId', 'name employeeNo isActive');
+
+    const validActiveEmps = activeEmps.filter(e => e.userId && e.userId.isActive !== false);
+    const validActiveEmpIds = new Set(validActiveEmps.map(e => String(e._id)));
+
+    const query = {
+      date: { $gte: start, $lte: end },
+      employee: { $in: Array.from(validActiveEmpIds) }
+    };
 
     const records = await Attendance.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email role' } });
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email role isActive' } });
 
-    const activeEmps = await Employee.find({ status: 'active', ...(branch ? { branch } : {}) }).populate('userId', 'name employeeNo');
     const today = new Date();
     let dEnd = end > today ? today : end;
     
@@ -464,7 +491,7 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
     }
     
     const dummyRecords = [];
-    for (const emp of activeEmps) {
+    for (const emp of validActiveEmps) {
       for (const dayStr of days) {
         const key = `${emp._id}_${dayStr}`;
         if (!recordMap.has(key)) {

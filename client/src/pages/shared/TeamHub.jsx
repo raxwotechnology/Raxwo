@@ -61,9 +61,21 @@ export default function TeamHub({ isManagerView = false }) {
     enabled: Boolean(isAdmin),
   })
 
-  const leaders = leadersSummaryData?.leaders || []
-  const potentialLeaders = leadersSummaryData?.potentialLeaders || []
-  const unassignedEmployees = leadersSummaryData?.unassigned || []
+  const leaders = useMemo(() => {
+    return (leadersSummaryData?.leaders || []).filter(l => l.leader && l.leader.isActive !== false)
+  }, [leadersSummaryData])
+
+  const potentialLeaders = useMemo(() => {
+    return (leadersSummaryData?.potentialLeaders || []).filter(p => p.isActive !== false)
+  }, [leadersSummaryData])
+
+  const unassignedEmployees = useMemo(() => {
+    return (leadersSummaryData?.unassigned || []).filter(e => {
+      const isInactive = ['inactive', 'suspended', 'former', 'terminated', 'resigned', 'intern_ended'].includes(e.status)
+      const isUserInactive = e.userId?.isActive === false
+      return !isInactive && !isUserInactive
+    })
+  }, [leadersSummaryData])
 
   // If in manager view and not yet selected, match current logged-in user
   const effectiveLeaderId = isManagerView ? (user?._id || '') : selectedLeaderId
@@ -73,10 +85,19 @@ export default function TeamHub({ isManagerView = false }) {
     queryKey: ['employees', 'team-hub', isManagerView ? user?._id : 'all'],
     queryFn: () => {
       const qs = isManagerView && user?._id ? `&manager=${user._id}` : ''
-      return api.get(`/employees?includeFormer=false${qs}`).then(r => r.data)
+      return api.get(`/employees?assignable=1${qs}`).then(r => r.data)
     },
   })
-  const allEmployees = employeesData?.employees || []
+
+  // Filter out any inactive/suspended/terminated members
+  const allEmployees = useMemo(() => {
+    const list = employeesData?.employees || []
+    return list.filter(e => {
+      const isInactive = ['inactive', 'suspended', 'former', 'terminated', 'resigned', 'intern_ended'].includes(e.status)
+      const isUserInactive = e.userId?.isActive === false
+      return !isInactive && !isUserInactive
+    })
+  }, [employeesData])
 
   // Filter employees belonging to the selected leader
   const leaderTeamEmployees = useMemo(() => {
@@ -154,7 +175,7 @@ export default function TeamHub({ isManagerView = false }) {
     },
     enabled: activeTab === 'attendance' || activeTab === 'overview',
   })
-  const attendanceRecords = attendanceData?.attendance || []
+  const attendanceRecords = attendanceData?.records || attendanceData?.attendance || []
 
   // 5. Fetch Work Logs (for selected employee or team)
   const { data: workLogsData, isLoading: loadingWorkLogs } = useQuery({

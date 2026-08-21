@@ -2,7 +2,7 @@
 const ASSIGNED_STATUSES = ['active', 'internship', 'contract', 'on_leave'];
 
 /** Excluded from assignable lists; still visible in history/reports with includeFormer or direct id */
-const INACTIVE_STATUSES = ['resigned', 'terminated', 'former', 'intern_ended'];
+const INACTIVE_STATUSES = ['inactive', 'suspended', 'resigned', 'terminated', 'former', 'intern_ended'];
 
 const STATUS_LABELS = {
   active: 'Active',
