@@ -87,6 +87,7 @@ import ManagerRequests from './pages/manager/Requests'
 import MessagesCenter from './pages/shared/MessagesCenter'
 import NotificationDetail from './pages/shared/NotificationDetail'
 import SignatureRequests from './pages/shared/SignatureRequests'
+import TeamHub from './pages/shared/TeamHub'
 
 // Developer pages
 import DeveloperDashboard from './pages/employee/Dashboard'
@@ -248,6 +249,8 @@ export default function App() {
         <Route path="branches" element={<AdminBranches />} />
         <Route path="log-centre" element={<LogCentre />} />
         <Route path="leaders" element={<AdminLeaders />} />
+        <Route path="team-hub" element={<TeamHub />} />
+        <Route path="team" element={<TeamHub />} />
         <Route path="quotations" element={<AdminQuotations />} />
         <Route path="agreements" element={<Agreements />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />
@@ -298,6 +301,8 @@ export default function App() {
         <Route path="ai-analyzer" element={<AdminAIAnalyzer />} />
         <Route path="log-centre" element={<LogCentre />} />
         <Route path="leaders" element={<AdminLeaders />} />
+        <Route path="team-hub" element={<TeamHub isManagerView={true} />} />
+        <Route path="team" element={<TeamHub isManagerView={true} />} />
         <Route path="quotations" element={<AdminQuotations />} />
         <Route path="agreements" element={<Agreements />} />
         <Route path="petty-cash" element={<AdminPettyCash />} />

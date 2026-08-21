@@ -90,6 +90,12 @@ export default function AdminEmployees() {
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
 
+  const { data: leadersSummary } = useQuery({
+    queryKey: ['leaders-summary'],
+    queryFn: () => api.get('/employees/leaders/summary').then(r => r.data),
+  })
+  const leadersList = (leadersSummary?.leaders || []).map(l => l.leader).filter(Boolean)
+
   const { data, isLoading } = useQuery({
     queryKey: ['employees', deptFilter, empTypeFilter, branchFilter, statusFilter],
     queryFn: async () => {
@@ -204,6 +210,7 @@ export default function AdminEmployees() {
       basicSalary: 0,
       allowances: 0,
       epfEtfEnrolled: false,
+      manager: '',
     })
     setEditing(null)
     setCvFile(null)
@@ -234,6 +241,7 @@ export default function AdminEmployees() {
       'etfNumber', 'resignationReason',
       'bank', 'bankBranch', 'accountNumber', 'accountHolder', 'accountType'
     ].forEach(k => setValue(k, full[k]))
+    setValue('manager', full.manager?._id || (typeof full.manager === 'string' ? full.manager : ''))
     setValue('dob', full.dob ? full.dob.split('T')[0] : '')
     setValue('joinedDate', full.joinedDate ? full.joinedDate.split('T')[0] : '')
     setValue('resignationDate', full.resignationDate ? full.resignationDate.split('T')[0] : '')
@@ -564,6 +572,7 @@ export default function AdminEmployees() {
               <EmployeeFormModal
                 editing={editing}
                 branches={branches}
+                managers={leadersList}
                 register={register}
                 errors={errors}
                 watchedType={watchedType}

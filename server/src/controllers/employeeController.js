@@ -75,11 +75,12 @@ function applyResignationFields(body) {
 // @route   GET /api/employees
 exports.getEmployees = async (req, res, next) => {
   try {
-    const { department, status, search, branch, employmentType, includeFormer, assignable } = req.query;
+    const { department, status, search, branch, employmentType, includeFormer, assignable, manager } = req.query;
     let query = {};
     if (department) query.department = department;
     if (branch) query.branch = branch;
     if (employmentType) query.employmentType = employmentType;
+    if (manager) query.manager = manager;
     if (status) query.status = status;
     else if (assignable === '1' || assignable === 'true') {
       query.status = { $in: ASSIGNED_STATUSES };
@@ -89,7 +90,7 @@ exports.getEmployees = async (req, res, next) => {
 
     let employees = await Employee.find(query)
       .populate('userId', 'name email phone avatar role')
-      .populate('manager', 'name email')
+      .populate('manager', 'name email avatar role')
       .sort({ createdAt: -1 });
 
     if (search) {
@@ -645,3 +646,105 @@ exports.adminSendPasswordResetEmail = async (req, res, next) => {
     });
   } catch (err) { next(err); }
 };
+
+// @desc    Get summary of all leaders with their assigned members
+// @route   GET /api/employees/leaders/summary
+exports.getLeadersSummary = async (req, res, next) => {
+  try {
+    // 1. Find all users who are managers/admins OR are assigned as manager on any employee
+    const assignedManagerIds = await Employee.distinct('manager', { manager: { $ne: null } });
+    const leaderUsers = await User.find({
+      $or: [
+        { role: { $in: ['manager', 'admin'] } },
+        { _id: { $in: assignedManagerIds } }
+      ],
+      isActive: true,
+    }).select('name email avatar role phone').sort({ name: 1 });
+
+    // 2. Fetch all active/internship employees
+    const allEmployees = await Employee.find({
+      status: { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] }
+    })
+      .populate('userId', 'name email phone avatar role')
+      .populate('manager', 'name email avatar role')
+      .populate('branch', 'name')
+      .sort({ createdAt: -1 });
+
+    // Group employees by manager id
+    const managerMap = {};
+    const unassigned = [];
+
+    leaderUsers.forEach((u) => {
+      managerMap[String(u._id)] = {
+        leader: u,
+        members: [],
+        internsCount: 0,
+        regularCount: 0,
+        totalMembers: 0,
+      };
+    });
+
+    allEmployees.forEach((emp) => {
+      if (!emp.userId) return;
+      const mgrId = emp.manager?._id ? String(emp.manager._id) : (emp.manager ? String(emp.manager) : null);
+      if (mgrId && managerMap[mgrId]) {
+        managerMap[mgrId].members.push(emp);
+        if (emp.employmentType === 'intern') {
+          managerMap[mgrId].internsCount += 1;
+        } else {
+          managerMap[mgrId].regularCount += 1;
+        }
+        managerMap[mgrId].totalMembers += 1;
+      } else {
+        unassigned.push(emp);
+      }
+    });
+
+    const leaders = Object.values(managerMap);
+
+    res.json({
+      success: true,
+      leaders,
+      unassigned,
+      totalEmployees: allEmployees.length,
+      totalUnassigned: unassigned.length,
+    });
+  } catch (err) { next(err); }
+};
+
+// @desc    Assign or unassign a leader/manager for employees
+// @route   POST /api/employees/assign-leader
+exports.assignLeader = async (req, res, next) => {
+  try {
+    const { employeeIds, managerId } = req.body;
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Please provide employee IDs' });
+    }
+
+    let targetManager = null;
+    if (managerId) {
+      targetManager = await User.findById(managerId);
+      if (!targetManager) {
+        return res.status(404).json({ success: false, message: 'Selected leader/manager not found' });
+      }
+    }
+
+    await Employee.updateMany(
+      { _id: { $in: employeeIds } },
+      { $set: { manager: managerId || null } }
+    );
+
+    await createAuditLog({
+      user: req.user,
+      action: 'update',
+      module: 'employees',
+      description: `Assigned leader ${targetManager ? targetManager.name : 'None'} to ${employeeIds.length} employee(s)`,
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully assigned leader to ${employeeIds.length} team member(s)`,
+    });
+  } catch (err) { next(err); }
+};
+

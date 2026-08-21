@@ -282,10 +282,13 @@ exports.getMyAttendance = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.getAttendance = async (req, res, next) => {
   try {
-    const { month, year, employeeId, status, startDate, endDate, branch } = req.query;
+    const { month, year, employeeId, status, startDate, endDate, branch, manager } = req.query;
     const query = {};
     if (employeeId) {
       query.employee = employeeId;
+    } else if (manager) {
+      const empIds = await Employee.find({ manager }).select('_id');
+      query.employee = { $in: empIds.map(e => e._id) };
     } else if (branch) {
       const empIds = await getEmpIds(branch);
       if (empIds) query.employee = { $in: empIds };
@@ -302,10 +305,14 @@ exports.getAttendance = async (req, res, next) => {
       query.date = { $gte: start, $lte: end };
     }
     const records = await Attendance.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
       .sort({ date: -1 });
 
-    const activeEmps = await Employee.find({ status: 'active', ...(branch ? { branch } : {}) }).populate('userId', 'name email');
+    const activeEmps = await Employee.find({
+      status: { $nin: ['former', 'terminated', 'resigned', 'intern_ended'] },
+      ...(manager ? { manager } : {}),
+      ...(branch ? { branch } : {})
+    }).populate('userId', 'name email avatar');
     
     let dStart, dEnd;
     if (startDate && endDate) {

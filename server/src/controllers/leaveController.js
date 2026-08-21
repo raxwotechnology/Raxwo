@@ -253,20 +253,23 @@ exports.assignLeave = async (req, res, next) => {
 // ─── @route GET /api/leaves ────────────────────────────────────────────────────
 exports.getLeaves = async (req, res, next) => {
   try {
-    const { status, employee, branch, startDate, endDate } = req.query;
+    const { status, employee, branch, startDate, endDate, manager } = req.query;
     let query = {};
     if (status) query.status = status;
-    if (employee) query.employee = employee;
+    if (employee) {
+      query.employee = employee;
+    } else if (manager) {
+      const empIds = await Employee.find({ manager }).select('_id');
+      query.employee = { $in: empIds.map(e => e._id) };
+    } else if (branch) {
+      const empIds = await Employee.find({ branch }).select('_id');
+      query.employee = { $in: empIds.map(e => e._id) };
+    }
+
     if (startDate || endDate) {
       query.startDate = {};
       if (startDate) query.startDate.$gte = new Date(startDate);
       if (endDate)   query.startDate.$lte = new Date(endDate + 'T23:59:59.999Z');
-    }
-
-    // Branch filter via employee
-    if (branch) {
-      const empIds = await Employee.find({ branch }).select('_id');
-      query.employee = { $in: empIds.map(e => e._id) };
     }
 
     const leaves = await Leave.find(query)

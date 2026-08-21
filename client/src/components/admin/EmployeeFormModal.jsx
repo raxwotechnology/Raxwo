@@ -81,7 +81,7 @@ function FileUploadField({
 }
 
 export default function EmployeeFormModal({
-  editing, branches, register, errors,
+  editing, branches, managers = [], register, errors,
   watchedType, watchedStatus, watchedEpfEnrolled,
   cvFile, setCvFile, agreementFile, setAgreementFile,
   nicFile, setNicFile, nicBackFile, setNicBackFile,
@@ -212,6 +212,7 @@ export default function EmployeeFormModal({
           <div><label className="form-label">Designation *</label><input {...register('designation', { required: true })} className="form-input" placeholder="e.g. Senior Developer" /><FieldError message={errors.designation ? 'Required' : ''} /></div>
           <div><label className="form-label">Employment type</label><select {...register('employmentType')} className="form-select"><option value="permanent">Permanent</option><option value="intern">Intern</option><option value="contract">Contract</option><option value="part_time">Part Time</option></select></div>
           <div><label className="form-label">Branch</label><select {...register('branch')} className="form-select"><option value="">Select branch</option>{branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}</select></div>
+          <div><label className="form-label">Reporting Leader / Manager</label><select {...register('manager')} className="form-select"><option value="">Select leader (None / Independent)</option>{managers.map((m) => (<option key={m._id || m.userId?._id} value={m.userId?._id || m._id}>{m.name || m.userId?.name} ({m.role || m.userId?.role || 'Leader'})</option>))}</select></div>
           <div><label className="form-label">Join date *</label><input {...register('joinedDate', { required: !editing })} type="date" className="form-input" /><FieldError message={errors.joinedDate ? 'Required' : ''} /></div>
           {editing && <div><label className="form-label">Status</label><select {...register('status')} className="form-select">{EMPLOYEE_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>}
         </div>
