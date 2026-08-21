@@ -9,7 +9,7 @@ import {
   FiUsers, FiUser, FiCalendar, FiClock, FiCheckCircle, FiAlertCircle,
   FiBriefcase, FiSearch, FiPhone, FiMail,
   FiFileText, FiMessageSquare, FiLayers,
-  FiShield, FiUserCheck, FiBookOpen, FiX
+  FiShield, FiUserCheck, FiBookOpen, FiX, FiActivity
 } from 'react-icons/fi'
 
 const LEAVE_STATUS_BADGE = {
