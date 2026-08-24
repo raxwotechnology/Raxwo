@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import {
   FiUser, FiKey, FiBriefcase, FiDollarSign, FiPhone, FiUpload, FiFile, FiLink, FiTrash2, FiCreditCard,
