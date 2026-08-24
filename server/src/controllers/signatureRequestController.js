@@ -7,19 +7,21 @@ const SavedStamp = require('../models/SavedStamp');
 const { verifyActionPassword } = require('../utils/actionPassword');
 const { createNotification } = require('../services/notificationService');
 const { sendMail } = require('../utils/mailer');
+const { sendLoggedMail } = require('../services/emailService');
 const { toRelativeUploadUrl, getUploadsRoot } = require('../utils/uploadsPath');
 const path = require('path');
 const fs = require('fs');
 
 // Helper to send email to user
-async function sendNotificationEmail(toEmail, subject, textContent, htmlContent) {
+async function sendNotificationEmail(toEmail, subject, textContent, htmlContent, category = 'system') {
   if (!toEmail) return;
   try {
-    await sendMail({
+    await sendLoggedMail({
       to: toEmail,
       subject,
       text: textContent,
-      html: htmlContent
+      html: htmlContent,
+      category,
     });
   } catch (err) {
     console.error('[SignatureRequest Email Error]:', err.message);

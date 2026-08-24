@@ -252,6 +252,7 @@ export default function AdminEmployees() {
     setValue('emergencyContactRelationship', full?.emergencyContact?.relationship || '')
     setValue('role', full.userId?.role || 'developer')
     setValue('name', full.userId?.name || '')
+    setValue('email', full.userId?.email || full.email || '')
     if (full.internship) {
       setValue('internship.startDate', full.internship.startDate?.split('T')[0] || '')
       setValue('internship.endDate', full.internship.endDate?.split('T')[0] || '')

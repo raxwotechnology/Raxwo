@@ -1,12 +1,17 @@
 const mongoose = require('mongoose');
 
 const agreementSchema = new mongoose.Schema({
-  // ── Type ──────────────────────────────────────────────────────────────────
+  // ── Type & Party ──────────────────────────────────────────────────────────
   agreementType: {
     type: String,
     enum: ['client_project', 'subscription_service', 'invoice_payment', 'employee_agreement', 'general', 'custom'],
     required: true,
     default: 'general',
+  },
+  partyType: {
+    type: String,
+    enum: ['client', 'employee', 'other'],
+    default: 'client',
   },
 
   // ── Title / Reference ─────────────────────────────────────────────────────
@@ -16,7 +21,7 @@ const agreementSchema = new mongoose.Schema({
 
   // ── Linked records ────────────────────────────────────────────────────────
   client:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  employee:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  employee:     { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
   project:      { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
   invoice:      { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
   subscription: { type: mongoose.Schema.Types.ObjectId, ref: 'Subscription' },
@@ -47,12 +52,15 @@ const agreementSchema = new mongoose.Schema({
     provider: {
       data: { type: String, default: '' },
       signerName: { type: String, default: '' },
+      signerDesignation: { type: String, default: '' },
       signedAt: Date,
     },
     client: {
-      label: { type: String, default: 'Client' },
+      label: { type: String, default: 'Client / Counterparty' },
       data: { type: String, default: '' },
       signerName: { type: String, default: '' },
+      signerDesignation: { type: String, default: '' },
+      signerIdNumber: { type: String, default: '' },
       signedAt: Date,
     },
     witness: {

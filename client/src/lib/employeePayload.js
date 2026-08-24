@@ -41,8 +41,11 @@ export function buildEmployeeSavePayload(raw, { isEdit, fileUrls = {}, includeAl
 
   delete d._id
 
+  if (d.email && typeof d.email === 'string') {
+    d.email = d.email.trim().toLowerCase()
+  }
+
   if (isEdit) {
-    delete d.email
     delete d.password
     if (!includeAllowances) delete d.allowances
   }

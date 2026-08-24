@@ -445,14 +445,30 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
     const imgObj = new Image(); imgObj.crossOrigin = 'anonymous'
     imgObj.onload = () => {
       const isSeal = type === 'seal'
+      const natW = imgObj.naturalWidth || 100
+      const natH = imgObj.naturalHeight || 100
+      const aspect = natW / natH
+      let w = isSeal ? 130 : 200
+      let h = isSeal ? 130 : 80
+
+      if (isSeal) {
+        const maxD = 130
+        if (aspect >= 1) { w = maxD; h = Math.round(maxD / aspect) }
+        else { h = maxD; w = Math.round(maxD * aspect) }
+      } else {
+        const maxW = 200; const maxH = 85
+        w = maxW; h = Math.round(maxW / aspect)
+        if (h > maxH) { h = maxH; w = Math.round(maxH * aspect) }
+      }
+
       const stamp = {
         id: `ds_${Date.now()}_${Math.random().toString(36).substr(2,4)}`,
         title: title || (isSeal ? 'Company Seal' : 'Signature'),
         type: isSeal ? 'seal' : 'signature',
         imgObj, src: srcUrl,
         x: 120, y: 320,
-        width: isSeal ? 110 : 200,
-        height: isSeal ? 110 : 80,
+        width: Math.max(40, w),
+        height: Math.max(20, h),
         opacity: 1,
       }
       setDocxStamps(prev => [...prev, stamp])
@@ -491,7 +507,22 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       const canvas = canvasRef.current
       const W = canvas?.width || 1240; const H = canvas?.height || 1754
       const isSeal = type === 'seal'
-      const w = isSeal ? 160 : 300; const h = isSeal ? 160 : 110
+      const natW = imgObj.naturalWidth || 100
+      const natH = imgObj.naturalHeight || 100
+      const aspect = natW / natH
+      let w = isSeal ? 160 : 260
+      let h = isSeal ? 160 : 110
+
+      if (isSeal) {
+        const maxD = 160
+        if (aspect >= 1) { w = maxD; h = Math.round(maxD / aspect) }
+        else { h = maxD; w = Math.round(maxD * aspect) }
+      } else {
+        const maxW = 260; const maxH = 110
+        w = maxW; h = Math.round(maxW / aspect)
+        if (h > maxH) { h = maxH; w = Math.round(maxH * aspect) }
+      }
+
       const stamp = {
         id: `cs_${Date.now()}_${Math.random().toString(36).substr(2,4)}`,
         title: title || (isSeal ? 'Company Seal' : 'Signature'),
@@ -499,7 +530,7 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
         imgObj, src: srcUrl,
         page: currentPage,
         x: Math.round((W - w) / 2), y: Math.round((H - h) * 0.7),
-        width: w, height: h, opacity: 1,
+        width: Math.max(50, w), height: Math.max(25, h), opacity: 1,
       }
       setPlacedStamps(prev => [...prev, stamp])
       setSelectedStampId(stamp.id)

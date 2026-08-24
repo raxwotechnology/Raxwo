@@ -22,7 +22,7 @@ function highlightMatch(text, query) {
 function SearchableLeaderSelect({ managers = [], value, onChange }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [filterType, setFilterType] = useState('all') // 'all' | 'managers' | 'staff'
+  const [filterType, setFilterType] = useState('managers') // 'managers' | 'all' | 'staff'
   const containerRef = useRef(null)
 
   const activeManagers = useMemo(() => {
@@ -47,17 +47,25 @@ function SearchableLeaderSelect({ managers = [], value, onChange }) {
 
   const filteredList = useMemo(() => {
     const q = search.toLowerCase().trim()
-    return activeManagers.filter(m => {
-      const name = (m.name || m.userId?.name || '').toLowerCase()
-      const desig = (m.designation || '').toLowerCase()
-      const dept = (m.department || '').toLowerCase()
-      const role = (m.role || m.userId?.role || '').toLowerCase()
-      const isMgr = m.role === 'manager' || m.role === 'admin' || m.userId?.role === 'manager' || m.userId?.role === 'admin'
-      
-      const matchSearch = !q || name.includes(q) || desig.includes(q) || dept.includes(q) || role.includes(q)
-      const matchType = filterType === 'all' || (filterType === 'managers' ? isMgr : !isMgr)
-      return matchSearch && matchType
-    })
+    return activeManagers
+      .filter(m => {
+        const name = (m.name || m.userId?.name || '').toLowerCase()
+        const desig = (m.designation || '').toLowerCase()
+        const dept = (m.department || '').toLowerCase()
+        const role = (m.role || m.userId?.role || '').toLowerCase()
+        const isMgr = m.role === 'manager' || m.role === 'admin' || m.userId?.role === 'manager' || m.userId?.role === 'admin' || desig.includes('manager') || desig.includes('director') || desig.includes('lead')
+        
+        const matchSearch = !q || name.includes(q) || desig.includes(q) || dept.includes(q) || role.includes(q)
+        const matchType = filterType === 'all' || (filterType === 'managers' ? isMgr : !isMgr)
+        return matchSearch && matchType
+      })
+      .sort((a, b) => {
+        const aMgr = a.role === 'manager' || a.role === 'admin' || a.userId?.role === 'manager' || a.userId?.role === 'admin'
+        const bMgr = b.role === 'manager' || b.role === 'admin' || b.userId?.role === 'manager' || b.userId?.role === 'admin'
+        if (aMgr && !bMgr) return -1
+        if (!aMgr && bMgr) return 1
+        return (a.name || a.userId?.name || '').localeCompare(b.name || b.userId?.name || '')
+      })
   }, [activeManagers, search, filterType])
 
   return (
@@ -310,17 +318,20 @@ export default function EmployeeFormModal({
 
       {editing && (
         <FormSection title="Account" icon={FiKey}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="form-label">Full Name *</label>
               <input {...register('name', { required: true })} className="form-input" placeholder="Employee full name" />
+            </div>
+            <div>
+              <label className="form-label">Email Address *</label>
+              <input {...register('email', { required: true })} type="email" className="form-input" placeholder="email@raxwo.com" />
             </div>
             <div>
               <label className="form-label">Role</label>
               <select {...register('role')} className="form-select">{ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</select>
             </div>
           </div>
-          <p className="text-xs text-slate-500">Login email: <span className="font-medium text-slate-700">{editing.userId?.email}</span></p>
           <EmployeePasswordPanel employeeId={editing._id} email={editing.userId?.email} />
         </FormSection>
       )}

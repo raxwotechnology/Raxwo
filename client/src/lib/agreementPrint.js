@@ -71,18 +71,24 @@ export function buildAgreementBodyHtml(opts) {
     : ''
 
   // --- Signatures: Right-aligned, stacked, professional look ---
-  const sigBlock = (heading, data, name) => {
+  const sigBlock = (heading, data, name, designation, idNumber) => {
+    const detailsHtml = [
+      name ? `<p style="margin:4px 0 0;font-weight:600;font-size:10pt;color:#0f172a;">${escapeHtml(name)}</p>` : '',
+      designation ? `<p style="margin:2px 0 0;font-size:9pt;color:#475569;">${escapeHtml(designation)}</p>` : '',
+      idNumber ? `<p style="margin:2px 0 0;font-size:8.5pt;color:#64748b;font-family:monospace;">ID: ${escapeHtml(idNumber)}</p>` : '',
+    ].filter(Boolean).join('')
+
     if (!data) {
       return `<div style="margin-bottom:24px;text-align:right;">
         <p style="margin:0 0 36px;font-size:10px;text-transform:uppercase;color:#64748b;letter-spacing:0.04em;font-family:system-ui,sans-serif;">${heading}</p>
         <div style="border-bottom:1px solid #0f172a;width:160px;margin-left:auto;"></div>
-        ${name ? `<p style="margin:4px 0 0;font-weight:600;font-size:10pt;color:#0f172a;">${escapeHtml(name)}</p>` : `<p style="margin:4px 0 0;font-size:10pt;color:#64748b;">Signature</p>`}
+        ${detailsHtml || `<p style="margin:4px 0 0;font-size:10pt;color:#64748b;">Signature</p>`}
       </div>`
     }
     return `<div style="margin-bottom:24px;text-align:right;">
       <p style="margin:0 0 8px;font-size:10px;text-transform:uppercase;color:#64748b;letter-spacing:0.04em;font-family:system-ui,sans-serif;">${heading}</p>
       <img src="${safeImgSrc(data)}" alt="" style="max-height:60px;max-width:180px;object-fit:contain;margin-left:auto;display:block;"/>
-      ${name ? `<p style="margin:4px 0 0;font-weight:600;font-size:10pt;color:#0f172a;">${escapeHtml(name)}</p>` : ''}
+      ${detailsHtml}
     </div>`
   }
 
@@ -105,8 +111,20 @@ export function buildAgreementBodyHtml(opts) {
   const agreementSigsHtml = `
     <div style="margin-top:40px;padding-top:24px;border-top:1px solid #e2e8f0;page-break-inside:avoid;">
       <div style="margin-left:auto;width:fit-content;min-width:200px;text-align:right;font-family:system-ui,Segoe UI,sans-serif;">
-        ${sigBlock('Service provider', signatures?.provider?.data, signatures?.provider?.signerName)}
-        ${sigBlock(signatures?.client?.label || 'Client / counterparty', signatures?.client?.data, signatures?.client?.signerName)}
+        ${sigBlock(
+          signatures?.provider?.label || 'Service provider',
+          signatures?.provider?.data,
+          signatures?.provider?.signerName,
+          signatures?.provider?.signerDesignation,
+          signatures?.provider?.signerIdNumber
+        )}
+        ${sigBlock(
+          signatures?.client?.label || 'Client / counterparty',
+          signatures?.client?.data,
+          signatures?.client?.signerName,
+          signatures?.client?.signerDesignation,
+          signatures?.client?.signerIdNumber
+        )}
         ${witness}
         ${sealHtml}
       </div>

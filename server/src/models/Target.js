@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 
 const targetSchema = new mongoose.Schema({
-  employee:    { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
+  employee:    { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' },
+  manager:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  targetLevel: { type: String, enum: ['employee', 'team'], default: 'team' },
   title:       { type: String, required: true },
   description: { type: String, default: '' },
   type:        { type: String, enum: ['monthly', 'quarterly', 'annual'], default: 'monthly' },

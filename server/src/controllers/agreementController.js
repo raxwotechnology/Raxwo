@@ -7,7 +7,11 @@ const { createNotification } = require('../services/notificationService');
 
 const POPULATE = [
   { path: 'client', select: 'name email phone' },
-  { path: 'employee', select: 'name email phone' },
+  {
+    path: 'employee',
+    populate: { path: 'userId', select: 'name email phone avatar' },
+    select: 'employeeNo designation department nic idNumber userId primaryPhone basicSalary',
+  },
   { path: 'project', select: 'title serviceType budget' },
   { path: 'invoice', select: 'invoiceNo total remainingBalance' },
   { path: 'subscription', select: 'name plan' },
@@ -83,14 +87,16 @@ exports.deleteAgreementTemplate = async (req, res, next) => {
 // ── GET /api/agreements ────────────────────────────────────────────────────────
 exports.getAgreements = async (req, res, next) => {
   try {
-    const { client, project, invoice, subscription, status, type, approvalStatus } = req.query;
+    const { client, employee, project, invoice, subscription, status, type, partyType, approvalStatus } = req.query;
     const query = {};
     if (client) query.client = client;
+    if (employee) query.employee = employee;
     if (project) query.project = project;
     if (invoice) query.invoice = invoice;
     if (subscription) query.subscription = subscription;
     if (status) query.status = status;
     if (type) query.agreementType = type;
+    if (partyType) query.partyType = partyType;
     if (approvalStatus) query.approvalStatus = approvalStatus;
 
     const agreements = await Agreement.find(query)
@@ -116,19 +122,23 @@ exports.getAgreement = async (req, res, next) => {
 exports.createAgreement = async (req, res, next) => {
   try {
     const {
-      agreementType, title, client, project, invoice, subscription, content, status,
+      agreementType, partyType, title, client, employee, project, invoice, subscription, content, status,
       signatures, approvalStatus, agreementDate, hasFrame,
     } = req.body;
 
+    const effectivePartyType = partyType || (employee || agreementType === 'employee_agreement' ? 'employee' : 'client');
+
     let finalContent = content || '';
     if (!finalContent) {
-      finalContent = await buildTemplateContent(agreementType, { client, project, invoice, subscription });
+      finalContent = await buildTemplateContent(agreementType, { client, employee, project, invoice, subscription, agreementDate });
     }
 
     const agreement = await Agreement.create({
       agreementType,
+      partyType: effectivePartyType,
       title,
       client: client || undefined,
+      employee: employee || undefined,
       project: project || undefined,
       invoice: invoice || undefined,
       subscription: subscription || undefined,
@@ -172,6 +182,7 @@ exports.updateAgreement = async (req, res, next) => {
     delete updates.createdBy;
 
     if (!updates.client) updates.client = undefined;
+    if (!updates.employee) updates.employee = undefined;
     if (!updates.project) updates.project = undefined;
     if (!updates.invoice) updates.invoice = undefined;
     if (!updates.subscription) updates.subscription = undefined;
@@ -230,8 +241,8 @@ exports.deleteAgreement = async (req, res, next) => {
 // ── POST /api/agreements/generate-preview ─────────────────────────────────────
 exports.generatePreview = async (req, res, next) => {
   try {
-    const { agreementType, client, project, invoice, subscription, agreementDate } = req.body;
-    const content = await buildTemplateContent(agreementType, { client, project, invoice, subscription, agreementDate });
+    const { agreementType, client, employee, project, invoice, subscription, agreementDate } = req.body;
+    const content = await buildTemplateContent(agreementType, { client, employee, project, invoice, subscription, agreementDate });
     res.json({ success: true, content });
   } catch (err) { next(err); }
 };
@@ -267,28 +278,16 @@ function buildCustomAgreementShell(companyName, companyAddress, companyPhone, co
 <h3>1. Purpose</h3>
 <p>Describe the commercial or legal purpose of this agreement.</p>
 
-<h3>2. Terms &amp; Conditions</h3>
-<p>Set out payment terms, deliverables, timelines, and responsibilities.</p>
+<h3>2. Scope & Responsibilities</h3>
+<p>Details regarding obligations, milestones, or deliverables.</p>
 
-<h3>3. Confidentiality</h3>
-<p>Both parties agree to protect confidential information disclosed in connection with this agreement.</p>
+<h3>3. Terms & Termination</h3>
+<p>Duration, notice period, or expiration conditions.</p>
 
-<h3>4. Term &amp; Termination</h3>
-<p>Specify duration, notice periods, and consequences of termination.</p>
+<h3>4. Governing Law</h3>
+<p>This agreement shall be governed by the laws of Sri Lanka.</p>
 
-<h3>5. Dispute Resolution</h3>
-<p>Parties agree to seek good-faith resolution; governing law: Sri Lanka unless otherwise agreed in writing.</p>
-
-<h3>6. Execution</h3>
-<p>This agreement may be executed in counterparts. Electronic signatures shall be treated as originals where permitted by law.</p>
-
-<h3>7. Witness / Approval (optional)</h3>
-<p>Name and capacity of witness or internal approver, if required by your organisation.</p>
-<p>Witness name: ___________________________ &nbsp; Signature: ___________________________ &nbsp; Date: __________</p>
-
-<hr style="border:none;border-top:1px solid #e2e8f0;margin:2rem 0;"/>
-<p style="font-size:0.85rem;color:#64748b;"><strong>Signature blocks</strong></p>
-<table style="width:100%;border-collapse:collapse;margin-top:0.5rem;font-size:0.9rem;">
+<table style="width:100%;margin-top:36px;border-collapse:collapse;font-size:0.9rem;">
   <tr>
     <td style="width:48%;vertical-align:top;padding:12px;border:1px solid #e2e8f0;">
       <p style="margin:0 0 8px;font-weight:600;">${companyName}</p>
@@ -309,7 +308,7 @@ function buildCustomAgreementShell(companyName, companyAddress, companyPhone, co
 }
 
 // ── Template builder ──────────────────────────────────────────────────────────
-async function buildTemplateContent(type, { client, project, invoice, subscription, agreementDate }) {
+async function buildTemplateContent(type, { client, employee, project, invoice, subscription, agreementDate }) {
   const siteSettings = await require('../models/SiteSetting').findOne().catch(() => null);
   const companyName = siteSettings?.siteName || 'Raxwo Technology';
   const companyAddress = siteSettings?.contactAddress || '';
@@ -320,15 +319,26 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
     ? new Date(agreementDate).toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' })
     : new Date().toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  let clientDoc = null; let projectDoc = null; let invoiceDoc = null;
+  let clientDoc = null; let projectDoc = null; let invoiceDoc = null; let empDoc = null;
   const { Types } = require('mongoose');
   if (client && Types.ObjectId.isValid(client)) clientDoc = await User.findById(client).select('name email phone');
+  if (employee && Types.ObjectId.isValid(employee)) {
+    empDoc = await require('../models/Employee').findById(employee).populate('userId', 'name email phone');
+  }
   if (project && Types.ObjectId.isValid(project)) projectDoc = await Project.findById(project).populate('client', 'name').select('title serviceType budget description startDate deadline');
   if (invoice && Types.ObjectId.isValid(invoice)) invoiceDoc = await Invoice.findById(invoice).populate('client', 'name').select('invoiceNo total remainingBalance dueDate');
 
-  const clientName = clientDoc?.name || projectDoc?.client?.name || invoiceDoc?.client?.name || '{{CLIENT_NAME}}';
-  const clientEmail = clientDoc?.email || '{{CLIENT_EMAIL}}';
-  const clientPhone = clientDoc?.phone || '{{CLIENT_PHONE}}';
+  const empName = empDoc?.userId?.name || '{{EmployeeName}}';
+  const empNo = empDoc?.employeeNo || '{{EmployeeId}}';
+  const empDesig = empDoc?.designation || '{{Designation}}';
+  const empDept = empDoc?.department || '{{Department}}';
+  const empSalary = empDoc?.basicSalary ? `LKR ${empDoc.basicSalary.toLocaleString()}` : '{{Salary}}';
+  const empNic = empDoc?.nic || empDoc?.idNumber || '{{NIC}}';
+  const empJoined = empDoc?.joinedDate ? new Date(empDoc.joinedDate).toLocaleDateString('en-LK') : today;
+
+  const clientName = clientDoc?.name || (empDoc ? empName : (projectDoc?.client?.name || invoiceDoc?.client?.name || '{{CLIENT_NAME}}'));
+  const clientEmail = clientDoc?.email || (empDoc?.userId?.email || '{{CLIENT_EMAIL}}');
+  const clientPhone = clientDoc?.phone || (empDoc?.primaryPhone || '{{CLIENT_PHONE}}');
 
   const companyLine = `${companyName}${companyAddress ? `, ${companyAddress}` : ''}`;
 
@@ -443,12 +453,12 @@ async function buildTemplateContent(type, { client, project, invoice, subscripti
 
     employee_agreement: `
 <h2>INTERNSHIP & EMPLOYMENT AGREEMENT</h2>
-<p>This Agreement is entered into as of <strong>${today}</strong> between <strong>${companyLine}</strong> ("Company") and <strong>{{EmployeeName}}</strong> (Employee ID: <strong>{{EmployeeId}}</strong>), hereinafter referred to as the <em>Employee / Intern</em>.</p>
+<p>This Agreement is entered into as of <strong>${today}</strong> between <strong>${companyLine}</strong> ("Company") and <strong>${empName}</strong> (NIC: <strong>${empNic}</strong>, Employee ID: <strong>${empNo}</strong>), hereinafter referred to as the <em>Employee / Intern</em>.</p>
 
 <h3>1. Position & Role</h3>
-<p><strong>Designation / Role:</strong> {{Designation}}</p>
-<p><strong>Department:</strong> {{Department}}</p>
-<p><strong>Joined Date:</strong> {{JoinDate}}</p>
+<p><strong>Designation / Role:</strong> ${empDesig}</p>
+<p><strong>Department:</strong> ${empDept}</p>
+<p><strong>Joined Date:</strong> ${empJoined}</p>
 
 <h3>2. Compensation & Remuneration</h3>
 <p><strong>Basic Salary / Allowance:</strong> {{Salary}}</p>

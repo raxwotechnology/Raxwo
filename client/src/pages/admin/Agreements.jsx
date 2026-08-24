@@ -29,8 +29,8 @@ const AGREEMENT_TYPES = [
 ]
 
 const EMPTY_SIG = () => ({
-  provider: { data: '', signerName: '', sideType: 'Service Provider' },
-  client: { data: '', signerName: '', label: 'Client / Counterparty', sideType: 'Client', subRole: 'Authorized Signatory' },
+  provider: { data: '', signerName: '', signerDesignation: '', signerIdNumber: '', sideType: 'Service Provider' },
+  client: { data: '', signerName: '', signerDesignation: '', signerIdNumber: '', label: 'Client / Counterparty', sideType: 'Client', subRole: 'Authorized Signatory' },
   witness: { name: '', data: '' },
   seal: { data: '' },
 })
@@ -44,12 +44,15 @@ export default function Agreements() {
 
   const initialProject = searchParams.get('project') || ''
   const initialClient = searchParams.get('client') || ''
+  const initialEmployee = searchParams.get('employee') || ''
   const shouldOpenNew = searchParams.get('new') === 'true'
 
   const { register, handleSubmit, watch, setValue, reset } = useForm({
     defaultValues: {
       agreementType: 'general',
+      partyType: initialEmployee ? 'employee' : 'client',
       client: initialClient,
+      employee: initialEmployee,
       project: initialProject,
       invoice: '',
       subscription: '',
@@ -255,7 +258,9 @@ export default function Agreements() {
   const openCreate = () => {
     reset({
       agreementType: 'general',
+      partyType: 'client',
       client: '',
+      employee: '',
       project: '',
       invoice: '',
       subscription: '',
@@ -263,6 +268,7 @@ export default function Agreements() {
       agreementDate: new Date().toISOString().split('T')[0],
       hasFrame: false,
     })
+    setLinkEntityType('client')
     setEditorContent('')
     setSignatures(EMPTY_SIG())
     setStep(1)
@@ -272,9 +278,13 @@ export default function Agreements() {
 
   const openEdit = (agr) => {
     setEditing(agr)
+    const pType = agr.partyType || (agr.employee || agr.agreementType === 'employee_agreement' ? 'employee' : 'client')
+    setLinkEntityType(pType)
     setValue('agreementType', agr.agreementType)
+    setValue('partyType', pType)
     setValue('title', agr.title)
     setValue('client', agr.client?._id || '')
+    setValue('employee', agr.employee?._id || '')
     setValue('project', agr.project?._id || '')
     setValue('invoice', agr.invoice?._id || '')
     setValue('agreementDate', agr.agreementDate ? new Date(agr.agreementDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0])
@@ -283,8 +293,22 @@ export default function Agreements() {
     setSignatures(
       agr.signatures
         ? {
-            provider: { data: agr.signatures.provider?.data || '', signerName: agr.signatures.provider?.signerName || '' },
-            client: { data: agr.signatures.client?.data || '', signerName: agr.signatures.client?.signerName || '' },
+            provider: {
+              data: agr.signatures.provider?.data || '',
+              signerName: agr.signatures.provider?.signerName || '',
+              signerDesignation: agr.signatures.provider?.signerDesignation || '',
+              signerIdNumber: agr.signatures.provider?.signerIdNumber || '',
+              sideType: agr.signatures.provider?.sideType || 'Service Provider',
+            },
+            client: {
+              data: agr.signatures.client?.data || '',
+              signerName: agr.signatures.client?.signerName || '',
+              signerDesignation: agr.signatures.client?.signerDesignation || '',
+              signerIdNumber: agr.signatures.client?.signerIdNumber || '',
+              label: agr.signatures.client?.label || (pType === 'employee' ? 'Employee / Intern' : 'Client / Counterparty'),
+              sideType: agr.signatures.client?.sideType || (pType === 'employee' ? 'Employee / Intern' : 'Client'),
+              subRole: agr.signatures.client?.subRole || 'Authorized Signatory',
+            },
             witness: { name: agr.signatures.witness?.name || '', data: agr.signatures.witness?.data || '' },
             seal: { data: agr.signatures.seal?.data || '' },
           }
@@ -296,11 +320,11 @@ export default function Agreements() {
 
   const handleGenerateClick = (data) => {
     if (!data.title) return toast.error('Please enter an agreement title')
-    generatePreviewMut.mutate(data)
+    generatePreviewMut.mutate({ ...data, partyType: linkEntityType })
   }
 
   const handleSave = (data) => {
-    const payload = { ...data, content: editorContent, signatures, hasFrame: data.hasFrame }
+    const payload = { ...data, partyType: linkEntityType, content: editorContent, signatures, hasFrame: data.hasFrame }
     editing ? updateMut.mutate({ id: editing._id, data: payload }) : createMut.mutate(payload)
   }
 
@@ -462,9 +486,12 @@ export default function Agreements() {
             </thead>
             <tbody>
               {agreements.map((agr) => {
-                const isEmployeeParty = agr.agreementType === 'employee_agreement' || Boolean(agr.employee)
-                const linkedName = agr.employee?.name || agr.employee?.userId?.name || agr.client?.name || ''
-                const linkedRole = isEmployeeParty ? 'Intern' : 'Client'
+                const isEmployeeParty = agr.partyType === 'employee' || agr.agreementType === 'employee_agreement' || Boolean(agr.employee)
+                const linkedEmp = agr.employee
+                const linkedEmpName = linkedEmp?.userId?.name || linkedEmp?.name || ''
+                const linkedEmpNo = linkedEmp?.employeeNo || ''
+                const linkedEmpDesig = linkedEmp?.designation || ''
+                const clientName = agr.client?.name || ''
 
                 return (
                   <tr key={agr._id}>
@@ -476,18 +503,33 @@ export default function Agreements() {
                     </td>
                     <td>
                       {isEmployeeParty ? (
-                        <span className="badge badge-purple font-semibold text-[11px]">Employee / Intern</span>
+                        <span className="badge badge-purple font-semibold text-[11px] px-2.5 py-1">
+                          👤 Employee / Intern
+                        </span>
                       ) : (
-                        <span className="badge badge-blue font-semibold text-[11px]">Client / Counterparty</span>
+                        <span className="badge badge-blue font-semibold text-[11px] px-2.5 py-1">
+                          🏢 Client / Counterparty
+                        </span>
                       )}
                     </td>
                     <td>
                       <div className="flex flex-col gap-1">
-                        {linkedName && (
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-800">
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isEmployeeParty ? 'bg-purple-500' : 'bg-blue-500'}`}/>
-                            {linkedName} ({linkedRole})
-                          </span>
+                        {isEmployeeParty ? (
+                          linkedEmpName ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-950">
+                              <span className="w-2 h-2 rounded-full shrink-0 bg-purple-600"/>
+                              {linkedEmpName}
+                              {linkedEmpNo ? <span className="text-[10px] bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded font-mono font-bold">{linkedEmpNo}</span> : null}
+                              {linkedEmpDesig ? <span className="text-[11px] text-slate-500 font-normal">· {linkedEmpDesig}</span> : null}
+                            </span>
+                          ) : <span className="text-slate-400 text-xs">Unlinked Employee</span>
+                        ) : (
+                          clientName ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-950">
+                              <span className="w-2 h-2 rounded-full shrink-0 bg-blue-600"/>
+                              {clientName} <span className="text-[11px] text-slate-500 font-normal">(Client)</span>
+                            </span>
+                          ) : null
                         )}
                         {agr.project && (
                           <span className="inline-flex items-center gap-1 text-xs text-slate-500 truncate max-w-[180px]">
@@ -501,7 +543,7 @@ export default function Agreements() {
                             {agr.invoice.invoiceNo}
                           </span>
                         )}
-                        {!linkedName && !agr.project && !agr.invoice && <span className="text-slate-300 text-xs">—</span>}
+                        {!linkedEmpName && !clientName && !agr.project && !agr.invoice && <span className="text-slate-300 text-xs">—</span>}
                       </div>
                     </td>
                   <td>
@@ -724,11 +766,36 @@ export default function Agreements() {
                           <label className="form-label">Employee / Intern</label>
                           <SearchableSelect
                             value={watch('employee')}
-                            onChange={(v) => setValue('employee', v)}
+                            onChange={async (empId) => {
+                              setValue('employee', empId)
+                              if (!empId) return
+                              try {
+                                const { data: empRes } = await api.get(`/employees/${empId}`)
+                                const emp = empRes?.employee
+                                if (emp) {
+                                  const name = emp.userId?.name || ''
+                                  const desig = emp.designation || ''
+                                  const idNum = emp.nic || emp.idNumber || emp.employeeNo || ''
+                                  setSignatures(s => ({
+                                    ...s,
+                                    client: {
+                                      ...s.client,
+                                      signerName: name || s.client.signerName,
+                                      signerDesignation: desig || s.client.signerDesignation,
+                                      signerIdNumber: idNum || s.client.signerIdNumber,
+                                      label: 'Employee / Intern',
+                                      sideType: 'Employee / Intern',
+                                      subRole: emp.employmentType === 'intern' ? 'Intern' : 'Employee',
+                                    }
+                                  }))
+                                }
+                              } catch { /* ignore */ }
+                            }}
                             loadOptions={lookupLoaders.employeesAll()}
                             placeholder="Search employee / intern…"
                             initialLabel={
-                              editing?.employee?.name ? `${editing.employee.name} (${editing.employee.email || ''})` : ''
+                              editing?.employee?.name ? `${editing.employee.name} (${editing.employee.email || ''})` : 
+                              (editing?.employee?.userId?.name ? `${editing.employee.userId.name} (${editing.employee.employeeNo || ''})` : '')
                             }
                           />
                         </div>
@@ -819,30 +886,18 @@ export default function Agreements() {
                           </button>
                         </div>
                       </div>
-                      <div className="flex-1 flex flex-col bg-slate-100 min-h-0 overflow-hidden rounded-xl border border-slate-200">
-                        <div ref={previewContainerRef} className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar bg-slate-100">
-                          <div
-                            style={{ zoom: previewScale }}
-                            className="bg-white shadow-xl rounded-xl border border-slate-200 mx-auto w-full max-w-[794px] min-h-[1123px] relative flex flex-col overflow-hidden origin-top"
-                          >
-                            <style dangerouslySetInnerHTML={{__html: `
-                              .enterprise-letter { font-family: 'Segoe UI', system-ui, sans-serif; color: #0f172a; font-size: 11pt; line-height: 1.6; padding: 24px 16px; display: flex; flex-direction: column; min-height: 100%; flex: 1; overflow-x: hidden; ${watch('hasFrame') ? 'border: 8px double #1e3a8a; border-radius: 8px; outline: 2px solid #1e3a8a; outline-offset: -6px; padding: 16px 12px;' : ''} }
-                              @media (min-width: 640px) {
-                                .enterprise-letter { padding: 48px; ${watch('hasFrame') ? 'border-width: 12px; outline-offset: -8px; padding: 36px;' : ''} }
-                              }
-                              .enterprise-quill-wrapper { margin: 10px -8px 0 -8px; position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; min-width: 0; }
-                              @media (min-width: 640px) { .enterprise-quill-wrapper { margin-left: -15px; margin-right: -15px; } }
-                              .enterprise-quill-wrapper .ql-container { font-family: Georgia, serif; font-size: 11pt; border: 2px dashed #cbd5e1 !important; border-radius: 8px; background: #f8fafc; transition: all 0.2s; cursor: text; flex: 1; min-height: 300px; }
-                              @media (min-width: 640px) { .enterprise-quill-wrapper .ql-container { min-height: 500px; } }
-                              .enterprise-quill-wrapper .ql-container:hover { border-color: #94a3b8 !important; background: #fff; }
-                              .enterprise-quill-wrapper .ql-container:focus-within { background: #fff; border-style: solid !important; border-color: #38bdf8 !important; box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.2); }
-                              .enterprise-quill-wrapper .ql-toolbar { border: 1px solid #e2e8f0 !important; margin-bottom: 12px; background: #fff; padding: 10px !important; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); position: sticky; top: 0; z-index: 20; }
-                              .enterprise-quill-wrapper .ql-editor { height: 100% !important; overflow-y: auto !important; padding: 16px; line-height: 1.6; color: #1e293b; overflow-x: hidden; }
-                              @media (min-width: 640px) { .enterprise-quill-wrapper .ql-editor { padding: 24px; } }
-                              .enterprise-quill-wrapper .ql-editor.ql-blank::before { font-style: normal; color: #94a3b8; font-size: 11pt; }
-                              .enterprise-quill-wrapper .ql-editor p { margin: 0 0 12px; }
-                              .enterprise-quill-wrapper .ql-editor h1, .enterprise-quill-wrapper .ql-editor h2, .enterprise-quill-wrapper .ql-editor h3 { font-family: system-ui, sans-serif; color: #0f172a; margin-top: 1.25em; margin-bottom: 0.5em; }
-                              .enterprise-quill-wrapper .ql-editor ul, .enterprise-quill-wrapper .ql-editor ol { margin: 0 0 12px 1.2em; padding-left: 0; }
+
+                      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-inner bg-slate-100 p-2 sm:p-4" ref={previewContainerRef}>
+                        <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top center', width: '794px', margin: '0 auto' }}>
+                          <div style={{ width: '794px', background: '#fff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', padding: '40px', boxSizing: 'border-box', minHeight: '1123px' }}>
+                            <div className={watch('hasFrame') ? 'agreement-frame-wrap' : ''} style={watch('hasFrame') ? { border: '12px double #1e3a8a', borderRadius: '8px', outline: '2px solid #1e3a8a', outlineOffset: '-8px', padding: '32px', background: '#fff' } : {}}>
+                            <style dangerouslySetInnerHTML={{ __html: `
+                              .enterprise-letter h1, .enterprise-letter h2, .enterprise-letter h3 { color: #0f172a; margin-top: 1.25em; margin-bottom: 0.5em; }
+                              .enterprise-letter p { margin: 0 0 12px; }
+                              .enterprise-letter ul { margin: 0 0 12px 1.2em; }
+                              .enterprise-quill-wrapper .ql-toolbar { border: 1px solid #e2e8f0; border-top-left-radius: 8px; border-top-right-radius: 8px; background: #f8fafc; }
+                              .enterprise-quill-wrapper .ql-container { border: 1px solid #e2e8f0; border-top: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 11pt; line-height: 1.6; color: #1e293b; min-height: 400px; }
+                              .enterprise-quill-wrapper .ql-editor { min-height: 400px; }
                             `}} />
                             <div className="enterprise-letter">
                               <div dangerouslySetInnerHTML={{ __html: buildLetterheadHtml(buildCompanyFromSettings(site)) + buildRefDateHtml(editing?.agreementNo || '—', watch('agreementDate') || '') }} />
@@ -872,17 +927,16 @@ export default function Agreements() {
                                 <div style={{ marginLeft: 'auto', width: 'fit-content', minWidth: '200px', textAlign: 'right', fontFamily: 'system-ui, Segoe UI, sans-serif' }}>
                                   
                                   <div style={{ marginBottom: '24px', textAlign: 'right' }}>
-                                    <p style={{ margin: '0 0 8px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>Service provider</p>
+                                    <p style={{ margin: '0 0 8px', fontSize: '10px', textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.04em' }}>{signatures.provider?.label || 'Service provider'}</p>
                                     {signatures.provider.data ? (
                                       <img src={signatures.provider.data} alt="" style={{ maxHeight: '60px', maxWidth: '180px', objectFit: 'contain', marginLeft: 'auto', display: 'block' }} />
                                     ) : (
                                       <div style={{ borderBottom: '1px solid #0f172a', width: '160px', marginLeft: 'auto', marginTop: '28px' }}></div>
                                     )}
-                                    {signatures.provider.signerName ? (
-                                      <p style={{ margin: '4px 0 0', fontWeight: '600', fontSize: '10pt', color: '#0f172a' }}>{signatures.provider.signerName}</p>
-                                    ) : (
-                                      !signatures.provider.data && <p style={{ margin: '4px 0 0', fontSize: '10pt', color: '#64748b' }}>Signature</p>
-                                    )}
+                                    {signatures.provider.signerName && <p style={{ margin: '4px 0 0', fontWeight: '600', fontSize: '10pt', color: '#0f172a' }}>{signatures.provider.signerName}</p>}
+                                    {signatures.provider.signerDesignation && <p style={{ margin: '2px 0 0', fontSize: '9pt', color: '#475569' }}>{signatures.provider.signerDesignation}</p>}
+                                    {signatures.provider.signerIdNumber && <p style={{ margin: '2px 0 0', fontSize: '8.5pt', color: '#64748b', fontFamily: 'monospace' }}>ID: {signatures.provider.signerIdNumber}</p>}
+                                    {!signatures.provider.data && !signatures.provider.signerName && <p style={{ margin: '4px 0 0', fontSize: '10pt', color: '#64748b' }}>Signature</p>}
                                   </div>
 
                                   <div style={{ marginBottom: '24px', textAlign: 'right' }}>
@@ -892,11 +946,10 @@ export default function Agreements() {
                                     ) : (
                                       <div style={{ borderBottom: '1px solid #0f172a', width: '160px', marginLeft: 'auto', marginTop: '28px' }}></div>
                                     )}
-                                    {signatures.client.signerName ? (
-                                      <p style={{ margin: '4px 0 0', fontWeight: '600', fontSize: '10pt', color: '#0f172a' }}>{signatures.client.signerName}</p>
-                                    ) : (
-                                      !signatures.client.data && <p style={{ margin: '4px 0 0', fontSize: '10pt', color: '#64748b' }}>Signature</p>
-                                    )}
+                                    {signatures.client.signerName && <p style={{ margin: '4px 0 0', fontWeight: '600', fontSize: '10pt', color: '#0f172a' }}>{signatures.client.signerName}</p>}
+                                    {signatures.client.signerDesignation && <p style={{ margin: '2px 0 0', fontSize: '9pt', color: '#475569' }}>{signatures.client.signerDesignation}</p>}
+                                    {signatures.client.signerIdNumber && <p style={{ margin: '2px 0 0', fontSize: '8.5pt', color: '#64748b', fontFamily: 'monospace' }}>ID: {signatures.client.signerIdNumber}</p>}
+                                    {!signatures.client.data && !signatures.client.signerName && <p style={{ margin: '4px 0 0', fontSize: '10pt', color: '#64748b' }}>Signature</p>}
                                   </div>
 
                                   {(signatures.witness.name || signatures.witness.data) && (
@@ -926,8 +979,9 @@ export default function Agreements() {
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="w-full xl:w-80 shrink-0 space-y-4 border border-slate-200 rounded-xl p-4 bg-slate-50/80">
+                  <div className="w-full xl:w-80 shrink-0 space-y-4 border border-slate-200 rounded-xl p-4 bg-slate-50/80">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Digital Signatures & Roles</p>
                       
                       {/* Provider Side Setup */}
@@ -944,9 +998,15 @@ export default function Agreements() {
                         <DocumentAssetPicker label="Provider signature" value={{ data: signatures.provider.data }} onChange={(v) => setSignatures((s) => ({ ...s, provider: { ...s.provider, data: v.data } }))} roleKey="hr" />
                         <input
                           className="form-input text-xs"
-                          placeholder="Provider Signatory Name / Title"
+                          placeholder="Provider Signatory Name"
                           value={signatures.provider.signerName}
                           onChange={(e) => setSignatures((s) => ({ ...s, provider: { ...s.provider, signerName: e.target.value } }))}
+                        />
+                        <input
+                          className="form-input text-xs"
+                          placeholder="Provider Designation (Optional)"
+                          value={signatures.provider.signerDesignation || ''}
+                          onChange={(e) => setSignatures((s) => ({ ...s, provider: { ...s.provider, signerDesignation: e.target.value } }))}
                         />
                         <SignaturePad
                           label="Provider (Draw)"
@@ -983,9 +1043,21 @@ export default function Agreements() {
 
                         <input
                           className="form-input text-xs"
-                          placeholder="Counterparty Signatory Full Name"
+                          placeholder="Signatory Full Name"
                           value={signatures.client.signerName}
                           onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, signerName: e.target.value } }))}
+                        />
+                        <input
+                          className="form-input text-xs"
+                          placeholder="Designation / Position"
+                          value={signatures.client.signerDesignation || ''}
+                          onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, signerDesignation: e.target.value } }))}
+                        />
+                        <input
+                          className="form-input text-xs font-mono"
+                          placeholder="NIC / Employee ID No."
+                          value={signatures.client.signerIdNumber || ''}
+                          onChange={(e) => setSignatures((s) => ({ ...s, client: { ...s.client, signerIdNumber: e.target.value } }))}
                         />
                         <SignaturePad
                           label={`${signatures.client?.sideType || 'Client'} (${signatures.client?.subRole || 'Signatory'})`}

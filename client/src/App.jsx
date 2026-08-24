@@ -88,6 +88,7 @@ import MessagesCenter from './pages/shared/MessagesCenter'
 import NotificationDetail from './pages/shared/NotificationDetail'
 import SignatureRequests from './pages/shared/SignatureRequests'
 import TeamHub from './pages/shared/TeamHub'
+import StaffHierarchy from './pages/admin/StaffHierarchy'
 
 // Developer pages
 import DeveloperDashboard from './pages/employee/Dashboard'
@@ -267,6 +268,7 @@ export default function App() {
         <Route path="requests" element={<AdminRequests />} />
         <Route path="tool-assignments" element={<ToolAssignments />} />
         <Route path="signature-requests" element={<SignatureRequests />} />
+        <Route path="staff-hierarchy" element={<StaffHierarchy />} />
         <Route path="meetings" element={<Meetings />} />
       </Route>
 

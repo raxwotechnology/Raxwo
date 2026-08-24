@@ -298,8 +298,9 @@ exports.updateEmployee = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Capture name BEFORE sanitizeEmployeePayload deletes it
+    // Capture name & email BEFORE sanitizeEmployeePayload deletes it
     const nameUpdate = typeof req.body.name === 'string' ? req.body.name.trim() : null;
+    const emailUpdate = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : null;
 
     const payload = sanitizeEmployeePayload({ ...req.body });
     delete payload.maxLeavesPerYear;
@@ -318,6 +319,15 @@ exports.updateEmployee = async (req, res, next) => {
     // Update name on linked User if provided
     if (nameUpdate) {
       await User.findByIdAndUpdate(employeeBefore.userId, { name: nameUpdate });
+    }
+
+    // Update email on linked User if provided
+    if (emailUpdate) {
+      const existingUser = await User.findOne({ email: emailUpdate, _id: { $ne: employeeBefore.userId } });
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'Email address is already in use by another account' });
+      }
+      await User.findByIdAndUpdate(employeeBefore.userId, { email: emailUpdate });
     }
 
     // Update role on linked user if provided (admin/manager only)
@@ -813,6 +823,28 @@ exports.assignLeader = async (req, res, next) => {
       success: true,
       message: `Successfully assigned leader to ${employeeIds.length} team member(s)`,
     });
+  } catch (err) { next(err); }
+};
+
+// @desc    Designate an employee as a Team Leader (updates User role to manager)
+// @route   POST /api/employees/designate-leader
+exports.designateLeader = async (req, res, next) => {
+  try {
+    const { userId, role = 'manager' } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: 'User ID is required' });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.role !== 'admin' && user.role !== 'manager') {
+      user.role = role;
+      await user.save();
+    }
+    await createAuditLog({
+      user: req.user,
+      action: 'update',
+      module: 'employees',
+      description: `Designated ${user.name} as a Team Leader (${role})`,
+    });
+    res.json({ success: true, message: `${user.name} has been designated as a Team Leader` });
   } catch (err) { next(err); }
 };
 

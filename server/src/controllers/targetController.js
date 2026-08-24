@@ -32,15 +32,18 @@ async function pushBonusToPayroll(target, employee) {
 // ── GET /api/targets ───────────────────────────────────────────────────────────
 exports.getTargets = async (req, res, next) => {
   try {
-    const { employee, type, year, status } = req.query;
+    const { employee, manager, type, targetLevel, year, status } = req.query;
     const query = {};
     if (employee) query.employee = employee;
-    if (type)     query.type     = type;
-    if (year)     query.year     = Number(year);
-    if (status)   query.status   = status;
+    if (manager) query.manager = manager;
+    if (targetLevel) query.targetLevel = targetLevel;
+    if (type) query.type = type;
+    if (year) query.year = Number(year);
+    if (status) query.status = status;
 
     const targets = await Target.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
+      .populate('manager', 'name email avatar role')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, count: targets.length, targets });
@@ -52,9 +55,10 @@ exports.createTarget = async (req, res, next) => {
   try {
     const target = await Target.create({ ...req.body, createdBy: req.user._id });
     const pop = await Target.findById(target._id)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email _id' } });
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email _id' } })
+      .populate('manager', 'name email avatar role');
 
-    // Notify employee
+    // Notify employee if individual target
     if (pop.employee?.userId?._id) {
       await createNotification({
         recipient: pop.employee.userId._id,

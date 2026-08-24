@@ -9,7 +9,8 @@ import {
   FiUsers, FiUser, FiCalendar, FiClock, FiCheckCircle, FiAlertCircle,
   FiBriefcase, FiSearch, FiPhone, FiMail,
   FiFileText, FiMessageSquare, FiLayers,
-  FiShield, FiUserCheck, FiBookOpen, FiX, FiActivity
+  FiShield, FiUserCheck, FiBookOpen, FiX, FiActivity,
+  FiTarget, FiUserPlus, FiAward, FiTrendingUp, FiEdit2, FiPlus, FiTrash2, FiBarChart2
 } from 'react-icons/fi'
 
 function highlightMatch(text, query) {
@@ -48,7 +49,7 @@ export default function TeamHub({ isManagerView = false }) {
   const [selectedEmpId, setSelectedEmpId] = useState('all') // 'all' or specific employeeId
   const [typeFilter, setTypeFilter] = useState('all') // 'all' | 'intern' | 'permanent'
   const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'details' | 'leaves' | 'attendance' | 'worklogs'
+  const [activeTab, setActiveTab] = useState('overview') // 'overview' | 'details' | 'leaves' | 'attendance' | 'worklogs' | 'targets'
 
   // Quick Assign Modal state
   const [showAssignModal, setShowAssignModal] = useState(false)
@@ -59,6 +60,29 @@ export default function TeamHub({ isManagerView = false }) {
   const [modalMemberSearch, setModalMemberSearch] = useState('')
   const [modalMemberType, setModalMemberType] = useState('all') // 'all' | 'intern' | 'permanent' | 'unassigned'
   const [isChangingLeader, setIsChangingLeader] = useState(false)
+
+  // Designate Team Leader Modal state
+  const [showDesignateModal, setShowDesignateModal] = useState(false)
+  const [designateSearch, setDesignateSearch] = useState('')
+
+  // Target Modal & Filter state
+  const [showTargetModal, setShowTargetModal] = useState(false)
+  const [editingTarget, setEditingTarget] = useState(null)
+  const [targetStatusFilter, setTargetStatusFilter] = useState('all')
+  const [targetTypeFilter, setTargetTypeFilter] = useState('all')
+  const [targetForm, setTargetForm] = useState({
+    title: '',
+    description: '',
+    type: 'monthly',
+    unit: 'projects',
+    targetValue: '',
+    achievedValue: 0,
+    status: 'active',
+    month: new Date().getMonth() + 1,
+    quarter: Math.ceil((new Date().getMonth() + 1) / 3),
+    year: new Date().getFullYear(),
+    notes: '',
+  })
 
   // Comment Modal state for work log
   const [commentLogId, setCommentLogId] = useState(null)
@@ -255,6 +279,23 @@ export default function TeamHub({ isManagerView = false }) {
   })
   const workLogsList = workLogsData?.logs || []
 
+  // 6. Fetch Targets
+  const { data: targetsData } = useQuery({
+    queryKey: ['targets', selectedEmpId, effectiveLeaderId, attYear],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('year', attYear)
+      if (selectedEmpId !== 'all') {
+        params.set('employee', selectedEmpId)
+      } else if (effectiveLeaderId !== 'all' && effectiveLeaderId !== 'unassigned') {
+        params.set('manager', effectiveLeaderId)
+      }
+      return api.get(`/targets?${params.toString()}`).then(r => r.data)
+    },
+    enabled: activeTab === 'targets' || activeTab === 'overview',
+  })
+  const targetsList = targetsData?.targets || []
+
   // Mutations
   const assignLeaderMutation = useMutation({
     mutationFn: (payload) => api.post('/employees/assign-leader', payload),
@@ -267,6 +308,42 @@ export default function TeamHub({ isManagerView = false }) {
       setAssignLeaderTarget('')
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to assign leader'),
+  })
+
+  const designateLeaderMutation = useMutation({
+    mutationFn: ({ userId }) => api.post('/employees/designate-leader', { userId, role: 'manager' }),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'Designated as Team Leader')
+      setShowDesignateModal(false)
+      qc.invalidateQueries({ queryKey: ['leaders-summary'] })
+      qc.invalidateQueries({ queryKey: ['employees'] })
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to designate leader'),
+  })
+
+  const saveTargetMutation = useMutation({
+    mutationFn: (payload) => {
+      if (editingTarget?._id) {
+        return api.put(`/targets/${editingTarget._id}`, payload)
+      }
+      return api.post('/targets', payload)
+    },
+    onSuccess: () => {
+      toast.success(editingTarget ? 'Target updated' : 'Target created')
+      setShowTargetModal(false)
+      setEditingTarget(null)
+      qc.invalidateQueries({ queryKey: ['targets'] })
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to save target'),
+  })
+
+  const deleteTargetMutation = useMutation({
+    mutationFn: (id) => api.delete(`/targets/${id}`),
+    onSuccess: () => {
+      toast.success('Target deleted')
+      qc.invalidateQueries({ queryKey: ['targets'] })
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete target'),
   })
 
   const updateLeaveStatusMutation = useMutation({
@@ -333,6 +410,62 @@ export default function TeamHub({ isManagerView = false }) {
     )
   }
 
+  const openNewTargetModal = () => {
+    setEditingTarget(null)
+    setTargetForm({
+      title: '',
+      description: '',
+      type: 'monthly',
+      unit: 'projects',
+      targetValue: '',
+      achievedValue: 0,
+      status: 'active',
+      month: currentMonth,
+      quarter: Math.ceil(currentMonth / 3),
+      year: currentYear,
+      notes: '',
+    })
+    setShowTargetModal(true)
+  }
+
+  const openEditTargetModal = (target) => {
+    setEditingTarget(target)
+    setTargetForm({
+      title: target.title || '',
+      description: target.description || '',
+      type: target.type || 'monthly',
+      unit: target.unit || 'projects',
+      targetValue: target.targetValue || '',
+      achievedValue: target.achievedValue || 0,
+      status: target.status || 'active',
+      month: target.month || currentMonth,
+      quarter: target.quarter || Math.ceil(currentMonth / 3),
+      year: target.year || currentYear,
+      notes: target.notes || '',
+    })
+    setShowTargetModal(true)
+  }
+
+  const handleTargetSubmit = (e) => {
+    e.preventDefault()
+    if (!targetForm.title || !targetForm.targetValue) {
+      toast.error('Title and target value are required')
+      return
+    }
+    const payload = {
+      ...targetForm,
+      targetValue: Number(targetForm.targetValue),
+      achievedValue: Number(targetForm.achievedValue || 0),
+      year: Number(targetForm.year || currentYear),
+      month: targetForm.type === 'monthly' ? Number(targetForm.month) : undefined,
+      quarter: targetForm.type === 'quarterly' ? Number(targetForm.quarter) : undefined,
+      targetLevel: selectedEmpId !== 'all' ? 'employee' : 'team',
+      employee: selectedEmpId !== 'all' ? selectedEmpId : undefined,
+      manager: effectiveLeaderId !== 'all' && effectiveLeaderId !== 'unassigned' ? effectiveLeaderId : (user?._id),
+    }
+    saveTargetMutation.mutate(payload)
+  }
+
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* ── Page Header ── */}
@@ -355,17 +488,34 @@ export default function TeamHub({ isManagerView = false }) {
         {/* Header Action Buttons */}
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           {isAdmin && (
-            <button
-              onClick={() => {
-                setAssignSelectedEmps([])
-                setAssignLeaderTarget(selectedLeaderId !== 'all' && selectedLeaderId !== 'unassigned' ? selectedLeaderId : '')
-                setShowAssignModal(true)
-              }}
-              className="btn-primary gap-2 shadow-sm"
-            >
-              <FiUserCheck size={16} /> Assign Members to Leader
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setDesignateSearch('')
+                  setShowDesignateModal(true)
+                }}
+                className="btn-outline gap-2 shadow-sm text-xs"
+              >
+                <FiUserPlus size={15} /> Add Team Leader
+              </button>
+              <button
+                onClick={() => {
+                  setAssignSelectedEmps([])
+                  setAssignLeaderTarget(selectedLeaderId !== 'all' && selectedLeaderId !== 'unassigned' ? selectedLeaderId : '')
+                  setShowAssignModal(true)
+                }}
+                className="btn-primary gap-2 shadow-sm text-xs"
+              >
+                <FiUserCheck size={15} /> Assign Members to Leader
+              </button>
+            </>
           )}
+          <button
+            onClick={openNewTargetModal}
+            className="btn-secondary gap-2 shadow-sm text-xs"
+          >
+            <FiTarget size={15} /> Set Target
+          </button>
         </div>
       </div>
 
@@ -678,6 +828,7 @@ export default function TeamHub({ isManagerView = false }) {
         {[
           { key: 'overview', label: 'Overview & Activity', icon: FiActivity },
           { key: 'details', label: 'Profile & Details', icon: FiUser },
+          { key: 'targets', label: `Targets & Goals (${targetsList.length})`, icon: FiTarget },
           { key: 'leaves', label: `Leaves (${leavesList.length})`, icon: FiCalendar },
           { key: 'attendance', label: `Attendance (${attendanceRecords.length})`, icon: FiClock },
           { key: 'worklogs', label: `Daily Work Logs (${workLogsList.length})`, icon: FiFileText },
@@ -1378,6 +1529,548 @@ export default function TeamHub({ isManagerView = false }) {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── TAB 6: TARGETS & GOAL TRACKING ── */}
+      {activeTab === 'targets' && (
+        <div className="space-y-6">
+          {/* Filter & Action Bar */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Type Filter Pills */}
+              <div className="flex bg-slate-100 p-1 rounded-xl">
+                {[
+                  { id: 'all', label: 'All Timeframes' },
+                  { id: 'monthly', label: 'Monthly' },
+                  { id: 'quarterly', label: 'Quarterly' },
+                  { id: 'annual', label: 'Annual' },
+                ].map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTargetTypeFilter(t.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      targetTypeFilter === t.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex bg-slate-100 p-1 rounded-xl">
+                {[
+                  { id: 'all', label: 'All Status' },
+                  { id: 'active', label: 'Active' },
+                  { id: 'achieved', label: 'Achieved' },
+                  { id: 'missed', label: 'Missed' },
+                ].map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => setTargetStatusFilter(s.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      targetStatusFilter === s.id ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Year Selector */}
+              <select
+                value={attYear}
+                onChange={e => setAttYear(Number(e.target.value))}
+                className="form-select !py-1.5 !text-xs rounded-xl"
+              >
+                {[currentYear - 1, currentYear, currentYear + 1].map(y => (
+                  <option key={y} value={y}>Year {y}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={openNewTargetModal}
+              className="btn-primary gap-2 shadow-sm text-xs"
+            >
+              <FiPlus size={15} /> Set New Target
+            </button>
+          </div>
+
+          {/* KPI Summary Cards */}
+          {(() => {
+            const filteredTargets = targetsList.filter(t => {
+              if (targetTypeFilter !== 'all' && t.type !== targetTypeFilter) return false
+              if (targetStatusFilter !== 'all' && t.status !== targetStatusFilter) return false
+              return true
+            })
+            const totalCount = filteredTargets.length
+            const achievedCount = filteredTargets.filter(t => t.status === 'achieved').length
+            const activeCount = filteredTargets.filter(t => t.status === 'active').length
+            const totalTargetSum = filteredTargets.reduce((acc, t) => acc + (t.targetValue || 0), 0)
+            const totalAchievedSum = filteredTargets.reduce((acc, t) => acc + (t.achievedValue || 0), 0)
+            const overallRate = totalTargetSum > 0 ? Math.min(100, Math.round((totalAchievedSum / totalTargetSum) * 100)) : 0
+
+            return (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                      <FiTarget size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase">Total Targets</p>
+                      <h3 className="text-xl font-bold text-slate-800 mt-0.5">{totalCount}</h3>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <FiAward size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase">Achieved</p>
+                      <h3 className="text-xl font-bold text-emerald-600 mt-0.5">{achievedCount}</h3>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                      <FiClock size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase">In Progress</p>
+                      <h3 className="text-xl font-bold text-amber-600 mt-0.5">{activeCount}</h3>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                      <FiTrendingUp size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase">Completion Rate</p>
+                      <h3 className="text-xl font-bold text-blue-600 mt-0.5">{overallRate}%</h3>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Targets Grid */}
+                {filteredTargets.length === 0 ? (
+                  <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3 shadow-sm">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto">
+                      <FiTarget size={24} />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-700">No targets found</h3>
+                    <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                      No team or member targets set for the selected period. Click "Set New Target" to assign goals.
+                    </p>
+                    <button
+                      onClick={openNewTargetModal}
+                      className="btn-primary btn-sm gap-2 mt-2"
+                    >
+                      <FiPlus size={14} /> Set Target
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredTargets.map(t => {
+                      const pct = t.targetValue ? Math.min(100, Math.round(((t.achievedValue || 0) / t.targetValue) * 100)) : 0
+                      const isAchieved = t.status === 'achieved' || pct >= 100
+                      const isMissed = t.status === 'missed'
+                      const isCurrency = t.unit?.toLowerCase() === 'lkr' || t.unit?.toLowerCase() === 'usd'
+                      const unitLabel = isCurrency ? t.unit.toUpperCase() : t.unit
+
+                      return (
+                        <div
+                          key={t._id}
+                          className={`bg-white p-5 rounded-2xl border transition-all shadow-sm flex flex-col justify-between space-y-4 ${
+                            isAchieved ? 'border-emerald-200/80 bg-emerald-50/10' : isMissed ? 'border-rose-200 bg-rose-50/10' : 'border-slate-200'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                                  t.type === 'monthly' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  t.type === 'quarterly' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                  'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}>
+                                  {t.type} {t.month ? `· Month ${t.month}` : t.quarter ? `· Q${t.quarter}` : ''} {t.year}
+                                </span>
+                                <h4 className="text-sm font-bold text-slate-800 mt-2">{t.title}</h4>
+                                {t.description && (
+                                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{t.description}</p>
+                                )}
+                              </div>
+                              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${
+                                isAchieved ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                                isMissed ? 'bg-rose-100 text-rose-800 border-rose-300' :
+                                'bg-amber-100 text-amber-800 border-amber-300'
+                              }`}>
+                                {isAchieved ? '🏆 Achieved' : isMissed ? '❌ Missed' : '⏳ In Progress'}
+                              </span>
+                            </div>
+
+                            {/* Target Progress Bar & Counter */}
+                            <div className="mt-4 space-y-2">
+                              <div className="flex justify-between items-baseline text-xs font-medium">
+                                <span className="text-slate-500">Progress</span>
+                                <span className="font-bold text-slate-800">
+                                  {isCurrency ? `${unitLabel} ${Number(t.achievedValue || 0).toLocaleString()}` : `${t.achievedValue || 0} ${unitLabel}`}
+                                  <span className="text-slate-400 font-normal"> / </span>
+                                  {isCurrency ? `${unitLabel} ${Number(t.targetValue).toLocaleString()}` : `${t.targetValue} ${unitLabel}`}
+                                  <span className="ml-1.5 font-bold text-secondary font-mono">({pct}%)</span>
+                                </span>
+                              </div>
+
+                              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    isAchieved ? 'bg-emerald-500' : isMissed ? 'bg-rose-500' : 'bg-secondary'
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Assigned Scope */}
+                            <div className="mt-3 text-[11px] text-slate-400 flex items-center gap-1.5">
+                              <span>Scope:</span>
+                              {t.employee ? (
+                                <span className="font-semibold text-slate-700">👤 {t.employee.userId?.name || 'Member'}</span>
+                              ) : t.manager ? (
+                                <span className="font-semibold text-purple-700">👑 {t.manager.name}'s Team</span>
+                              ) : (
+                                <span className="font-semibold text-slate-700">🏢 Organization</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              {!isAchieved && (
+                                <button
+                                  onClick={() => {
+                                    const nextVal = (t.achievedValue || 0) + 1
+                                    saveTargetMutation.mutate({
+                                      ...t,
+                                      achievedValue: nextVal,
+                                      status: nextVal >= t.targetValue ? 'achieved' : t.status,
+                                    })
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] transition-colors"
+                                >
+                                  +1 {unitLabel}
+                                </button>
+                              )}
+                              {!isAchieved && (
+                                <button
+                                  onClick={() => {
+                                    saveTargetMutation.mutate({
+                                      ...t,
+                                      achievedValue: t.targetValue,
+                                      status: 'achieved',
+                                    })
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-[11px] transition-colors"
+                                >
+                                  Mark Complete
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => openEditTargetModal(t)}
+                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-slate-800 transition-colors"
+                                title="Edit Target"
+                              >
+                                <FiEdit2 size={13} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Delete target "${t.title}"?`)) {
+                                    deleteTargetMutation.mutate(t._id)
+                                  }
+                                }}
+                                className="p-1.5 hover:bg-rose-50 rounded-lg text-rose-500 transition-colors"
+                                title="Delete Target"
+                              >
+                                <FiTrash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* ── Designate Team Leader Modal (Admin only) ── */}
+      {showDesignateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+          >
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <FiUserPlus className="text-secondary" /> Add Team Leader
+                </h3>
+                <p className="text-xs text-slate-400">Search and designate an employee as a Team Leader / Manager.</p>
+              </div>
+              <button onClick={() => setShowDesignateModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
+                <FiX size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              <div className="relative">
+                <FiSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search staff by name, email, department, role..."
+                  value={designateSearch}
+                  onChange={e => setDesignateSearch(e.target.value)}
+                  className="form-input !pl-9 !py-2 !text-xs w-full rounded-xl"
+                />
+              </div>
+
+              <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto border border-slate-200 rounded-xl bg-slate-50/50">
+                {allEmployees
+                  .filter(e => {
+                    const q = designateSearch.toLowerCase()
+                    const name = e.userId?.name?.toLowerCase() || ''
+                    const email = e.userId?.email?.toLowerCase() || ''
+                    const desig = e.designation?.toLowerCase() || ''
+                    const dept = e.department?.toLowerCase() || ''
+                    return !q || name.includes(q) || email.includes(q) || desig.includes(q) || dept.includes(q)
+                  })
+                  .map(emp => {
+                    const isLeader = emp.userId?.role === 'manager' || emp.userId?.role === 'admin'
+                    return (
+                      <div key={emp._id} className="p-3 bg-white flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-slate-200 flex items-center justify-center shrink-0 font-bold text-xs text-slate-700">
+                            {emp.userId?.name?.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-800 truncate">{emp.userId?.name}</p>
+                            <p className="text-[11px] text-slate-400 truncate">{emp.designation || 'Staff'} · {emp.department || 'General'}</p>
+                          </div>
+                        </div>
+
+                        {isLeader ? (
+                          <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-2.5 py-1 rounded-full border border-purple-200 shrink-0">
+                            👑 Active Leader
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => designateLeaderMutation.mutate({ userId: emp.userId?._id })}
+                            disabled={designateLeaderMutation.isPending}
+                            className="btn-primary !py-1 !px-3 text-xs shrink-0"
+                          >
+                            Designate as Leader
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── Set / Edit Target Modal ── */}
+      {showTargetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+          >
+            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <FiTarget className="text-secondary" /> {editingTarget ? 'Edit Target' : 'Set Team / Member Target'}
+                </h3>
+                <p className="text-xs text-slate-400">Define milestone, delivery, or revenue targets.</p>
+              </div>
+              <button onClick={() => setShowTargetModal(false)} className="p-2 hover:bg-slate-100 rounded-lg text-slate-400">
+                <FiX size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleTargetSubmit} className="p-5 space-y-4 overflow-y-auto flex-1">
+              <div>
+                <label className="form-label font-bold text-xs">Target Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Q3 Mobile App Deliveries, Monthly Revenue LKR 1.5M"
+                  value={targetForm.title}
+                  onChange={e => setTargetForm(f => ({ ...f, title: e.target.value }))}
+                  className="form-input text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="form-label font-bold text-xs">Description (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="Additional context or milestone deliverables..."
+                  value={targetForm.description}
+                  onChange={e => setTargetForm(f => ({ ...f, description: e.target.value }))}
+                  className="form-input text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label font-bold text-xs">Timeframe Type</label>
+                  <select
+                    value={targetForm.type}
+                    onChange={e => setTargetForm(f => ({ ...f, type: e.target.value }))}
+                    className="form-select text-xs"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label font-bold text-xs">Unit Type</label>
+                  <select
+                    value={targetForm.unit}
+                    onChange={e => setTargetForm(f => ({ ...f, unit: e.target.value }))}
+                    className="form-select text-xs"
+                  >
+                    <option value="projects">Projects Delivered</option>
+                    <option value="orders">Client Orders</option>
+                    <option value="tasks">Tasks / Sprints</option>
+                    <option value="LKR">Revenue (LKR)</option>
+                    <option value="USD">Revenue (USD)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {targetForm.type === 'monthly' && (
+                  <div>
+                    <label className="form-label font-bold text-xs">Target Month</label>
+                    <select
+                      value={targetForm.month}
+                      onChange={e => setTargetForm(f => ({ ...f, month: Number(e.target.value) }))}
+                      className="form-select text-xs"
+                    >
+                      {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, idx) => (
+                        <option key={idx + 1} value={idx + 1}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {targetForm.type === 'quarterly' && (
+                  <div>
+                    <label className="form-label font-bold text-xs">Target Quarter</label>
+                    <select
+                      value={targetForm.quarter}
+                      onChange={e => setTargetForm(f => ({ ...f, quarter: Number(e.target.value) }))}
+                      className="form-select text-xs"
+                    >
+                      <option value={1}>Q1 (Jan - Mar)</option>
+                      <option value={2}>Q2 (Apr - Jun)</option>
+                      <option value={3}>Q3 (Jul - Sep)</option>
+                      <option value={4}>Q4 (Oct - Dec)</option>
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="form-label font-bold text-xs">Target Year</label>
+                  <select
+                    value={targetForm.year}
+                    onChange={e => setTargetForm(f => ({ ...f, year: Number(e.target.value) }))}
+                    className="form-select text-xs"
+                  >
+                    {[currentYear - 1, currentYear, currentYear + 1].map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="form-label font-bold text-xs">Target Goal Value *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    placeholder="e.g. 10, 1500000"
+                    value={targetForm.targetValue}
+                    onChange={e => setTargetForm(f => ({ ...f, targetValue: e.target.value }))}
+                    className="form-input text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label font-bold text-xs">Current Achieved Value</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 5"
+                    value={targetForm.achievedValue}
+                    onChange={e => setTargetForm(f => ({ ...f, achievedValue: e.target.value }))}
+                    className="form-input text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="form-label font-bold text-xs">Target Status</label>
+                <select
+                  value={targetForm.status}
+                  onChange={e => setTargetForm(f => ({ ...f, status: e.target.value }))}
+                  className="form-select text-xs"
+                >
+                  <option value="active">Active (In Progress)</option>
+                  <option value="achieved">Achieved</option>
+                  <option value="partial">Partial</option>
+                  <option value="missed">Missed</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowTargetModal(false)}
+                  className="btn-ghost flex-1 justify-center"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saveTargetMutation.isPending}
+                  className="btn-primary flex-1 justify-center"
+                >
+                  {saveTargetMutation.isPending ? 'Saving...' : editingTarget ? 'Update Target' : 'Save Target'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
         </div>
       )}
 

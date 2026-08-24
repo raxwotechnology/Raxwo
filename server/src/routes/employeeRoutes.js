@@ -5,13 +5,14 @@ const {
   updateEmployee, deleteEmployee, getStats, getEmployeeActivity,
   convertIntern, removeIntern,
   adminSetEmployeePassword, adminResetEmployeePassword, adminSendPasswordResetEmail,
-  getLeadersSummary, assignLeader,
+  getLeadersSummary, assignLeader, designateLeader,
 } = require('../controllers/employeeController');
 const { protect, authorize } = require('../middleware/auth');
 
 router.get('/stats', protect, authorize('admin', 'manager'), getStats);
 router.get('/leaders/summary', protect, authorize('admin', 'manager'), getLeadersSummary);
 router.post('/assign-leader', protect, authorize('admin'), assignLeader);
+router.post('/designate-leader', protect, authorize('admin'), designateLeader);
 router.get('/me', protect, getMyProfile);
 router.get('/', protect, authorize('admin', 'manager'), getEmployees);
 router.get('/:id/activity', protect, authorize('admin', 'manager'), getEmployeeActivity);
