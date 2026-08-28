@@ -267,7 +267,7 @@ export default function AdminAttendance() {
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-white">Daily Attendance Punch (ඔබගේ Attendance)</h3>
+              <h3 className="text-sm font-bold text-white">Daily Attendance Punch</h3>
               <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
                 isSelfClockedOut ? 'bg-slate-700 text-slate-200 border-slate-600' :
                 hasSelfActiveBreak ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :

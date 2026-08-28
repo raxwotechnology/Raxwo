@@ -317,6 +317,7 @@ export default function App() {
         <Route path="requests" element={<AdminRequests />} />
         <Route path="tool-assignments" element={<ToolAssignments />} />
         <Route path="signature-requests" element={<SignatureRequests />} />
+        <Route path="staff-hierarchy" element={<StaffHierarchy />} />
         <Route path="meetings" element={<Meetings />} />
       </Route>
 
@@ -339,8 +340,8 @@ export default function App() {
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="signature-requests" element={<SignatureRequests />} />
+        <Route path="staff-hierarchy" element={<StaffHierarchy />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
-        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
 
       {/* Designer */}
@@ -362,8 +363,8 @@ export default function App() {
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="signature-requests" element={<SignatureRequests />} />
+        <Route path="staff-hierarchy" element={<StaffHierarchy />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
-        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
 
       {/* Marketing */}
@@ -385,8 +386,8 @@ export default function App() {
         <Route path="performance" element={<EmployeePerformance />} />
         <Route path="notifications" element={<DeveloperNotifications />} />
         <Route path="signature-requests" element={<SignatureRequests />} />
+        <Route path="staff-hierarchy" element={<StaffHierarchy />} />
         <Route path="notifications/:id" element={<NotificationDetail />} />
-        <Route path="social-analytics" element={<AdminSocialAnalytics />} />
       </Route>
 
       <Route path="/unauthorized" element={<Navigate to="/" replace />} />

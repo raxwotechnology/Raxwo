@@ -16,6 +16,7 @@ const PettyCash = require('../models/PettyCash');
 const Request = require('../models/Request');
 const WorkLog = require('../models/WorkLog');
 const { createNotification } = require('../services/notificationService');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
 const axios = require('axios');
 
 const dateRange = (start, end) => ({
@@ -47,14 +48,32 @@ exports.getDashboard = async (req, res, next) => {
     const monthStart = new Date(currentYear, now.getMonth(), 1);
     const monthEnd = new Date(currentYear, now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-    const empMatch = getEmpMatch(branch);
-    const projMatch = getProjMatch(branch);
+    const isTopMgr = isTopManagerOrAdmin(req.user);
+
+    let empMatch = getEmpMatch(branch);
+    let projMatch = getProjMatch(branch);
     const invMatch = getInvMatch(branch);
     const finMatch = getFinMatch(branch);
     const subMatch = getSubMatch(branch);
+    let relatedEmpMatch = {};
 
-    const branchEmpIds = await getEmpIds(branch);
-    const relatedEmpMatch = branchEmpIds ? { employee: { $in: branchEmpIds } } : {};
+    if (!isTopMgr) {
+      empMatch = { ...empMatch, manager: req.user._id };
+      const assignedEmps = await Employee.find(empMatch).select('_id');
+      const assignedEmpIds = assignedEmps.map(e => e._id);
+      relatedEmpMatch = { employee: { $in: assignedEmpIds } };
+      projMatch = {
+        ...projMatch,
+        $or: [
+          { projectManager: req.user._id },
+          { teamMembers: req.user._id },
+          { leader: req.user._id }
+        ]
+      };
+    } else {
+      const branchEmpIds = await getEmpIds(branch);
+      relatedEmpMatch = branchEmpIds ? { employee: { $in: branchEmpIds } } : {};
+    }
 
     const [
       totalEmployees, activeEmployees, internCount,
