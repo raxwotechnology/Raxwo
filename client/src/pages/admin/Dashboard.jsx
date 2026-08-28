@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import api from '../../lib/api'
+import useAuthStore from '../../store/authStore'
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { FiUsers, FiFolder, FiDollarSign, FiClock, FiBriefcase, FiCalendar, FiUserPlus, FiBarChart2, FiServer, FiCreditCard, FiShield, FiMapPin, FiFileText, FiTrendingUp, FiAlertTriangle, FiCheckCircle, FiArrowRight, FiZap, FiActivity, FiRefreshCw, FiUser, FiPieChart } from 'react-icons/fi'
 import { formatMoney, chartMoneyTick, tooltipMoney } from '../../lib/currencies'
@@ -19,6 +20,9 @@ const QuickLink = ({ to, icon: Icon, label, color }) => (
 )
 
 export default function AdminDashboard() {
+  const { user } = useAuthStore()
+  const isTopManager = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
+
   const [branchFilter, setBranchFilter] = useState('')
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
   const branches = branchData?.branches || []
@@ -73,81 +77,87 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── Financial summary (live from ledger + invoices + banks) ── */}
-      <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Financial summary (synced)</p>
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          {[
-            { label: 'Total invoices', value: String(kpis.totalInvoices ?? 0), sub: 'All statuses', icon: FiFileText, accent: '#64748b', bg: 'bg-slate-50 text-slate-600' },
-            { label: 'Paid invoices', value: String(kpis.paidInvoicesCount ?? 0), sub: 'Marked paid', icon: FiCheckCircle, accent: '#16a34a', bg: 'bg-green-50 text-green-700' },
-            { label: 'Pending payments', value: `${money(kpis.pendingPaymentsTotal || 0)}`, sub: 'Outstanding balances', icon: FiAlertTriangle, accent: '#ea580c', bg: 'bg-orange-50 text-orange-700', alert: (kpis.pendingPaymentsTotal || 0) > 0 },
-            { label: 'Bank balances', value: `${money(kpis.bankAccountsTotalBalance || 0)}`, sub: 'Active accounts', icon: FiBriefcase, accent: '#2563eb', bg: 'bg-blue-50 text-blue-700' },
-            { label: 'Income total', value: `${money(kpis.allTimeRevenue || 0)}`, sub: 'All income sources', icon: FiTrendingUp, accent: '#059669', bg: 'bg-emerald-50 text-emerald-700' },
-            { label: 'Expense total', value: `${money(kpis.allTimeExpense || 0)}`, sub: 'All expenses', icon: FiPieChart, accent: '#dc2626', bg: 'bg-red-50 text-red-700' },
-          ].map((c, i) => (
-            <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`card card-body relative overflow-hidden ${c.alert ? 'border-orange-200' : ''}`}>
-              <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: c.accent, borderRadius: '12px 0 0 12px' }} />
-              <div className="flex items-start justify-between pl-2">
-                <div>
-                  <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
-                  <p className="text-lg font-bold text-primary font-heading">{c.value}</p>
-                  <p className="text-xs text-gray-400">{c.sub}</p>
+      {isTopManager && (
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Financial summary (synced)</p>
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+            {[
+              { label: 'Total invoices', value: String(kpis.totalInvoices ?? 0), sub: 'All statuses', icon: FiFileText, accent: '#64748b', bg: 'bg-slate-50 text-slate-600' },
+              { label: 'Paid invoices', value: String(kpis.paidInvoicesCount ?? 0), sub: 'Marked paid', icon: FiCheckCircle, accent: '#16a34a', bg: 'bg-green-50 text-green-700' },
+              { label: 'Pending payments', value: `${money(kpis.pendingPaymentsTotal || 0)}`, sub: 'Outstanding balances', icon: FiAlertTriangle, accent: '#ea580c', bg: 'bg-orange-50 text-orange-700', alert: (kpis.pendingPaymentsTotal || 0) > 0 },
+              { label: 'Bank balances', value: `${money(kpis.bankAccountsTotalBalance || 0)}`, sub: 'Active accounts', icon: FiBriefcase, accent: '#2563eb', bg: 'bg-blue-50 text-blue-700' },
+              { label: 'Income total', value: `${money(kpis.allTimeRevenue || 0)}`, sub: 'All income sources', icon: FiTrendingUp, accent: '#059669', bg: 'bg-emerald-50 text-emerald-700' },
+              { label: 'Expense total', value: `${money(kpis.allTimeExpense || 0)}`, sub: 'All expenses', icon: FiPieChart, accent: '#dc2626', bg: 'bg-red-50 text-red-700' },
+            ].map((c, i) => (
+              <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className={`card card-body relative overflow-hidden ${c.alert ? 'border-orange-200' : ''}`}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: c.accent, borderRadius: '12px 0 0 12px' }} />
+                <div className="flex items-start justify-between pl-2">
+                  <div>
+                    <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
+                    <p className="text-lg font-bold text-primary font-heading">{c.value}</p>
+                    <p className="text-xs text-gray-400">{c.sub}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16} /></div>
                 </div>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16} /></div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── KPI Row 1 — Financials (Today / Month) ── */}
-      <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💰 Income & Expense Metrics</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label:'Revenue (Month)', value:`${money(kpis.revenueMonth||0)}`, sub:`Today: ${money(kpis.revenueToday||0)}`, icon:FiTrendingUp, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
-            { label:'Expenses (Month)', value:`${money(kpis.expenseMonth||0)}`, sub:`Today: ${money(kpis.expenseToday||0)}`, icon:FiActivity, accent:'#ef4444', bg:'bg-red-50 text-red-600' },
-            { label:'Net Profit (Month)', value:`${money((kpis.revenueMonth||0) - (kpis.expenseMonth||0))}`, sub: 'Monthly margin', icon:FiDollarSign, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
-            { label:'Pending Invoices', value:`${money(kpis.outstandingInvoiceTotal||0)}`, sub:`${kpis.pendingInvoices||0} unpaid invoices`, icon:FiCreditCard, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:kpis.pendingInvoices>0 },
-          ].map((c,i) => (
-            <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className={`card card-body relative overflow-hidden ${c.alert?'border-orange-200':''}`}>
-              <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
-              <div className="flex items-start justify-between pl-2">
-                <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
-                  <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
-                  <p className="text-xs text-gray-400">{c.sub}</p></div>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
-              </div>
-            </motion.div>
-          ))}
+      {isTopManager && (
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💰 Income &amp; Expense Metrics</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label:'Revenue (Month)', value:`${money(kpis.revenueMonth||0)}`, sub:`Today: ${money(kpis.revenueToday||0)}`, icon:FiTrendingUp, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
+              { label:'Expenses (Month)', value:`${money(kpis.expenseMonth||0)}`, sub:`Today: ${money(kpis.expenseToday||0)}`, icon:FiActivity, accent:'#ef4444', bg:'bg-red-50 text-red-600' },
+              { label:'Net Profit (Month)', value:`${money((kpis.revenueMonth||0) - (kpis.expenseMonth||0))}`, sub: 'Monthly margin', icon:FiDollarSign, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
+              { label:'Pending Invoices', value:`${money(kpis.outstandingInvoiceTotal||0)}`, sub:`${kpis.pendingInvoices||0} unpaid invoices`, icon:FiCreditCard, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:kpis.pendingInvoices>0 },
+            ].map((c,i) => (
+              <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className={`card card-body relative overflow-hidden ${c.alert?'border-orange-200':''}`}>
+                <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
+                <div className="flex items-start justify-between pl-2">
+                  <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
+                    <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
+                    <p className="text-xs text-gray-400">{c.sub}</p></div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── KPI Row 1.5 — Cash & Balances ── */}
-      <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🏦 Cash & Bank Balances</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label:'Bank Balance', value:`${money(kpis.bankBalance||0)}`, sub:'Total from all accounts', icon:FiBriefcase, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
-            { label:'Cash in Hand', value:`${money(kpis.cashBalance||0)}`, sub:'Physical cash', icon:FiDollarSign, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
-            { label:'Petty Cash', value:`${money(kpis.pettyCashBalance||0)}`, sub:'Office funds', icon:FiFolder, accent:'#f59e0b', bg:'bg-yellow-50 text-yellow-600' },
-            { label:'Subscription MRR', value:`${money(kpis.subscriptionRevenue||0)}`, sub:`${kpis.activeSubscriptions||0} active`, icon:FiServer, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600' },
-          ].map((c,i) => (
-            <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className="card card-body relative overflow-hidden">
-              <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
-              <div className="flex items-start justify-between pl-2">
-                <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
-                  <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
-                  <p className="text-xs text-gray-400">{c.sub}</p></div>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
-              </div>
-            </motion.div>
-          ))}
+      {isTopManager && (
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">🏦 Cash &amp; Bank Balances</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label:'Bank Balance', value:`${money(kpis.bankBalance||0)}`, sub:'Total from all accounts', icon:FiBriefcase, accent:'#3b82f6', bg:'bg-blue-50 text-blue-600' },
+              { label:'Cash in Hand', value:`${money(kpis.cashBalance||0)}`, sub:'Physical cash', icon:FiDollarSign, accent:'#22c55e', bg:'bg-green-50 text-green-600' },
+              { label:'Petty Cash', value:`${money(kpis.pettyCashBalance||0)}`, sub:'Office funds', icon:FiFolder, accent:'#f59e0b', bg:'bg-yellow-50 text-yellow-600' },
+              { label:'Subscription MRR', value:`${money(kpis.subscriptionRevenue||0)}`, sub:`${kpis.activeSubscriptions||0} active`, icon:FiServer, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600' },
+            ].map((c,i) => (
+              <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}} className="card card-body relative overflow-hidden">
+                <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
+                <div className="flex items-start justify-between pl-2">
+                  <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
+                    <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
+                    <p className="text-xs text-gray-400">{c.sub}</p></div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── KPI Row 2 — People ── */}
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">👥 People & HR</p>
+        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">👥 People &amp; HR</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { label:'Total Employees', value:kpis.totalEmployees||0, sub:`${kpis.activeEmployees||0} active`, icon:FiUsers, accent:'#2563eb', bg:'bg-blue-50 text-blue-600' },
@@ -169,28 +179,30 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── KPI Row 3 — HR Finance ── */}
-      <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💳 HR Finance</p>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label:'Active Employees', value:(kpis.activeEmployees||0), sub:`${kpis.totalEmployees||0} total · ${kpis.internCount||0} interns`, icon:FiUser, accent:'#2563eb', bg:'bg-blue-50 text-blue-600', to:'/admin/employees' },
-            { label:'Outstanding Advances', value:`${money(kpis.outstandingAdvances||0)}`, sub:'Active advance balances', icon:FiCreditCard, accent:'#ef4444', bg:'bg-red-50 text-red-600', alert:(kpis.outstandingAdvances||0)>0, to:'/admin/advances' },
-            { label:'Outstanding Loans', value:`${money(kpis.outstandingLoans||0)}`, sub:'Active loan balances', icon:FiRefreshCw, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:(kpis.outstandingLoans||0)>0, to:'/admin/loans' },
-            { label:'Draft Payrolls', value:kpis.draftPayrolls||0, sub:'Awaiting review/approval', icon:FiDollarSign, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600', alert:(kpis.draftPayrolls||0)>0, to:'/admin/payroll' },
-          ].map((c,i) => (
-            <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}}
-              className={`card card-body relative overflow-hidden ${c.alert?'border-orange-200':''}`}>
-              <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
-              <Link to={c.to} className="flex items-start justify-between pl-2">
-                <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
-                  <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
-                  <p className="text-xs text-gray-400">{c.sub}</p></div>
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
-              </Link>
-            </motion.div>
-          ))}
+      {isTopManager && (
+        <div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">💳 HR Finance</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              { label:'Active Employees', value:(kpis.activeEmployees||0), sub:`${kpis.totalEmployees||0} total · ${kpis.internCount||0} interns`, icon:FiUser, accent:'#2563eb', bg:'bg-blue-50 text-blue-600', to:'/admin/employees' },
+              { label:'Outstanding Advances', value:`${money(kpis.outstandingAdvances||0)}`, sub:'Active advance balances', icon:FiCreditCard, accent:'#ef4444', bg:'bg-red-50 text-red-600', alert:(kpis.outstandingAdvances||0)>0, to:'/admin/advances' },
+              { label:'Outstanding Loans', value:`${money(kpis.outstandingLoans||0)}`, sub:'Active loan balances', icon:FiRefreshCw, accent:'#f97316', bg:'bg-orange-50 text-orange-600', alert:(kpis.outstandingLoans||0)>0, to:'/admin/loans' },
+              { label:'Draft Payrolls', value:kpis.draftPayrolls||0, sub:'Awaiting review/approval', icon:FiDollarSign, accent:'#8b5cf6', bg:'bg-purple-50 text-purple-600', alert:(kpis.draftPayrolls||0)>0, to:'/admin/payroll' },
+            ].map((c,i) => (
+              <motion.div key={c.label} initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} transition={{delay:i*0.05}}
+                className={`card card-body relative overflow-hidden ${c.alert?'border-orange-200':''}`}>
+                <div style={{position:'absolute',top:0,left:0,width:3,height:'100%',background:c.accent,borderRadius:'12px 0 0 12px'}}/>
+                <Link to={c.to} className="flex items-start justify-between pl-2">
+                  <div><p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-0.5">{c.label}</p>
+                    <p className="text-xl font-bold text-primary font-heading">{c.value}</p>
+                    <p className="text-xs text-gray-400">{c.sub}</p></div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${c.bg}`}><c.icon size={16}/></div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── KPI Row 4 — Projects & Clients ── */}
       <div>
@@ -215,28 +227,30 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ── Revenue vs Expenses Chart ── */}
+      {/* ── Revenue vs Expenses & Project Status ── */}
       <div className="grid lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 card card-body">
-          <h3 className="font-bold text-primary font-heading mb-0.5">Revenue vs Expenses</h3>
-          <p className="text-xs text-gray-400 mb-4">Monthly comparison for {new Date().getFullYear()}</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={revExpChart}>
-              <defs>
-                <linearGradient id="rG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.15}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient>
-                <linearGradient id="eG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#EF4444" stopOpacity={0.1}/><stop offset="95%" stopColor="#EF4444" stopOpacity={0}/></linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
-              <XAxis dataKey="month" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-              <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
-              <Tooltip formatter={(v,n) => [`LKR ${Number(v).toLocaleString()}`,n]} contentStyle={tt}/>
-              <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#2563EB" strokeWidth={2.5} fill="url(#rG)"/>
-              <Area type="monotone" dataKey="expense" name="Expenses" stroke="#EF4444" strokeWidth={2} fill="url(#eG)"/>
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+        {isTopManager && (
+          <div className="lg:col-span-2 card card-body">
+            <h3 className="font-bold text-primary font-heading mb-0.5">Revenue vs Expenses</h3>
+            <p className="text-xs text-gray-400 mb-4">Monthly comparison for {new Date().getFullYear()}</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={revExpChart}>
+                <defs>
+                  <linearGradient id="rG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563EB" stopOpacity={0.15}/><stop offset="95%" stopColor="#2563EB" stopOpacity={0}/></linearGradient>
+                  <linearGradient id="eG" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#EF4444" stopOpacity={0.1}/><stop offset="95%" stopColor="#EF4444" stopOpacity={0}/></linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
+                <XAxis dataKey="month" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
+                <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
+                <Tooltip formatter={(v,n) => [`LKR ${Number(v).toLocaleString()}`,n]} contentStyle={tt}/>
+                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#2563EB" strokeWidth={2.5} fill="url(#rG)"/>
+                <Area type="monotone" dataKey="expense" name="Expenses" stroke="#EF4444" strokeWidth={2} fill="url(#eG)"/>
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
-        <div className="card card-body">
+        <div className={`card card-body ${!isTopManager ? 'lg:col-span-3' : ''}`}>
           <h3 className="font-bold text-primary font-heading mb-0.5">Project Status</h3>
           <p className="text-xs text-gray-400 mb-3">All projects by status</p>
           {projectPie.length > 0 ? (
@@ -255,23 +269,25 @@ export default function AdminDashboard() {
 
       {/* ── Payroll + Attendance ── */}
       <div className="grid lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 card card-body">
-          <h3 className="font-bold text-primary font-heading mb-0.5">Payroll Cost</h3>
-          <p className="text-xs text-gray-400 mb-4">Monthly net salary (approved/paid)</p>
-          {payrollChart.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={payrollChart}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
-                <XAxis dataKey="month" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-                <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
-                <Tooltip formatter={v => [`LKR ${Number(v).toLocaleString()}`,'Payroll']} contentStyle={tt}/>
-                <Bar dataKey="cost" fill="#2563EB" radius={[4,4,0,0]}/>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <div className="h-44 flex items-center justify-center text-gray-400 text-sm">No payroll data yet</div>}
-        </div>
+        {isTopManager && (
+          <div className="lg:col-span-2 card card-body">
+            <h3 className="font-bold text-primary font-heading mb-0.5">Payroll Cost</h3>
+            <p className="text-xs text-gray-400 mb-4">Monthly net salary (approved/paid)</p>
+            {payrollChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={payrollChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0"/>
+                  <XAxis dataKey="month" tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fontSize:11,fill:'#9CA3AF'}} axisLine={false} tickLine={false} tickFormatter={chartMoneyTick}/>
+                  <Tooltip formatter={v => [`LKR ${Number(v).toLocaleString()}`,'Payroll']} contentStyle={tt}/>
+                  <Bar dataKey="cost" fill="#2563EB" radius={[4,4,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div className="h-44 flex items-center justify-center text-gray-400 text-sm">No payroll data yet</div>}
+          </div>
+        )}
 
-        <div className="card card-body">
+        <div className={`card card-body ${!isTopManager ? 'lg:col-span-3' : ''}`}>
           <h3 className="font-bold text-primary font-heading mb-0.5">Attendance This Month</h3>
           <p className="text-xs text-gray-400 mb-3">Status breakdown</p>
           {attChart.length > 0 ? (

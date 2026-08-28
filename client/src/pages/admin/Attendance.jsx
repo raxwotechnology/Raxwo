@@ -17,7 +17,7 @@ import {
 } from 'recharts'
 import {
   FiPlus, FiEdit2, FiX, FiCheck, FiUsers, FiClock,
-  FiAlertTriangle, FiCalendar, FiEye,
+  FiAlertTriangle, FiCalendar, FiEye, FiLogIn, FiLogOut, FiCoffee, FiCheckCircle,
 } from 'react-icons/fi'
 
 const STATUS_OPTIONS = ['present', 'present_short', 'absent', 'leave', 'half_day', 'short_leave', 'late']
@@ -101,6 +101,45 @@ export default function AdminAttendance() {
 
   const employees = empData?.employees || []
   const analytics = analyticsData || {}
+
+  // ── Self Attendance Punch (Clock In / Clock Out for logged in user) ──────────
+  const { data: todayData } = useQuery({
+    queryKey: ['attendance-today'],
+    queryFn: () => api.get('/attendance/today').then(r => r.data),
+    refetchInterval: 30000,
+  })
+  const todayRecord = todayData?.record
+
+  const invalidateSelf = () => {
+    qc.invalidateQueries({ queryKey: ['attendance-today'] })
+    qc.invalidateQueries({ queryKey: ['admin-attendance'] })
+    qc.invalidateQueries({ queryKey: ['attendance-analytics'] })
+  }
+
+  const selfClockInMut = useMutation({
+    mutationFn: () => api.post('/attendance/clock-in'),
+    onSuccess: () => { toast.success('Clocked in successfully! 🎉'); invalidateSelf() },
+    onError: e => toast.error(e.response?.data?.message || 'Clock-in failed'),
+  })
+  const selfClockOutMut = useMutation({
+    mutationFn: () => api.post('/attendance/clock-out'),
+    onSuccess: () => { toast.success('Clocked out successfully! 👋'); invalidateSelf() },
+    onError: e => toast.error(e.response?.data?.message || 'Clock-out failed'),
+  })
+  const selfStartBreakMut = useMutation({
+    mutationFn: () => api.post('/attendance/break/start'),
+    onSuccess: () => { toast.success('Break started'); invalidateSelf() },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+  const selfEndBreakMut = useMutation({
+    mutationFn: () => api.post('/attendance/break/end'),
+    onSuccess: () => { toast.success('Break ended'); invalidateSelf() },
+    onError: e => toast.error(e.response?.data?.message || 'Failed'),
+  })
+
+  const isSelfClockedIn = !!todayRecord?.checkIn
+  const isSelfClockedOut = !!todayRecord?.checkOut
+  const hasSelfActiveBreak = (todayRecord?.breakTimes || []).some(b => b.breakIn && !b.breakOut)
 
   // ── Mutations ────────────────────────────────────────────────────────────────
   const invalidate = () => {
@@ -216,6 +255,78 @@ export default function AdminAttendance() {
             filters={{ Period: filterMode === 'range' ? `${fmtDate(dateFrom)}${dateFrom !== dateTo ? ` to ${fmtDate(dateTo)}` : ''}` : `${month}/${year}`, Status: statusFilter || 'All', Employee: empFilter || 'All', Branch: branchFilter || 'All' }} />
           {canMarkAttendance && (
             <button onClick={openCreate} className="btn-primary gap-2"><FiPlus size={14} /> Add Record</button>
+          )}
+        </div>
+      </div>
+
+      {/* ── My Personal Clock In / Clock Out Control Bar ───────────────────── */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-md flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0">
+            <FiClock size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-white">Daily Attendance Punch (ඔබගේ Attendance)</h3>
+              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                isSelfClockedOut ? 'bg-slate-700 text-slate-200 border-slate-600' :
+                hasSelfActiveBreak ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' :
+                isSelfClockedIn ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' :
+                'bg-rose-500/20 text-rose-300 border-rose-500/40'
+              }`}>
+                {isSelfClockedOut ? `🏁 Clocked Out (${fmt(todayRecord?.checkOut)})` :
+                 hasSelfActiveBreak ? '☕ On Break' :
+                 isSelfClockedIn ? `🟢 Clocked In (${fmt(todayRecord?.checkIn)})` :
+                 '🔴 Not Clocked In Today'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Logged in as <span className="font-semibold text-white">{user?.name}</span> ({user?.role})
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {(!isSelfClockedIn || isSelfClockedOut) ? (
+            <button
+              type="button"
+              onClick={() => selfClockInMut.mutate()}
+              disabled={selfClockInMut.isPending}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+            >
+              <FiLogIn size={15} /> {selfClockInMut.isPending ? 'Clocking In...' : 'Clock In Now'}
+            </button>
+          ) : (
+            <>
+              {!hasSelfActiveBreak ? (
+                <button
+                  type="button"
+                  onClick={() => selfStartBreakMut.mutate()}
+                  disabled={selfStartBreakMut.isPending}
+                  className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <FiCoffee size={14} /> Start Break
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => selfEndBreakMut.mutate()}
+                  disabled={selfEndBreakMut.isPending}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <FiCoffee size={14} /> End Break
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => selfClockOutMut.mutate()}
+                disabled={selfClockOutMut.isPending}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <FiLogOut size={15} /> {selfClockOutMut.isPending ? 'Clocking Out...' : 'Clock Out'}
+              </button>
+            </>
           )}
         </div>
       </div>

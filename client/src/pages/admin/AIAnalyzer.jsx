@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
+import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
@@ -129,6 +130,9 @@ const genInsights = (platform, d) => {
 }
 
 export default function AdminAIAnalyzer() {
+  const { user } = useAuthStore()
+  const isTopManager = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
+
   const [activeTab, setActiveTab] = useState('business')
   const [lookback, setLookback] = useState(6)
   const [websiteUrl, setWebsiteUrl] = useState('')
@@ -162,6 +166,18 @@ export default function AdminAIAnalyzer() {
   });
 
   const employees = empData?.employees || [];
+
+  if (!isTopManager) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-sm max-w-lg mx-auto mt-12 space-y-3">
+        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-xl font-bold">🚫</div>
+        <h2 className="text-lg font-bold text-slate-800">Access Restricted</h2>
+        <p className="text-sm text-slate-500">
+          Access to AI Analyzer is strictly reserved for Admin and Top Manager (Rashin Sheran).
+        </p>
+      </div>
+    )
+  }
 
   const openApiSettings = (platform) => {
     setApiSettingsPlatform(platform)

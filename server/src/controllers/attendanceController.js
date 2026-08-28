@@ -318,8 +318,13 @@ exports.getAttendance = async (req, res, next) => {
     };
 
     if (!isTopMgr) {
-      empFilter.manager = req.user._id;
-      empFilter.employmentType = 'intern';
+      delete empFilter.manager;
+      const ownEmp = await Employee.findOne({ userId: req.user._id });
+      const ownEmpId = ownEmp ? ownEmp._id : null;
+      empFilter.$or = [
+        { manager: req.user._id },
+        ...(ownEmpId ? [{ _id: ownEmpId }] : [{ userId: req.user._id }])
+      ];
     }
 
     const activeEmps = await Employee.find(empFilter).populate('userId', 'name email avatar isActive');
@@ -501,10 +506,22 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
       end = new Date(year, month, 0, 23, 59, 59, 999);
     }
 
-    const activeEmps = await Employee.find({
+    const isTopMgr = isTopManagerOrAdmin(req.user);
+    const empFilter = {
       status: { $in: ['active', 'internship', 'contract', 'on_leave'] },
       ...(branch ? { branch } : {})
-    }).populate('userId', 'name employeeNo isActive');
+    };
+
+    if (!isTopMgr) {
+      const ownEmp = await Employee.findOne({ userId: req.user._id });
+      const ownEmpId = ownEmp ? ownEmp._id : null;
+      empFilter.$or = [
+        { manager: req.user._id },
+        ...(ownEmpId ? [{ _id: ownEmpId }] : [{ userId: req.user._id }])
+      ];
+    }
+
+    const activeEmps = await Employee.find(empFilter).populate('userId', 'name employeeNo isActive');
 
     const validActiveEmps = activeEmps.filter(e => e.userId && e.userId.isActive !== false);
     const validActiveEmpIds = new Set(validActiveEmps.map(e => String(e._id)));

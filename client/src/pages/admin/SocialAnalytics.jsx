@@ -68,6 +68,20 @@ export default function SocialAnalytics() {
   const dashboardRef = useRef(null);
   const qc = useQueryClient();
   const { user } = useAuthStore();
+  const isTopManager = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin');
+
+  if (!isTopManager) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-sm max-w-lg mx-auto mt-12 space-y-3">
+        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-xl font-bold">🚫</div>
+        <h2 className="text-lg font-bold text-slate-800">Access Restricted</h2>
+        <p className="text-sm text-slate-500">
+          Access to Social Analytics is strictly reserved for Admin and Top Manager (Rashin Sheran).
+        </p>
+      </div>
+    );
+  }
+
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
 
   const { data: rawData, isLoading } = useQuery({

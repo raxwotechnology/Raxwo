@@ -107,7 +107,6 @@ const developerNav = [
     { to: '/developer/requests', label: 'My Requests', icon: FiFileText },
     { to: '/developer/tools', label: 'My Tools', icon: FiKey },
     { to: '/developer/performance', label: 'Performance', icon: FiTrendingUp },
-    { to: '/developer/social-analytics', label: 'Social Analytics', icon: FiBarChart2 },
   ]},
   { group: 'Compensation', items: [
     { to: '/developer/attendance', label: 'Attendance', icon: FiClipboard },
@@ -152,6 +151,8 @@ export default function DashboardLayout({ role }) {
   const [showSearchBox, setShowSearchBox] = useState(false)
   const searchBoxRef = useRef(null)
 
+  const isTopManager = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
+
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => api.get('/system-metrics/notifications').then(r => r.data),
@@ -187,7 +188,16 @@ export default function DashboardLayout({ role }) {
     window.location.href = '/'
   }
 
-  const navGroups = navMap[user?.role] || navMap[role] || []
+  const rawNavGroups = navMap[user?.role] || navMap[role] || []
+
+  const navGroups = useMemo(() => {
+    if (isTopManager) return rawNavGroups
+    const restrictedEndings = ['/ai-analyzer', '/analytics', '/social-analytics']
+    return rawNavGroups.map(group => ({
+      ...group,
+      items: group.items.filter(item => !restrictedEndings.some(end => item.to.endsWith(end)))
+    })).filter(group => group.items.length > 0)
+  }, [rawNavGroups, isTopManager])
 
   const searchResults = useMemo(() => {
     if (!searchQuery) return []

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
+import useAuthStore from '../../store/authStore'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, PieChart, Pie, Cell, Legend, LineChart, Line
@@ -14,6 +15,21 @@ const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct
 const money = (v) => formatMoney(v)
 
 export default function AdminAnalytics() {
+  const { user } = useAuthStore()
+  const isTopManager = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
+
+  if (!isTopManager) {
+    return (
+      <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 shadow-sm max-w-lg mx-auto mt-12 space-y-3">
+        <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-xl font-bold">🚫</div>
+        <h2 className="text-lg font-bold text-slate-800">Access Restricted</h2>
+        <p className="text-sm text-slate-500">
+          Access to Analytics is strictly reserved for Admin and Top Manager (Rashin Sheran).
+        </p>
+      </div>
+    )
+  }
+
   const now = new Date()
   const thisYear = now.getFullYear()
   const [startDate, setStartDate] = useState(`${thisYear}-01-01`)
