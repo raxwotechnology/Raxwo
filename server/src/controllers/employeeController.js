@@ -13,6 +13,7 @@ const { sendMail, smtpConfigured } = require('../utils/mailer');
 const { sendLoggedMail } = require('../services/emailService');
 const { sendSms } = require('../services/smsService');
 const { ASSIGNED_STATUSES, INACTIVE_STATUSES } = require('../utils/employeeFilters');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
 
 function syncEmploymentTypeFromStatus(body) {
   const status = body.status;
@@ -86,6 +87,12 @@ exports.getEmployees = async (req, res, next) => {
       query.status = { $in: ASSIGNED_STATUSES };
     } else if (!includeFormer) {
       query.status = { $nin: INACTIVE_STATUSES };
+    }
+
+    // If logged-in user is a PM or Team Leader (not Admin and not Rashin Sheran), restrict list to interns under them
+    if (req.user && !isTopManagerOrAdmin(req.user)) {
+      query.manager = req.user._id;
+      query.employmentType = 'intern';
     }
 
     let employees = await Employee.find(query)

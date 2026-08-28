@@ -7,6 +7,7 @@ import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import { lookupLoaders } from '../../lib/lookupApi'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import toast from 'react-hot-toast'
+import useAuthStore from '../../store/authStore'
 import FilterBar from '../../components/ui/FilterBar'
 import ExportBar from '../../components/ui/ExportBar'
 import SideDrawer from '../../components/ui/SideDrawer'
@@ -38,6 +39,8 @@ const EMPTY_FORM = {
 }
 
 export default function AdminAttendance() {
+  const { user } = useAuthStore()
+  const canMarkAttendance = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
   const qc = useQueryClient()
   const now = new Date()
   const [filterMode, setFilterMode] = useState('range') // default to date range showing today
@@ -211,7 +214,9 @@ export default function AdminAttendance() {
         <div className="flex gap-2 flex-wrap">
           <ExportBar data={records} columns={exportColumns} title="Attendance Report"
             filters={{ Period: filterMode === 'range' ? `${fmtDate(dateFrom)}${dateFrom !== dateTo ? ` to ${fmtDate(dateTo)}` : ''}` : `${month}/${year}`, Status: statusFilter || 'All', Employee: empFilter || 'All', Branch: branchFilter || 'All' }} />
-          <button onClick={openCreate} className="btn-primary gap-2"><FiPlus size={14} /> Add Record</button>
+          {canMarkAttendance && (
+            <button onClick={openCreate} className="btn-primary gap-2"><FiPlus size={14} /> Add Record</button>
+          )}
         </div>
       </div>
 
@@ -405,9 +410,11 @@ export default function AdminAttendance() {
                     <button onClick={() => setViewRecord(r)} className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-secondary" title="View">
                       <FiEye size={13} />
                     </button>
-                    <button onClick={() => openEdit(r)} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-secondary" title="Edit">
-                      <FiEdit2 size={13} />
-                    </button>
+                    {canMarkAttendance && (
+                      <button onClick={() => openEdit(r)} className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-secondary" title="Edit">
+                        <FiEdit2 size={13} />
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

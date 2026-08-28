@@ -379,7 +379,12 @@ export default function Agreements() {
       const iNo = invoices.find((i) => i._id === invoiceVal)?.invoiceNo || ''
 
       let t = ''
-      if (type === 'employee_agreement') t = 'INTERNSHIP AGREEMENT'
+      if (type === 'employee_agreement') {
+        const empVal = watch('employee')
+        const selEmp = (employees || []).find((e) => e._id === empVal)
+        const empType = selEmp?.employmentType || (selEmp?.status === 'internship' ? 'intern' : 'permanent')
+        t = empType === 'intern' ? 'INTERNSHIP AGREEMENT' : (empType === 'contract' ? 'CONTRACT EMPLOYMENT AGREEMENT' : 'EMPLOYMENT AGREEMENT')
+      }
       else if (type === 'client_project' && pName) t = `Project Agreement: ${pName}`
       else if (type === 'invoice_payment' && iNo) t = `Payment Agreement: ${iNo}`
       else if (cName) t = `Agreement with ${cName}`
@@ -389,7 +394,7 @@ export default function Agreements() {
         setValue('agreementDate', new Date().toISOString().split('T')[0])
       }
     }
-  }, [type, clientVal, projectVal, invoiceVal, step, editing, clients, projects, invoices, setValue])
+  }, [type, clientVal, projectVal, invoiceVal, step, editing, clients, projects, invoices, setValue, watch, employees])
 
   const focusAgreementId = searchParams.get('agreement')
   useEffect(() => {
@@ -504,7 +509,7 @@ export default function Agreements() {
                     <td>
                       {isEmployeeParty ? (
                         <span className="badge badge-purple font-semibold text-[11px] px-2.5 py-1">
-                          👤 Employee / Intern
+                          {linkedEmp?.employmentType === 'intern' || linkedEmp?.status === 'internship' ? '👤 Intern' : (linkedEmp?.employmentType === 'contract' ? '👤 Contract Employee' : '👤 Employee')}
                         </span>
                       ) : (
                         <span className="badge badge-blue font-semibold text-[11px] px-2.5 py-1">
@@ -776,6 +781,7 @@ export default function Agreements() {
                                   const name = emp.userId?.name || ''
                                   const desig = emp.designation || ''
                                   const idNum = emp.nic || emp.idNumber || emp.employeeNo || ''
+                                  const empSubLabel = emp.employmentType === 'intern' || emp.status === 'internship' ? 'Intern' : (emp.employmentType === 'contract' ? 'Contract Employee' : 'Employee')
                                   setSignatures(s => ({
                                     ...s,
                                     client: {
@@ -783,9 +789,9 @@ export default function Agreements() {
                                       signerName: name || s.client.signerName,
                                       signerDesignation: desig || s.client.signerDesignation,
                                       signerIdNumber: idNum || s.client.signerIdNumber,
-                                      label: 'Employee / Intern',
-                                      sideType: 'Employee / Intern',
-                                      subRole: emp.employmentType === 'intern' ? 'Intern' : 'Employee',
+                                      label: empSubLabel,
+                                      sideType: empSubLabel,
+                                      subRole: empSubLabel,
                                     }
                                   }))
                                 }

@@ -342,6 +342,11 @@ async function buildTemplateContent(type, { client, employee, project, invoice, 
 
   const companyLine = `${companyName}${companyAddress ? `, ${companyAddress}` : ''}`;
 
+  const isIntern = empDoc?.employmentType === 'intern' || empDoc?.status === 'internship';
+  const isContract = empDoc?.employmentType === 'contract' || empDoc?.status === 'contract';
+  const agreementHeader = isIntern ? 'INTERNSHIP AGREEMENT' : (isContract ? 'CONTRACT EMPLOYMENT AGREEMENT' : 'EMPLOYMENT AGREEMENT');
+  const partyTerm = isIntern ? 'Intern' : (isContract ? 'Contract Employee' : 'Employee');
+
   const templates = {
     client_project: `
 <h2>PROJECT AGREEMENT</h2>
@@ -452,8 +457,8 @@ async function buildTemplateContent(type, { client, employee, project, invoice, 
     `.trim(),
 
     employee_agreement: `
-<h2>INTERNSHIP & EMPLOYMENT AGREEMENT</h2>
-<p>This Agreement is entered into as of <strong>${today}</strong> between <strong>${companyLine}</strong> ("Company") and <strong>${empName}</strong> (NIC: <strong>${empNic}</strong>, Employee ID: <strong>${empNo}</strong>), hereinafter referred to as the <em>Employee / Intern</em>.</p>
+<h2>${agreementHeader}</h2>
+<p>This Agreement is entered into as of <strong>${today}</strong> between <strong>${companyLine}</strong> ("Company") and <strong>${empName}</strong> (NIC: <strong>${empNic}</strong>, Employee ID: <strong>${empNo}</strong>), hereinafter referred to as the <em>${partyTerm}</em>.</p>
 
 <h3>1. Position & Role</h3>
 <p><strong>Designation / Role:</strong> ${empDesig}</p>
@@ -461,17 +466,17 @@ async function buildTemplateContent(type, { client, employee, project, invoice, 
 <p><strong>Joined Date:</strong> ${empJoined}</p>
 
 <h3>2. Compensation & Remuneration</h3>
-<p><strong>Basic Salary / Allowance:</strong> {{Salary}}</p>
+<p><strong>Basic Salary / Allowance:</strong> ${empSalary}</p>
 
 <h3>3. Terms & Conditions</h3>
-<p>The Employee / Intern agrees to perform assigned tasks faithfully, observe company policies, maintain strict confidentiality of proprietary data, and protect intellectual property rights.</p>
+<p>The ${partyTerm} agrees to perform assigned tasks faithfully, observe company policies, maintain strict confidentiality of proprietary data, and protect intellectual property rights.</p>
 
 <h3>4. Governing Law</h3>
 <p>This agreement is governed by the laws of Sri Lanka.</p>
 
 <p>__________________________&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__________________________</p>
-<p><strong>${companyName}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>{{EmployeeName}}</strong></p>
-<p>Company / Provider&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Employee / Intern</p>
+<p><strong>${companyName}</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>${empName}</strong></p>
+<p>Company / Provider&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${partyTerm}</p>
 <p>Date: ${today}</p>
     `.trim(),
 

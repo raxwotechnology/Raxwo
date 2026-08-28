@@ -3,6 +3,7 @@ const Employee = require('../models/Employee');
 const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { computeAttendanceHours } = require('../utils/attendanceHours');
 const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
 
 // Helper: get start of today as a Date
 const todayStart = () => {
@@ -27,6 +28,13 @@ const getEmpIds = async (branchId) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.markAttendance = async (req, res, next) => {
   try {
+    if (!isTopManagerOrAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Project Managers and Team Leaders cannot mark attendance. Attendance can only be marked by Admin or Top Manager (Rashin Sheran).'
+      });
+    }
+
     const {
       employeeId, date, status = 'present', checkIn, checkOut, breakTimes = [],
       isHalfDay = false, isFullDay = true, otHours = 0, otAmount = 0, notes = '',
@@ -110,10 +118,17 @@ exports.clockIn = async (req, res, next) => {
     const today = todayStart();
     const now = new Date();
 
+    const isReset = req.body?.reset || req.body?.forceReset || req.query?.reset === 'true';
+
     // Check if already clocked in today
     const existing = await Attendance.findOne({ employee: employee._id, date: today });
-    if (existing?.checkIn) {
-      return res.status(400).json({ success: false, message: 'You have already clocked in today' });
+    if (existing?.checkIn && !isReset) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already clocked in today',
+        alreadyClockedIn: true,
+        record: existing,
+      });
     }
 
     const attendance = await Attendance.findOneAndUpdate(
@@ -126,6 +141,7 @@ exports.clockIn = async (req, res, next) => {
           status: 'present',
           markedBy: req.user._id,
         },
+        $unset: { checkOut: 1 },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
@@ -145,22 +161,25 @@ exports.clockOut = async (req, res, next) => {
     const today = todayStart();
     const now = new Date();
 
-    const existing = await Attendance.findOne({ employee: employee._id, date: today });
+    let existing = await Attendance.findOne({ employee: employee._id, date: today });
     if (!existing) {
-      return res.status(400).json({ success: false, message: 'You have not clocked in today' });
-    }
-    if (!existing.checkIn) {
-      return res.status(400).json({ success: false, message: 'Cannot clock out without clocking in first' });
-    }
-    if (existing.checkOut) {
-      return res.status(400).json({ success: false, message: 'You have already clocked out today' });
+      // If no record exists yet, create one starting from start of work shift or now
+      existing = await Attendance.create({
+        employee: employee._id,
+        date: today,
+        checkIn: new Date(now.getTime() - (8 * 3600 * 1000)), // default 8h back
+        status: 'present',
+        markedBy: req.user._id,
+      });
     }
 
+    const effectiveCheckIn = existing.checkIn || existing.createdAt || today;
+
     const hours = computeAttendanceHours({
-      checkIn: existing.checkIn,
+      checkIn: effectiveCheckIn,
       checkOut: now,
       breakTimes: existing.breakTimes || [],
-      status: existing.status,
+      status: existing.status || 'present',
       isHalfDay: existing.isHalfDay,
     });
 
@@ -168,6 +187,7 @@ exports.clockOut = async (req, res, next) => {
       { employee: employee._id, date: today },
       {
         $set: {
+          checkIn: effectiveCheckIn,
           checkOut: now,
           totalWorkedHours: hours.totalWorkedHours,
           breakHours: hours.breakHours,
@@ -289,11 +309,20 @@ exports.getAttendance = async (req, res, next) => {
       ? {}
       : { status: { $in: ['active', 'internship', 'contract', 'on_leave'] } };
 
-    const activeEmps = await Employee.find({
+    const isTopMgr = isTopManagerOrAdmin(req.user);
+
+    const empFilter = {
       ...empStatusQuery,
       ...(manager ? { manager } : {}),
       ...(branch ? { branch } : {})
-    }).populate('userId', 'name email avatar isActive');
+    };
+
+    if (!isTopMgr) {
+      empFilter.manager = req.user._id;
+      empFilter.employmentType = 'intern';
+    }
+
+    const activeEmps = await Employee.find(empFilter).populate('userId', 'name email avatar isActive');
 
     // Strictly filter only employees with active user accounts
     const validActiveEmps = (includeFormer === 'true' || includeFormer === '1')
@@ -387,6 +416,13 @@ exports.getAttendance = async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 exports.updateAttendance = async (req, res, next) => {
   try {
+    if (!isTopManagerOrAdmin(req.user)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Project Managers and Team Leaders cannot update attendance records.'
+      });
+    }
+
     const existing = await Attendance.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: 'Record not found' });
 

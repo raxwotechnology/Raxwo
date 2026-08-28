@@ -129,15 +129,19 @@ export default function TeamHub({ isManagerView = false }) {
     },
   })
 
-  // Filter out any inactive/suspended/terminated members
+  const isTopManager = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
+
+  // Filter out any inactive/suspended/terminated members, and scope to assigned interns if PM/TL
   const allEmployees = useMemo(() => {
     const list = employeesData?.employees || []
     return list.filter(e => {
       const isInactive = ['inactive', 'suspended', 'former', 'terminated', 'resigned', 'intern_ended'].includes(e.status)
       const isUserInactive = e.userId?.isActive === false
-      return !isInactive && !isUserInactive
+      const mgrId = String(e.manager?._id || e.manager || '')
+      const matchPM = isTopManager || (e.employmentType === 'intern' && mgrId === String(user?._id))
+      return !isInactive && !isUserInactive && matchPM
     })
-  }, [employeesData])
+  }, [employeesData, isTopManager, user?._id])
 
   // Filter employees belonging to the selected leader
   const leaderTeamEmployees = useMemo(() => {
@@ -770,7 +774,7 @@ export default function TeamHub({ isManagerView = false }) {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold">{selectedEmployee.userId?.name}</h2>
+                <h2 className="text-lg font-bold text-white tracking-wide">{selectedEmployee.userId?.name}</h2>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                   selectedEmployee.employmentType === 'intern'
                     ? 'bg-amber-400 text-slate-900 border-amber-300'

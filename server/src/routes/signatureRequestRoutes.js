@@ -88,4 +88,17 @@ router.delete(
   controller.deleteRequest
 );
 
+// 9. Update signature request (Admin / Owner / Manager or Requester if pending)
+router.put(
+  '/:id',
+  protect,
+  (req, res, next) => {
+    uploadSigOriginalDoc(req, res, (err) => {
+      if (err) return res.status(400).json({ success: false, message: err.message });
+      next();
+    });
+  },
+  controller.updateRequest
+);
+
 module.exports = router;

@@ -598,3 +598,66 @@ exports.deleteRequest = async (req, res, next) => {
     next(err);
   }
 };
+
+// Update a Signature Request (Admin/Owner/Manager or Requester if pending)
+exports.updateRequest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { title, documentType, reason, urgency, notes, recipientType, clientId, employeeId } = req.body;
+
+    const sigReq = await SignatureRequest.findById(id);
+    if (!sigReq) {
+      return res.status(404).json({ success: false, message: 'Signature request not found' });
+    }
+
+    const isManagement = ['admin', 'owner', 'manager'].includes(req.user.role);
+    const isOwner = sigReq.requester.toString() === req.user._id.toString();
+
+    if (!isManagement && !isOwner) {
+      return res.status(403).json({ success: false, message: 'You do not have permission to edit this request' });
+    }
+
+    if (!isManagement && sigReq.status !== 'pending') {
+      return res.status(400).json({ success: false, message: 'Cannot edit a request that is already processed' });
+    }
+
+    if (title && title.trim()) sigReq.title = title.trim();
+    if (documentType) sigReq.documentType = documentType;
+    if (reason && reason.trim()) sigReq.reason = reason.trim();
+    if (urgency) sigReq.urgency = urgency;
+    if (notes !== undefined) sigReq.notes = notes.trim();
+
+    const reqType = recipientType || sigReq.recipientType || 'general';
+    sigReq.recipientType = reqType;
+
+    if (reqType === 'client' && clientId) {
+      const clientProf = await ClientProfile.findById(clientId).populate('userId', 'name email');
+      if (clientProf) {
+        sigReq.clientId = clientProf._id;
+        sigReq.clientName = clientProf.companyName || clientProf.contactPerson || clientProf.userId?.name || 'Client';
+        sigReq.clientEmail = clientProf.userId?.email || '';
+      }
+    } else if (reqType === 'employee' && employeeId) {
+      const targetEmp = await Employee.findById(employeeId).populate('userId', 'name email phone');
+      if (targetEmp) {
+        sigReq.employeeId = targetEmp._id;
+        sigReq.employeeName = targetEmp.userId?.name || (targetEmp.firstName ? `${targetEmp.firstName} ${targetEmp.lastName || ''}`.trim() : 'Employee');
+        sigReq.employeeEmail = targetEmp.userId?.email || '';
+        sigReq.employeePhone = targetEmp.mobile || targetEmp.phone || '';
+        sigReq.employeeType = targetEmp.employmentType || 'permanent';
+      }
+    }
+
+    // Replace original document file if uploaded
+    if (req.file) {
+      const rawPath = req.file.path || req.file.filename || '';
+      sigReq.originalDocUrl = rawPath.startsWith('data:') ? rawPath : `/uploads/documents/${req.file.filename}`;
+    }
+
+    await sigReq.save();
+
+    res.json({ success: true, message: 'Signature request updated successfully', request: sigReq });
+  } catch (err) {
+    next(err);
+  }
+};

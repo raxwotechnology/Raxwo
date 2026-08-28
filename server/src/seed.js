@@ -20,7 +20,7 @@ const seed = async () => {
   const admin = await User.create({ name: 'Admin User', email: 'admin@raxwo.com', password: 'Admin@2026', role: 'admin', isActive: true });
 
   // Create manager
-  const manager = await User.create({ name: 'Sarah Manager', email: 'manager@raxwo.com', password: 'Manager@2026', role: 'manager', isActive: true });
+  const manager = await User.create({ name: 'Rashin Sheran', email: 'manager@raxwo.com', password: 'Manager@2026', role: 'manager', isActive: true });
 
   // Create developers
   const emp1User = await User.create({ name: 'John Developer', email: 'john@raxwo.com', password: 'Employee@2026', role: 'developer', isActive: true });

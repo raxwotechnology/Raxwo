@@ -3,7 +3,7 @@ const Employee = require('../models/Employee');
 
 /** Demo staff logins — matches server/src/seed.js (not admin/client). */
 const STAFF_SPECS = [
-  { role: 'manager', name: 'Sarah Manager', email: 'manager@raxwo.com', password: 'Manager@2026', department: 'Operations', designation: 'Operations Manager' },
+  { role: 'manager', name: 'Rashin Sheran', email: 'manager@raxwo.com', password: 'Manager@2026', department: 'Operations', designation: 'Operations Manager' },
   { role: 'developer', name: 'John Developer', email: 'john@raxwo.com', password: 'Employee@2026', department: 'Engineering', designation: 'Senior Software Engineer' },
   { role: 'developer', name: 'Nimal Silva', email: 'nimal@raxwo.com', password: 'Employee@2026', department: 'Engineering', designation: 'Junior Software Engineer' },
   { role: 'designer', name: 'Alex Designer', email: 'designer@raxwo.com', password: 'Designer@2026', department: 'Design', designation: 'UI/UX Designer' },
@@ -39,18 +39,27 @@ async function upsertStaffUser(spec, { resetPassword = false } = {}) {
       isActive: true,
     });
     console.log(`[staff-logins] Created ${spec.role}: ${email}`);
-  } else if (resetPassword) {
-    user.password = spec.password;
-    user.role = spec.role;
-    user.isActive = true;
-    if (!user.name) user.name = spec.name;
-    await user.save();
-    console.log(`[staff-logins] Reset password for ${email} (${spec.role})`);
-  } else if (!user.isActive || user.role !== spec.role) {
-    user.role = spec.role;
-    user.isActive = true;
-    await user.save({ validateBeforeSave: false });
-    console.log(`[staff-logins] Updated ${email} role/active`);
+  } else {
+    let changed = false;
+    if (user.name !== spec.name) {
+      user.name = spec.name;
+      changed = true;
+    }
+    if (resetPassword) {
+      user.password = spec.password;
+      user.role = spec.role;
+      user.isActive = true;
+      changed = true;
+      console.log(`[staff-logins] Reset password for ${email} (${spec.role})`);
+    } else if (!user.isActive || user.role !== spec.role) {
+      user.role = spec.role;
+      user.isActive = true;
+      changed = true;
+      console.log(`[staff-logins] Updated ${email} role/active`);
+    }
+    if (changed) {
+      await user.save({ validateBeforeSave: false });
+    }
   }
 
   // Auto-provision Employee profiles for staff portals (work logs, requests, exports)

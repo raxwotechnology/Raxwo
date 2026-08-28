@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   FiFileText, FiPlus, FiFilter, FiSearch, FiCheckCircle, FiClock, FiXCircle,
-  FiDownload, FiEdit3, FiShield, FiUpload, FiAlertCircle, FiUser, FiCalendar, FiCheck, FiX, FiRefreshCw, FiTrash2, FiBookmark, FiLayers
+  FiDownload, FiEdit2, FiEdit3, FiShield, FiUpload, FiAlertCircle, FiUser, FiCalendar, FiCheck, FiX, FiRefreshCw, FiTrash2, FiBookmark, FiLayers
 } from 'react-icons/fi'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
@@ -35,6 +35,7 @@ export default function SignatureRequests() {
 
   // Modals & Active Action States
   const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [editingRequest, setEditingRequest] = useState(null)
   const [showStampsModal, setShowStampsModal] = useState(false)
   const [activeEditorRequest, setActiveEditorRequest] = useState(null)
   const [rejectingRequest, setRejectingRequest] = useState(null)
@@ -122,6 +123,7 @@ export default function SignatureRequests() {
     onSuccess: () => {
       toast.success('Signature request submitted successfully!')
       setShowSubmitModal(false)
+      setEditingRequest(null)
       setSubmitForm({
         title: '',
         documentType: 'Internship Certificate',
@@ -137,6 +139,36 @@ export default function SignatureRequests() {
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to submit request')
+    }
+  })
+
+  // Update Request Mutation
+  const updateMut = useMutation({
+    mutationFn: async ({ id, formData }) => {
+      const res = await api.put(`/signature-requests/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Signature request updated successfully!')
+      setShowSubmitModal(false)
+      setEditingRequest(null)
+      setSubmitForm({
+        title: '',
+        documentType: 'Internship Certificate',
+        reason: '',
+        urgency: 'normal',
+        notes: '',
+        recipientType: 'general',
+        clientId: '',
+        employeeId: '',
+        file: null
+      })
+      queryClient.invalidateQueries(['signature-requests'])
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to update request')
     }
   })
 
@@ -207,10 +239,45 @@ export default function SignatureRequests() {
     }
   })
 
+  const handleOpenCreate = () => {
+    setEditingRequest(null)
+    setSubmitForm({
+      title: '',
+      documentType: 'Internship Certificate',
+      reason: '',
+      urgency: 'normal',
+      notes: '',
+      recipientType: 'general',
+      clientId: '',
+      employeeId: '',
+      file: null
+    })
+    setShowSubmitModal(true)
+  }
+
+  const handleOpenEdit = (req) => {
+    setEditingRequest(req)
+    setSubmitForm({
+      title: req.title || '',
+      documentType: req.documentType || 'Internship Certificate',
+      reason: req.reason || '',
+      urgency: req.urgency || 'normal',
+      notes: req.notes || '',
+      recipientType: req.recipientType || 'general',
+      clientId: req.clientId?._id || req.clientId || '',
+      employeeId: req.employeeId?._id || req.employeeId || '',
+      file: null
+    })
+    setShowSubmitModal(true)
+  }
+
   const handleSubmitRequest = (e) => {
     e.preventDefault()
-    if (!submitForm.title || !submitForm.reason || !submitForm.file) {
-      return toast.error('Please fill all required fields and upload document')
+    if (!submitForm.title || !submitForm.reason) {
+      return toast.error('Please fill all required fields')
+    }
+    if (!editingRequest && !submitForm.file) {
+      return toast.error('Please upload a document file')
     }
     if (submitForm.recipientType === 'client' && !submitForm.clientId) {
       return toast.error('Please select a Customer / Client')
@@ -231,8 +298,15 @@ export default function SignatureRequests() {
     if (submitForm.recipientType === 'employee' && submitForm.employeeId) {
       fd.append('employeeId', submitForm.employeeId)
     }
-    fd.append('file', submitForm.file)
-    submitMut.mutate(fd)
+    if (submitForm.file) {
+      fd.append('file', submitForm.file)
+    }
+
+    if (editingRequest) {
+      updateMut.mutate({ id: editingRequest._id, formData: fd })
+    } else {
+      submitMut.mutate(fd)
+    }
   }
 
   const handleAddStampToLibrary = (e) => {
@@ -358,7 +432,7 @@ export default function SignatureRequests() {
 
           <button
             type="button"
-            onClick={() => setShowSubmitModal(true)}
+            onClick={handleOpenCreate}
             className="btn-primary gap-2 w-full sm:w-auto justify-center"
           >
             <FiPlus size={16} /> Submit Document
@@ -583,6 +657,17 @@ export default function SignatureRequests() {
                           </a>
                         )}
 
+                        {(isManagement || ((req.requester?._id === user?._id || req.requester === user?._id) && req.status === 'pending')) && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(req)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Request Details"
+                          >
+                            <FiEdit2 size={14} />
+                          </button>
+                        )}
+
                         {isManagement && (
                           <button
                             type="button"
@@ -731,6 +816,17 @@ export default function SignatureRequests() {
                     </a>
                   )}
 
+                  {(isManagement || ((req.requester?._id === user?._id || req.requester === user?._id) && req.status === 'pending')) && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(req)}
+                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                      title="Edit Request Details"
+                    >
+                      <FiEdit2 size={14} />
+                    </button>
+                  )}
+
                   {isManagement && (
                     <button
                       type="button"
@@ -760,9 +856,9 @@ export default function SignatureRequests() {
             >
               <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-slate-50">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <FiFileText className="text-blue-600" /> New Document Signature Request
+                  <FiFileText className="text-blue-600" /> {editingRequest ? 'Edit Signature & Seal Request' : 'New Document Signature Request'}
                 </h3>
-                <button onClick={() => setShowSubmitModal(false)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl">
+                <button onClick={() => { setShowSubmitModal(false); setEditingRequest(null); }} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl">
                   <FiX size={20} />
                 </button>
               </div>
@@ -896,34 +992,42 @@ export default function SignatureRequests() {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Upload Document (PDF or Image Recommended) *
+                    Upload Document {editingRequest ? '(Optional on Edit)' : '*'}
                   </label>
                   <input
                     type="file"
-                    required
+                    required={!editingRequest}
                     accept=".pdf,image/*,.doc,.docx"
                     onChange={(e) => setSubmitForm(p => ({ ...p, file: e.target.files?.[0] || null }))}
                     className="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-                  <p className="text-[10px] text-slate-500 font-medium mt-1">
-                    📌 Recommended format: <span className="font-bold text-slate-700">PDF (.pdf)</span> or <span className="font-bold text-slate-700">Image (.png, .jpg)</span> for interactive digital signing &amp; seal placement.
-                  </p>
+                  {editingRequest ? (
+                    <p className="text-[10px] text-blue-600 font-medium mt-1">
+                      💡 Leave empty to keep existing attached document file.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-500 font-medium mt-1">
+                      📌 Recommended format: <span className="font-bold text-slate-700">PDF (.pdf)</span> or <span className="font-bold text-slate-700">Image (.png, .jpg)</span> for interactive digital signing &amp; seal placement.
+                    </p>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowSubmitModal(false)}
+                    onClick={() => { setShowSubmitModal(false); setEditingRequest(null); }}
                     className="px-4 py-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={submitMut.isPending}
+                    disabled={submitMut.isPending || updateMut.isPending}
                     className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-2"
                   >
-                    {submitMut.isPending ? 'Submitting...' : 'Submit Request'}
+                    {editingRequest
+                      ? (updateMut.isPending ? 'Updating...' : 'Update Request')
+                      : (submitMut.isPending ? 'Submitting...' : 'Submit Request')}
                   </button>
                 </div>
               </form>
