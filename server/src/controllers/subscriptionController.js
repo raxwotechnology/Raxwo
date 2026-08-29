@@ -117,17 +117,24 @@ exports.getSubscriptions = async (req, res, next) => {
       const obj = s.toObject();
       obj.overdueDays = calcOverdueDays(s.nextDueDate);
 
-      // Dynamically add to totalBilled for past cycles that haven't been added yet
       let amount = s.amount || 0;
       let totalPaid = s.totalPaid || 0;
       let dynamicBilled = s.totalBilled || 0;
       if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
       let tempNext = new Date(s.nextDueDate || new Date());
-      while (now >= tempNext) {
+      tempNext.setHours(23, 59, 59, 999);
+      while (now > tempNext) {
          dynamicBilled += amount;
          tempNext = advanceDueDate(tempNext, s.billingFrequency);
       }
-      obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
+
+      // If nextDueDate is on/before today and has not advanced yet, current cycle amount is pending
+      const isDuePeriod = s.nextDueDate && new Date(s.nextDueDate) <= now;
+      if (isDuePeriod && totalPaid <= dynamicBilled && amount > 0) {
+        obj.remainingBalance = Math.max(amount, dynamicBilled - totalPaid);
+      } else {
+        obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
+      }
       obj.typeLabel = s.subscriptionType === 'custom' && s.customServiceType
         ? s.customServiceType
         : SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
@@ -162,11 +169,17 @@ exports.getSubscription = async (req, res, next) => {
     let dynamicBilled = sub.totalBilled || 0;
     if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
     let tempNext = new Date(sub.nextDueDate || new Date());
-    while (now >= tempNext) {
+    tempNext.setHours(23, 59, 59, 999);
+    while (now > tempNext) {
        dynamicBilled += amount;
        tempNext = advanceDueDate(tempNext, sub.billingFrequency);
     }
-    obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
+    const isDuePeriod = sub.nextDueDate && new Date(sub.nextDueDate) <= now;
+    if (isDuePeriod && totalPaid <= dynamicBilled && amount > 0) {
+      obj.remainingBalance = Math.max(amount, dynamicBilled - totalPaid);
+    } else {
+      obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
+    }
     
     obj.typeLabel = sub.subscriptionType === 'custom' && sub.customServiceType
       ? sub.customServiceType
@@ -199,6 +212,21 @@ exports.createSubscription = async (req, res, next) => {
 
     // Set initial totalBilled to the amount (first billing cycle)
     payload.totalBilled = payload.amount || 0;
+
+    if (payload.paymentMethod && payload.amount > 0) {
+      payload.totalPaid = Number(payload.amount);
+      payload.payments = [{
+        amount: Number(payload.amount),
+        method: payload.paymentMethod,
+        bankAccount: payload.bankAccount || null,
+        paidAt: new Date(),
+        note: 'Initial setup payment'
+      }];
+      if (payload.nextDueDate) {
+        payload.nextDueDate = advanceDueDate(payload.nextDueDate, payload.billingFrequency || 'monthly');
+        payload.totalBilled = (payload.amount || 0) * 2;
+      }
+    }
 
     const sub = await Subscription.create(payload);
 
@@ -357,10 +385,13 @@ exports.recordPayment = async (req, res, next) => {
 
     sub.totalPaid += Number(amount);
 
-    // If they pay in advance for future cycles, advance the due date
-    while (sub.totalPaid >= sub.totalBilled + sub.amount) {
+    // If payment covers the current cycle totalBilled, advance nextDueDate to next cycle
+    if (!sub.totalBilled || sub.totalBilled === 0) {
+      sub.totalBilled = sub.amount || Number(amount);
+    }
+    while (sub.totalPaid >= sub.totalBilled) {
       sub.nextDueDate = advanceDueDate(sub.nextDueDate, sub.billingFrequency);
-      sub.totalBilled += sub.amount; // Add next cycle billing
+      sub.totalBilled += (sub.amount || Number(amount));
     }
 
     // Reset overdue status if caught up

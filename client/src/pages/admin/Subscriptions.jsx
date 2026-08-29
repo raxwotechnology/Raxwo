@@ -199,6 +199,18 @@ export default function AdminSubscriptions() {
     }
   }
 
+  const getSubPaymentStatus = (s) => {
+    if (!s) return 'unknown'
+    if (s.status === 'paused' || s.status === 'cancelled' || s.status === 'expired') {
+      return s.status
+    }
+    const { isOverdue } = getReminderState(s)
+    const hasBalance = (s.remainingBalance || 0) > 0
+    if (isOverdue || s.status === 'overdue') return 'overdue'
+    if (hasBalance) return 'unpaid'
+    return 'paid'
+  }
+
   const filteredSubs = subs.filter(s => {
     const matchesSearch =
       s.title?.toLowerCase().includes(search.toLowerCase()) ||
@@ -206,24 +218,25 @@ export default function AdminSubscriptions() {
       s.client?.name?.toLowerCase().includes(search.toLowerCase())
     if (!matchesSearch) return false
 
-    const hasBalance = (s.remainingBalance || 0) > 0
-    const { isOverdue } = getReminderState(s)
+    const pStatus = getSubPaymentStatus(s)
 
-    if (paymentTab === 'paid') return !hasBalance
-    if (paymentTab === 'unpaid') return hasBalance && !isOverdue
-    if (paymentTab === 'overdue') return isOverdue
+    if (statusFilter && statusFilter !== '') {
+      if (statusFilter === 'active' && !['paid', 'unpaid'].includes(pStatus)) return false
+      if (statusFilter === 'paid' && pStatus !== 'paid') return false
+      if (statusFilter === 'unpaid' && pStatus !== 'unpaid') return false
+      if (statusFilter === 'overdue' && pStatus !== 'overdue') return false
+      if (['paused', 'cancelled', 'expired'].includes(statusFilter) && s.status !== statusFilter) return false
+    }
+
+    if (paymentTab === 'paid') return pStatus === 'paid'
+    if (paymentTab === 'unpaid') return pStatus === 'unpaid'
+    if (paymentTab === 'overdue') return pStatus === 'overdue'
     return true
   })
 
-  const countPaid = subs.filter(s => (s.remainingBalance || 0) <= 0).length
-  const countUnpaid = subs.filter(s => {
-    const { isOverdue } = getReminderState(s)
-    return (s.remainingBalance || 0) > 0 && !isOverdue
-  }).length
-  const countOverdue = subs.filter(s => {
-    const { isOverdue } = getReminderState(s)
-    return isOverdue
-  }).length
+  const countPaid = subs.filter(s => getSubPaymentStatus(s) === 'paid').length
+  const countUnpaid = subs.filter(s => getSubPaymentStatus(s) === 'unpaid').length
+  const countOverdue = subs.filter(s => getSubPaymentStatus(s) === 'overdue').length
 
   /* Mutations */
   const saveMut = useMutation({
@@ -686,15 +699,20 @@ export default function AdminSubscriptions() {
                             <FiAlertCircle size={9} /> {s.overdueDays}d
                           </span>
                         )}
-                        <span
-                          className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shrink-0"
-                          style={{
-                            background: s.status === 'overdue' ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-                            color: s.status === 'overdue' ? '#dc2626' : '#059669',
-                          }}
-                        >
-                          {s.status}
-                        </span>
+                        {(() => {
+                          const pSt = getSubPaymentStatus(s)
+                          return (
+                            <span
+                              className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shrink-0"
+                              style={{
+                                background: pSt === 'overdue' ? 'rgba(239,68,68,0.1)' : pSt === 'unpaid' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                                color: pSt === 'overdue' ? '#dc2626' : pSt === 'unpaid' ? '#d97706' : '#059669',
+                              }}
+                            >
+                              {pSt === 'unpaid' ? 'unpaid' : pSt}
+                            </span>
+                          )
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -750,9 +768,10 @@ export default function AdminSubscriptions() {
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
             <input type="text" placeholder="Search by title, client, or number…" className="form-input !pl-10 w-full" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <select className="form-select w-full sm:w-40" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <select className="form-select w-full sm:w-44" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="">All Statuses</option>
-            <option value="active">Active</option>
+            <option value="paid">Paid (Current Cycle)</option>
+            <option value="unpaid">Pending / Unpaid</option>
             <option value="overdue">Overdue</option>
             <option value="paused">Paused</option>
             <option value="cancelled">Cancelled</option>
@@ -883,15 +902,37 @@ export default function AdminSubscriptions() {
                       <p className="text-xs text-slate-400">Due: {new Date(s.nextDueDate).toLocaleDateString()}</p>
                     </td>
                     <td>
-                      <div className="flex flex-col items-start gap-1">
-                        <span className={`badge ${s.status === 'active' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{s.status}</span>
-                        {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">{s.overdueDays || 1}d overdue</span>}
-                        {isInReminder && (
-                          <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                            <FiAlertCircle size={10} /> Due in {daysUntilDue}d
-                          </span>
-                        )}
-                      </div>
+                      {(() => {
+                        const pSt = getSubPaymentStatus(s)
+                        return (
+                          <div className="flex flex-col items-start gap-1">
+                            {pSt === 'paid' && (
+                              <span className="badge badge-green flex items-center gap-1 font-bold">
+                                <FiCheck size={11} /> Paid
+                              </span>
+                            )}
+                            {pSt === 'unpaid' && (
+                              <span className="badge bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 font-bold">
+                                <FiAlertCircle size={11} /> Pending / Unpaid
+                              </span>
+                            )}
+                            {pSt === 'overdue' && (
+                              <span className="badge badge-red flex items-center gap-1 font-bold">
+                                <FiAlertCircle size={11} /> Overdue
+                              </span>
+                            )}
+                            {['paused', 'cancelled', 'expired'].includes(pSt) && (
+                              <span className="badge badge-gray font-bold capitalize">{pSt}</span>
+                            )}
+                            {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">{s.overdueDays || 1}d overdue</span>}
+                            {isInReminder && (
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <FiAlertCircle size={10} /> Due in {daysUntilDue}d
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </td>
                     <td>
                       {s.hostingDetails?.domainName
