@@ -123,6 +123,33 @@ exports.getEmployees = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// @desc    Get active employees for public team page
+// @route   GET /api/employees/public-team
+exports.getPublicOurTeam = async (req, res, next) => {
+  try {
+    let employees = await Employee.find({
+      status: { $in: ASSIGNED_STATUSES },
+    })
+      .populate('userId', 'name email avatar role isActive')
+      .populate('manager', 'name email avatar role')
+      .sort({ createdAt: -1 });
+
+    employees = employees.filter((e) => e.userId && e.userId.isActive !== false);
+
+    const seenUsers = new Set();
+    employees = employees.filter((e) => {
+      const uid = String(e.userId?._id || e.userId);
+      if (seenUsers.has(uid)) return false;
+      seenUsers.add(uid);
+      return true;
+    });
+
+    res.json({ success: true, count: employees.length, employees });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // @desc    Get single employee
 // @route   GET /api/employees/:id
 exports.getEmployee = async (req, res, next) => {

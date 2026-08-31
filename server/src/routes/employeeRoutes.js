@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getEmployees, getEmployee, getMyProfile, createEmployee,
+  getEmployees, getPublicOurTeam, getEmployee, getMyProfile, createEmployee,
   updateEmployee, deleteEmployee, getStats, getEmployeeActivity,
   convertIntern, removeIntern,
   adminSetEmployeePassword, adminResetEmployeePassword, adminSendPasswordResetEmail,
@@ -9,6 +9,7 @@ const {
 } = require('../controllers/employeeController');
 const { protect, authorize } = require('../middleware/auth');
 
+router.get('/public-team', getPublicOurTeam);
 router.get('/stats', protect, authorize('admin', 'manager'), getStats);
 router.get('/leaders/summary', protect, authorize('admin', 'manager'), getLeadersSummary);
 router.post('/assign-leader', protect, authorize('admin'), assignLeader);
