@@ -1,3 +1,12 @@
+// Global error handlers to prevent backend process crashes
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Uncaught Exception:', err);
+});
+
 require('dotenv').config();
 const app = require('./app');
 const connectDB = require('./config/db');
