@@ -393,18 +393,23 @@ exports.getAttendance = async (req, res, next) => {
     const records = await Attendance.find(query)
       .populate({
         path: 'employee',
-        select: '_id userId employeeNo branch',
+        select: '_id userId employeeNo branch status',
         populate: { path: 'userId', select: 'name email avatar isActive' },
       })
       .select('employee date status checkIn checkOut isHalfDay otHours lateDeductionAmount hourlyDeductionAmount breakTimes totalWorkedHours notes markedBy')
       .sort({ date: -1 })
-      .limit(1000)
+      .limit(2000)
       .lean();
 
-    // Filter out any record where employee is inactive/null
+    // Filter out records where employee is null/missing
+    // For top-managers with no specific filter, show all records (skip set restriction)
+    const restrictByEmpSet = !isTopMgr || employeeId || branch || manager;
     let filteredRecords = records.filter(r => {
       if (!r.employee || !r.employee._id) return false;
-      return validActiveEmpIds.has(String(r.employee._id));
+      if (restrictByEmpSet && validActiveEmpIds.size > 0) {
+        return validActiveEmpIds.has(String(r.employee._id));
+      }
+      return true;
     });
 
     // If querying specific date range, filter strictly in memory to target date range in local/UTC
