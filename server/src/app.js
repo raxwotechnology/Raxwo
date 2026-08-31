@@ -17,6 +17,7 @@ require('./models/Project');
 require('./models/Invoice');
 require('./models/Quotation');
 require('./models/Agreement');
+require('./models/Subscription');
 require('./models/BankAccount');
 
 // Route imports
@@ -67,31 +68,22 @@ const { ensureDefaultRules } = require('./services/rewardService');
 const app = express();
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet({ crossOriginResourcePolicy: false }));
-const allowedOrigins = [
-  process.env.CLIENT_URL || 'https://manage.raxwo.net',
-  'https://manage.raxwo.net',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-  'http://localhost:3000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-];
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin)) {
-      return callback(null, true);
-    }
-    return callback(null, true);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+// Security & Universal CORS middleware
+app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
+
+// Universal CORS middleware ensuring Access-Control headers on ALL responses (including errors & preflights)
+app.use((req, res, next) => {
+  const origin = req.headers.origin || 'https://manage.raxwo.net';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
 
 // Rate limiting
 const limiter = rateLimit({

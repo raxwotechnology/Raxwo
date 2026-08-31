@@ -5,6 +5,7 @@ const Invoice = require('../models/Invoice');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 const Branch = require('../models/Branch');
+const Subscription = require('../models/Subscription');
 const { createNotification } = require('../services/notificationService');
 
 const POPULATE = [
@@ -104,7 +105,9 @@ exports.getAgreements = async (req, res, next) => {
     const agreements = await Agreement.find(query)
       .populate(POPULATE)
       .populate({ path: 'history.user', select: 'name' })
-      .sort({ createdAt: -1 });
+      .select('-signatures.provider.data -signatures.client.data -signatures.seal.data -signatures.witness.data')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, count: agreements.length, agreements });
   } catch (err) { next(err); }
 };

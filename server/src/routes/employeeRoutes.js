@@ -8,14 +8,15 @@ const {
   getLeadersSummary, assignLeader, designateLeader,
 } = require('../controllers/employeeController');
 const { protect, authorize } = require('../middleware/auth');
+const ALL_STAFF = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin'];
 
 router.get('/public-team', getPublicOurTeam);
-router.get('/stats', protect, authorize('admin', 'manager'), getStats);
-router.get('/leaders/summary', protect, authorize('admin', 'manager'), getLeadersSummary);
+router.get('/stats', protect, authorize(...ALL_STAFF), getStats);
+router.get('/leaders/summary', protect, authorize(...ALL_STAFF), getLeadersSummary);
 router.post('/assign-leader', protect, authorize('admin'), assignLeader);
 router.post('/designate-leader', protect, authorize('admin'), designateLeader);
 router.get('/me', protect, getMyProfile);
-router.get('/', protect, authorize('admin', 'manager'), getEmployees);
+router.get('/', protect, authorize(...ALL_STAFF), getEmployees);
 router.get('/:id/activity', protect, authorize('admin', 'manager'), getEmployeeActivity);
 router.put('/:id/password', protect, authorize('admin'), adminSetEmployeePassword);
 router.post('/:id/reset-password', protect, authorize('admin'), adminResetEmployeePassword);
