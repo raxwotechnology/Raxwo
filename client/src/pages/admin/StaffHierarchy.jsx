@@ -1,19 +1,38 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
+import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import {
   FiUsers, FiUser, FiBriefcase, FiSearch, FiPhone, FiMail,
   FiLayers, FiChevronDown, FiChevronRight, FiGrid, FiList,
-  FiShield, FiBookOpen, FiGlobe, FiFilter, FiExternalLink, FiX
+  FiShield, FiBookOpen, FiGlobe, FiFilter, FiExternalLink, FiX, FiTrash2, FiUserX
 } from 'react-icons/fi'
 
 export default function StaffHierarchy() {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('all')
   const [viewMode, setViewMode] = useState('tree') // 'tree' | 'grid'
   const [selectedMember, setSelectedMember] = useState(null)
+
+  // Unassign Leader Mutation
+  const unassignLeaderMut = useMutation({
+    mutationFn: async (empId) => {
+      const res = await api.put(`/employees/${empId}`, { manager: null })
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Assigned leader removed successfully!')
+      queryClient.invalidateQueries({ queryKey: ['staff-hierarchy'] })
+      queryClient.invalidateQueries({ queryKey: ['employees'] })
+      setSelectedMember(null)
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to remove leader')
+    }
+  })
 
   // Fetch all active employees with populated user & manager
   const { data: empData, isLoading } = useQuery({
@@ -149,11 +168,29 @@ export default function StaffHierarchy() {
             {isIntern ? '🎓 Intern' : isRoot ? '⭐ Executive' : '💼 Staff'}
           </span>
 
-          {reportsCount > 0 && (
-            <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-purple-100">
-              <FiUsers size={10} /> {reportsCount} report{reportsCount !== 1 ? 's' : ''}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {emp.manager && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (window.confirm(`Remove assigned leader for ${emp.userId?.name || 'this employee'}?`)) {
+                    unassignLeaderMut.mutate(emp._id)
+                  }
+                }}
+                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                title="Remove assigned leader"
+              >
+                <FiUserX size={13} />
+              </button>
+            )}
+
+            {reportsCount > 0 && (
+              <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-purple-100">
+                <FiUsers size={10} /> {reportsCount} report{reportsCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
       </motion.div>
     )
@@ -434,8 +471,24 @@ export default function StaffHierarchy() {
                 </div>
               </div>
 
+              {/* Remove Leader Action */}
+              {selectedMember.manager && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Remove assigned leader for ${selectedMember.userId?.name || 'this employee'}?`)) {
+                      unassignLeaderMut.mutate(selectedMember._id)
+                    }
+                  }}
+                  disabled={unassignLeaderMut.isPending}
+                  className="w-full py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl border border-red-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <FiTrash2 size={13} /> {unassignLeaderMut.isPending ? 'Removing Leader...' : 'Remove Assigned Leader'}
+                </button>
+              )}
+
               {/* Quick Contact Links */}
-              <div className="pt-2 flex items-center gap-2">
+              <div className="pt-1 flex items-center gap-2">
                 {selectedMember.userId?.email && (
                   <a
                     href={`mailto:${selectedMember.userId.email}`}

@@ -40,8 +40,68 @@ export default function SignatureRequests() {
   const [activeEditorRequest, setActiveEditorRequest] = useState(null)
   const [rejectingRequest, setRejectingRequest] = useState(null)
   const [deletingRequest, setDeletingRequest] = useState(null)
+  const [viewingDoc, setViewingDoc] = useState(null)
+  const [viewingStampModal, setViewingStampModal] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
+
+  // Delete Stamp Mutation
+  const deleteStampMut = useMutation({
+    mutationFn: async (id) => {
+      const res = await api.delete(`/signature-requests/saved-stamps/${id}`)
+      return { id, data: res.data }
+    },
+    onSuccess: ({ id }) => {
+      toast.success('Stamp deleted from library')
+      queryClient.setQueryData(['saved-stamps-list'], (old) => {
+        if (!old || !old.stamps) return old
+        return { ...old, stamps: old.stamps.filter((s) => String(s._id) !== String(id)) }
+      })
+      queryClient.invalidateQueries({ queryKey: ['saved-stamps-list'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete stamp')
+    }
+  })
+
+  // Reject Request Mutation (Admin / Owner)
+  const rejectMut = useMutation({
+    mutationFn: async ({ id, rejectionReason }) => {
+      const res = await api.put(`/signature-requests/${id}/reject`, { rejectionReason })
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Signature request rejected')
+      setRejectingRequest(null)
+      setRejectionReason('')
+      queryClient.invalidateQueries({ queryKey: ['signature-requests'] })
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to reject request')
+    }
+  })
+
+  // Hard Delete Request Mutation (Admin / Owner — Password Protected)
+  const deleteRequestMut = useMutation({
+    mutationFn: async ({ id, password }) => {
+      const res = await api.delete(`/signature-requests/${id}`, { data: { password } })
+      return { id, data: res.data }
+    },
+    onSuccess: ({ id }) => {
+      toast.success('Signature request permanently deleted!')
+      setDeletingRequest(null)
+      setAdminPassword('')
+      queryClient.setQueriesData({ queryKey: ['signature-requests'] }, (old) => {
+        if (!old || !old.requests) return old
+        return { ...old, requests: old.requests.filter((r) => String(r._id) !== String(id)) }
+      })
+      queryClient.invalidateQueries({ queryKey: ['signature-requests'] })
+      refetch()
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete request. Check password.')
+    }
+  })
 
   // Submit Request Form State
   const [submitForm, setSubmitForm] = useState({
@@ -190,54 +250,7 @@ export default function SignatureRequests() {
     }
   })
 
-  // Delete Stamp Mutation
-  const deleteStampMut = useMutation({
-    mutationFn: async (id) => {
-      const res = await api.delete(`/signature-requests/saved-stamps/${id}`)
-      return res.data
-    },
-    onSuccess: () => {
-      toast.success('Stamp deleted from library')
-      queryClient.invalidateQueries(['saved-stamps-list'])
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete stamp')
-    }
-  })
 
-  // Reject Request Mutation (Admin / Owner)
-  const rejectMut = useMutation({
-    mutationFn: async ({ id, rejectionReason }) => {
-      const res = await api.put(`/signature-requests/${id}/reject`, { rejectionReason })
-      return res.data
-    },
-    onSuccess: () => {
-      toast.success('Signature request rejected')
-      setRejectingRequest(null)
-      setRejectionReason('')
-      queryClient.invalidateQueries(['signature-requests'])
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to reject request')
-    }
-  })
-
-  // Hard Delete Request Mutation (Admin / Owner — Password Protected)
-  const deleteRequestMut = useMutation({
-    mutationFn: async ({ id, password }) => {
-      const res = await api.delete(`/signature-requests/${id}`, { data: { password } })
-      return res.data
-    },
-    onSuccess: () => {
-      toast.success('Signature request permanently deleted!')
-      setDeletingRequest(null)
-      setAdminPassword('')
-      queryClient.invalidateQueries(['signature-requests'])
-    },
-    onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to delete request. Check password.')
-    }
-  })
 
   const handleOpenCreate = () => {
     setEditingRequest(null)
@@ -617,6 +630,15 @@ export default function SignatureRequests() {
                     {/* Actions */}
                     <td className="text-right">
                       <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setViewingDoc(req)}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg border border-slate-200 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          title="View Document & Signature Details"
+                        >
+                          <FiEye size={14} /> View
+                        </button>
+
                         {req.status === 'signed' && req.signedDocUrl ? (
                           <button
                             type="button"
@@ -1127,14 +1149,24 @@ export default function SignatureRequests() {
                                 </span>
                               </div>
                             </div>
-                            <button
-                              onClick={() => deleteStampMut.mutate(st._id)}
-                              disabled={deleteStampMut.isPending}
-                              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                              title="Delete Stamp"
-                            >
-                              <FiTrash2 size={16} />
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setViewingStampModal(st)}
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
+                                title="View Stamp Full Image"
+                              >
+                                <FiEye size={16} />
+                              </button>
+                              <button
+                                onClick={() => deleteStampMut.mutate(st._id)}
+                                disabled={deleteStampMut.isPending}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
+                                title="Delete Stamp"
+                              >
+                                <FiTrash2 size={16} />
+                              </button>
+                            </div>
                           </div>
                         )
                       })}
@@ -1236,6 +1268,141 @@ export default function SignatureRequests() {
                   className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-red-600/20 flex items-center gap-1.5 transition-all"
                 >
                   {deleteRequestMut.isPending ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ── Document & Signature Viewer Lightbox Modal ────────────────────── */}
+      {viewingDoc && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="w-full max-w-5xl bg-white rounded-3xl shadow-2xl overflow-hidden my-auto border border-slate-200 flex flex-col max-h-[92vh]"
+            >
+              <div className="p-5 px-6 border-b border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <span className="font-mono text-xs font-bold text-blue-700 bg-blue-100/80 px-2.5 py-1 rounded-lg border border-blue-200">
+                    {viewingDoc.requestRef}
+                  </span>
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base leading-tight">{viewingDoc.title}</h3>
+                    <p className="text-xs text-slate-500 font-medium">Category: {viewingDoc.documentType} • Created: {new Date(viewingDoc.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {viewingDoc.status === 'signed' ? (
+                    <span className="badge badge-green px-3 py-1 font-bold text-xs"><FiCheckCircle size={13} /> Signed &amp; Sealed</span>
+                  ) : (
+                    <span className="badge badge-yellow px-3 py-1 font-bold text-xs"><FiClock size={13} /> Pending Review</span>
+                  )}
+                  <button onClick={() => setViewingDoc(null)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer">
+                    <FiX size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-900/5 min-h-[420px] flex items-center justify-center">
+                {(() => {
+                  const docUrl = viewingDoc.signedDocUrl || viewingDoc.originalDocUrl
+                  const fullUrl = mediaUrl(docUrl)
+                  const isImg = docUrl && (docUrl.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i) || docUrl.startsWith('data:image'))
+                  
+                  if (isImg) {
+                    return (
+                      <div className="max-w-full max-h-full flex items-center justify-center p-2">
+                        <img
+                          src={fullUrl}
+                          alt={viewingDoc.title}
+                          className="max-h-[65vh] max-w-full object-contain rounded-2xl shadow-xl border border-slate-200 bg-white"
+                        />
+                      </div>
+                    )
+                  }
+                  
+                  return (
+                    <iframe
+                      src={fullUrl}
+                      title={viewingDoc.title}
+                      className="w-full h-[65vh] rounded-2xl border border-slate-200 bg-white shadow-lg"
+                    />
+                  )
+                })()}
+              </div>
+
+              <div className="p-4 px-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                <div className="text-xs text-slate-500 font-medium">
+                  {viewingDoc.signedByName ? <span>Signed by: <strong className="text-slate-800">{viewingDoc.signedByName}</strong></span> : <span>Reason: {viewingDoc.reason}</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  {isManagement && viewingDoc.status === 'pending' && (
+                    <button
+                      type="button"
+                      onClick={() => { setViewingDoc(null); setActiveEditorRequest(viewingDoc); }}
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FiEdit3 size={15} /> Sign &amp; Stamp Document
+                    </button>
+                  )}
+                  {viewingDoc.signedDocUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSignedDoc(viewingDoc.signedDocUrl, viewingDoc.requestRef)}
+                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FiDownload size={15} /> Download Signed File
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setViewingDoc(null)}
+                    className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* ── Stamp Image Full Screen Lightbox Modal ────────────────────── */}
+      {viewingStampModal && createPortal(
+        <AnimatePresence>
+          <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 p-6 space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-slate-900 text-base">{viewingStampModal.title}</h3>
+                  <span className="badge badge-blue uppercase text-[10px]">{viewingStampModal.type}</span>
+                </div>
+                <button onClick={() => setViewingStampModal(null)} className="p-2 text-slate-400 hover:text-slate-700 rounded-xl cursor-pointer">
+                  <FiX size={20} />
+                </button>
+              </div>
+              <div className="p-4 bg-slate-100/80 rounded-2xl border border-slate-200 flex items-center justify-center min-h-[220px]">
+                <img
+                  src={viewingStampModal.imageUrl && (viewingStampModal.imageUrl.startsWith('data:') || viewingStampModal.imageUrl.startsWith('blob:')) ? viewingStampModal.imageUrl : mediaUrl(viewingStampModal.imageUrl)}
+                  alt={viewingStampModal.title}
+                  className="max-h-64 object-contain"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button onClick={() => setViewingStampModal(null)} className="px-5 py-2.5 bg-slate-800 text-white font-bold text-xs rounded-xl cursor-pointer">
+                  Close
                 </button>
               </div>
             </motion.div>

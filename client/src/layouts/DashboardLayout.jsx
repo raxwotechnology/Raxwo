@@ -183,6 +183,22 @@ export default function DashboardLayout({ role }) {
     navigate(resolveNotificationLink(n.link, finalRole, n._id))
   }
 
+  const handleMarkAllRead = async () => {
+    try {
+      await api.put('/system-metrics/notifications/read')
+      qc.setQueryData(['notifications'], (prev) => {
+        if (!prev?.notifications) return prev
+        return {
+          ...prev,
+          notifications: prev.notifications.map((x) => ({ ...x, read: true, readAt: new Date().toISOString() })),
+        }
+      })
+    } catch (_) {}
+    qc.invalidateQueries({ queryKey: ['notifications'] })
+    qc.invalidateQueries({ queryKey: ['developer-notifications'] })
+    qc.invalidateQueries({ queryKey: ['client-notifications-page'] })
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('raxwo-auth')
     window.location.href = '/'
@@ -426,25 +442,39 @@ export default function DashboardLayout({ role }) {
                       initial={{ opacity: 0, y: 10, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.96 }}
-                      className="absolute right-0 top-14 w-[calc(100vw-24px)] max-w-[340px] sm:w-80 bg-white rounded-2xl shadow-2xl z-[1000] border border-slate-200 origin-top-right overflow-hidden"
+                      className="absolute right-0 top-14 w-[calc(100vw-24px)] sm:w-[450px] md:w-[480px] max-w-[480px] bg-white rounded-3xl shadow-2xl z-[1000] border border-slate-200/90 origin-top-right overflow-hidden"
                     >
-                      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
-                        <h3 className="font-bold text-slate-900 text-base">Notifications</h3>
-                        <span className="badge badge-blue">{unreadCount} new</span>
+                      <div className="p-4 px-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/90">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-slate-900 text-base">Notifications</h3>
+                          {unreadCount > 0 && <span className="badge badge-blue font-bold px-2 py-0.5 text-xs">{unreadCount} new</span>}
+                        </div>
+                        {unreadCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleMarkAllRead}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors cursor-pointer"
+                          >
+                            Mark all read
+                          </button>
+                        )}
                       </div>
-                      <div className="max-h-[65vh] sm:max-h-80 overflow-y-auto custom-scrollbar pb-2">
+                      <div className="max-h-[70vh] sm:max-h-96 overflow-y-auto custom-scrollbar pb-2">
                         {notifications.length === 0 ? (
                           <p className="text-center text-slate-400 text-sm py-12 sm:py-8">No notifications</p>
-                        ) : notifications.slice(0, 8).map(n => (
-                          <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-4 sm:p-3.5 border-b border-slate-50 transition-all flex items-start gap-3 relative group ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-[#20b2f5]/5 hover:bg-[#20b2f5]/10'}`}>
-                            {!n.read && <div className="absolute top-1/2 -translate-y-1/2 left-0 w-1 h-0 group-hover:h-8 transition-all bg-[#20b2f5] rounded-r-md" />}
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${n.read ? 'bg-slate-100 text-slate-400' : 'bg-[#20b2f5]/20 text-[#20b2f5]'}`}>
-                              <FiBell size={16} />
+                        ) : notifications.slice(0, 10).map(n => (
+                          <button key={n._id} type="button" onClick={() => handleNotificationClick(n)} className={`w-full text-left p-4 sm:p-4 border-b border-slate-100/70 transition-all flex items-start gap-3.5 relative group ${n.read ? 'bg-white hover:bg-slate-50' : 'bg-[#20b2f5]/5 hover:bg-[#20b2f5]/10'}`}>
+                            {!n.read && <div className="absolute top-1/2 -translate-y-1/2 left-0 w-1.5 h-10 bg-[#20b2f5] rounded-r-md" />}
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-xs ${n.read ? 'bg-slate-100 text-slate-400' : 'bg-[#20b2f5]/20 text-[#20b2f5]'}`}>
+                              <FiBell size={18} />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[15px] sm:text-sm font-semibold truncate ${n.read ? 'text-slate-600' : 'text-slate-900'}`}>{n.title}</p>
-                              <p className="text-sm sm:text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{n.message}</p>
-                              <p className="text-[11px] sm:text-[10px] text-slate-400 mt-1.5 font-medium">{new Date(n.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</p>
+                            <div className="flex-1 min-w-0 pr-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className={`text-sm font-bold truncate ${n.read ? 'text-slate-700' : 'text-slate-900'}`}>{n.title}</p>
+                                <span className="text-[10px] text-slate-400 font-medium shrink-0">{new Date(n.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">{n.message}</p>
+                              <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                             </div>
                           </button>
                         ))}

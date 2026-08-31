@@ -20,6 +20,7 @@ import ShowcaseDetailPage from './pages/public/ShowcaseDetailPage'
 import About from './pages/public/About'
 import Portfolio from './pages/public/Portfolio'
 import Careers from './pages/public/Careers'
+import OurTeam from './pages/public/OurTeam'
 import Contact from './pages/public/Contact'
 import JobDetail from './pages/public/JobDetail'
 import Apply from './pages/public/Apply'
@@ -191,6 +192,8 @@ export default function App() {
 
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/careers" element={<Careers />} />
+        <Route path="/our-team" element={<OurTeam />} />
+        <Route path="/team" element={<OurTeam />} />
         <Route path="/careers/:id" element={<JobDetail />} />
         <Route path="/careers/:id/apply" element={<Apply />} />
         <Route path="/contact" element={<Contact />} />
