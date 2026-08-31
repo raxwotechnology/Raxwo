@@ -52,7 +52,7 @@ async function aggregateInvoicePaymentRevenueByMonth(branchMatch, yearStart, yea
     { $match: { ...branchMatch, status: { $nin: ['cancelled', 'draft'] }, 'payments.date': { $gte: yearStart, $lte: yearEnd } } },
     { $unwind: '$payments' },
     { $match: { 'payments.date': { $gte: yearStart, $lte: yearEnd } } },
-    { $group: { _id: { $month: '$payments.date' }, total: { $sum: '$payments.amount' }, count: { $sum: 1 } },
+    { $group: { _id: { $month: '$payments.date' }, total: { $sum: '$payments.amount' }, count: { $sum: 1 } } },
     { $sort: { _id: 1 } },
   ]);
 }
