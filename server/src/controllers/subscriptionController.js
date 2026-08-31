@@ -102,7 +102,9 @@ exports.getSubscriptions = async (req, res, next) => {
       .populate('client', 'name email phone')
       .populate('project', 'title status')
       .populate('previousProjects', 'title status')
-      .sort({ createdAt: -1 });
+      .select('-payments.recordedBy -adminNotes')
+      .sort({ createdAt: -1 })
+      .lean({ virtuals: true });
 
     if (req.user.role !== 'client') {
       setImmediate(() => {
@@ -114,27 +116,21 @@ exports.getSubscriptions = async (req, res, next) => {
 
     // Compute live overdue for each
     const enriched = subs.map((s) => {
-      const obj = s.toObject();
+      const obj = { ...s };
       obj.overdueDays = calcOverdueDays(s.nextDueDate);
 
       let amount = s.amount || 0;
       let totalPaid = s.totalPaid || 0;
       let dynamicBilled = s.totalBilled || 0;
       if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
-      let tempNext = new Date(s.nextDueDate || new Date());
+      let tempNext = advanceDueDate(new Date(s.nextDueDate || new Date()), s.billingFrequency);
       tempNext.setHours(23, 59, 59, 999);
       while (now > tempNext) {
          dynamicBilled += amount;
          tempNext = advanceDueDate(tempNext, s.billingFrequency);
       }
 
-      // If nextDueDate is on/before today and has not advanced yet, current cycle amount is pending
-      const isDuePeriod = s.nextDueDate && new Date(s.nextDueDate) <= now;
-      if (isDuePeriod && totalPaid <= dynamicBilled && amount > 0) {
-        obj.remainingBalance = Math.max(amount, dynamicBilled - totalPaid);
-      } else {
-        obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
-      }
+      obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
       obj.typeLabel = s.subscriptionType === 'custom' && s.customServiceType
         ? s.customServiceType
         : SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
@@ -168,18 +164,13 @@ exports.getSubscription = async (req, res, next) => {
     let totalPaid = sub.totalPaid || 0;
     let dynamicBilled = sub.totalBilled || 0;
     if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
-    let tempNext = new Date(sub.nextDueDate || new Date());
+    let tempNext = advanceDueDate(new Date(sub.nextDueDate || new Date()), sub.billingFrequency);
     tempNext.setHours(23, 59, 59, 999);
     while (now > tempNext) {
        dynamicBilled += amount;
        tempNext = advanceDueDate(tempNext, sub.billingFrequency);
     }
-    const isDuePeriod = sub.nextDueDate && new Date(sub.nextDueDate) <= now;
-    if (isDuePeriod && totalPaid <= dynamicBilled && amount > 0) {
-      obj.remainingBalance = Math.max(amount, dynamicBilled - totalPaid);
-    } else {
-      obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
-    }
+    obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
     
     obj.typeLabel = sub.subscriptionType === 'custom' && sub.customServiceType
       ? sub.customServiceType
@@ -643,8 +634,9 @@ exports.getBillingOverview = async (req, res, next) => {
       
       let dynamicBilled = s.totalBilled || 0;
       if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
-      let tempNext = new Date(s.nextDueDate || new Date());
-      while (now >= tempNext) {
+      let tempNext = advanceDueDate(new Date(s.nextDueDate || new Date()), s.billingFrequency);
+      tempNext.setHours(23, 59, 59, 999);
+      while (now > tempNext) {
          dynamicBilled += amount;
          tempNext = advanceDueDate(tempNext, s.billingFrequency);
       }
@@ -985,8 +977,9 @@ exports.getMySubscriptionSummary = async (req, res, next) => {
       let subTotalPaid = s.totalPaid || 0;
       let dynamicBilled = s.totalBilled || 0;
       if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
-      let tempNext = new Date(s.nextDueDate || new Date());
-      while (now >= tempNext) {
+      let tempNext = advanceDueDate(new Date(s.nextDueDate || new Date()), s.billingFrequency);
+      tempNext.setHours(23, 59, 59, 999);
+      while (now > tempNext) {
          dynamicBilled += amount;
          tempNext = advanceDueDate(tempNext, s.billingFrequency);
       }

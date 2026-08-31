@@ -163,6 +163,8 @@ subscriptionSchema.virtual('remainingBalance').get(function () {
 subscriptionSchema.index({ client: 1, status: 1 });
 subscriptionSchema.index({ nextDueDate: 1 });
 subscriptionSchema.index({ 'hostingDetails.expiryDate': 1 });
+subscriptionSchema.index({ status: 1, createdAt: -1 });  // list page default sort
+subscriptionSchema.index({ client: 1, createdAt: -1 });  // client-view queries
 
 subscriptionSchema.set('toJSON', { virtuals: true });
 subscriptionSchema.set('toObject', { virtuals: true });

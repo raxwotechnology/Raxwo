@@ -115,11 +115,13 @@ export default function AdminSubscriptions() {
   /* Queries */
   const { data, isLoading } = useQuery({
     queryKey: ['admin-subscriptions', statusFilter, branchFilter],
-    queryFn: () => api.get(`/subscriptions?${statusFilter ? `status=${statusFilter}&` : ''}${branchFilter ? `branch=${branchFilter}` : ''}`).then(r => r.data)
+    queryFn: () => api.get(`/subscriptions?${statusFilter ? `status=${statusFilter}&` : ''}${branchFilter ? `branch=${branchFilter}` : ''}`).then(r => r.data),
+    staleTime: 2 * 60_000,
   })
   const { data: clientsData } = useQuery({
     queryKey: ['admin-clients-list'],
-    queryFn: () => api.get('/auth/users').then(r => r.data)
+    queryFn: () => api.get('/auth/users').then(r => r.data),
+    staleTime: 5 * 60_000,
   })
   const { data: overviewData } = useQuery({
     queryKey: ['admin-billing-overview', branchFilter, selectedMonth, startDate, endDate],
@@ -130,11 +132,13 @@ export default function AdminSubscriptions() {
       if (startDate) q.append('startDate', startDate)
       if (endDate) q.append('endDate', endDate)
       return api.get(`/subscriptions/billing-overview?${q.toString()}`).then(r => r.data)
-    }
+    },
+    staleTime: 2 * 60_000,
   })
   const { data: bankData } = useQuery({
     queryKey: ['bank-accounts'],
     queryFn: () => api.get('/bank-accounts').then((r) => r.data),
+    staleTime: 10 * 60_000,
   })
 
   const { data: siteRes } = useQuery({
@@ -179,6 +183,11 @@ export default function AdminSubscriptions() {
   const [paymentTab, setPaymentTab] = useState('all') // 'all' | 'paid' | 'unpaid' | 'overdue'
 
   useEffect(() => {
+    // Throttle to once per 5 minutes per session to avoid slow blocking request on every mount
+    const THROTTLE_KEY = 'raxwo-overdue-check'
+    const last = Number(sessionStorage.getItem(THROTTLE_KEY) || 0)
+    if (Date.now() - last < 5 * 60_000) return
+    sessionStorage.setItem(THROTTLE_KEY, String(Date.now()))
     api.post('/subscriptions/process-overdue').then(() => {
       qc.invalidateQueries({ queryKey: ['admin-subscriptions'] })
       qc.invalidateQueries({ queryKey: ['admin-billing-overview'] })
