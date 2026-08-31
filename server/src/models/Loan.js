@@ -53,4 +53,10 @@ loanSchema.pre('save', function (next) {
   next();
 });
 
+loanSchema.index({ employee: 1, status: 1 });
+loanSchema.index({ status: 1 });
+loanSchema.index({ startDate: -1 });
+loanSchema.index({ 'payments.date': 1 });
+
 module.exports = mongoose.model('Loan', loanSchema);
+

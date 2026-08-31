@@ -117,25 +117,32 @@ exports.getSubscriptions = async (req, res, next) => {
     // Compute live overdue for each
     const enriched = subs.map((s) => {
       const obj = { ...s };
-      obj.overdueDays = calcOverdueDays(s.nextDueDate);
-
-      let amount = s.amount || 0;
-      let totalPaid = s.totalPaid || 0;
+      const amount = s.amount || 0;
+      const totalPaid = (s.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
       let dynamicBilled = s.totalBilled || 0;
       if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
-      let tempNext = advanceDueDate(new Date(s.nextDueDate || new Date()), s.billingFrequency);
-      tempNext.setHours(23, 59, 59, 999);
-      while (now > tempNext) {
-         dynamicBilled += amount;
-         tempNext = advanceDueDate(tempNext, s.billingFrequency);
+
+      const remaining = Math.max(0, dynamicBilled - totalPaid);
+      obj.totalPaid = totalPaid;
+      obj.remainingBalance = remaining;
+
+      const dueEnd = new Date(s.nextDueDate || new Date());
+      dueEnd.setHours(23, 59, 59, 999);
+
+      if (remaining === 0 || now <= dueEnd) {
+        obj.overdueDays = 0;
+        if (s.status === 'overdue') obj.status = 'active';
+      } else {
+        obj.overdueDays = calcOverdueDays(s.nextDueDate);
+        if (s.status === 'active') obj.status = 'overdue';
       }
 
-      obj.remainingBalance = Math.max(0, dynamicBilled - totalPaid);
       obj.typeLabel = s.subscriptionType === 'custom' && s.customServiceType
         ? s.customServiceType
         : SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType;
       return obj;
     });
+
 
     // Filter out orphaned subscriptions (client was deleted from DB)
     const filtered = enriched.filter(s => s.client && s.client._id);
@@ -374,24 +381,41 @@ exports.recordPayment = async (req, res, next) => {
       chequeDrawer: chequeDrawer || '',
     });
 
-    sub.totalPaid += Number(amount);
+    const totalPaid = sub.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
+    sub.totalPaid = totalPaid;
+    const subAmt = Number(sub.amount || 0);
+    const cyclesPaid = subAmt > 0 ? Math.floor(totalPaid / subAmt) : 0;
 
-    // If payment covers the current cycle totalBilled, advance nextDueDate to next cycle
-    if (!sub.totalBilled || sub.totalBilled === 0) {
-      sub.totalBilled = sub.amount || Number(amount);
+    let startDate = sub.startDate ? new Date(sub.startDate) : new Date(sub.createdAt || Date.now());
+    let nextDue = new Date(startDate);
+    for (let i = 0; i < cyclesPaid; i++) {
+      nextDue = advanceDueDate(nextDue, sub.billingFrequency);
     }
-    while (sub.totalPaid >= sub.totalBilled) {
-      sub.nextDueDate = advanceDueDate(sub.nextDueDate, sub.billingFrequency);
-      sub.totalBilled += (sub.amount || Number(amount));
-    }
+    sub.nextDueDate = nextDue;
 
-    // Reset overdue status if caught up
-    if (sub.status === 'overdue' && calcOverdueDays(sub.nextDueDate) <= 0) {
+    let billed = Math.max(subAmt, cyclesPaid * subAmt);
+    const now = new Date();
+    let tempDue = new Date(nextDue);
+    tempDue.setHours(23, 59, 59, 999);
+    if (now > tempDue && subAmt > 0) {
+      billed += subAmt;
+    }
+    sub.totalBilled = billed;
+
+    const remaining = Math.max(0, billed - totalPaid);
+    const dueEnd = new Date(nextDue);
+    dueEnd.setHours(23, 59, 59, 999);
+
+    if (remaining === 0 || now <= dueEnd) {
       sub.status = 'active';
       sub.overdueDays = 0;
+    } else {
+      sub.status = 'overdue';
+      sub.overdueDays = Math.ceil((now - dueEnd) / 86400000);
     }
 
     await sub.save();
+
 
     await logSubscriptionIncome({
       sub,
@@ -770,35 +794,70 @@ exports.getBillingOverview = async (req, res, next) => {
 // ── CHECK & UPDATE OVERDUE (cron-like) ────────────────
 exports.processOverdue = async (req, res, next) => {
   try {
-    const subs = await Subscription.find({ status: 'active' });
+    const subs = await Subscription.find({ status: { $in: ['active', 'overdue'] } });
     let updated = 0;
+    const now = new Date();
 
     for (const sub of subs) {
-      const days = calcOverdueDays(sub.nextDueDate);
-      if (days > 0 && sub.status !== 'overdue') {
-        sub.status = 'overdue';
-        sub.overdueDays = days;
-        sub.lastOverdueCheck = new Date();
-        await sub.save();
-        updated++;
+      const totalPaid = (sub.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
+      const amount = Number(sub.amount || 0);
+      const cyclesPaid = amount > 0 ? Math.floor(totalPaid / amount) : 0;
+      
+      let startDate = sub.startDate ? new Date(sub.startDate) : new Date(sub.createdAt || Date.now());
+      let nextDue = new Date(startDate);
+      for (let i = 0; i < cyclesPaid; i++) {
+        nextDue = advanceDueDate(nextDue, sub.billingFrequency);
+      }
 
-        await createNotification({
-          recipient: sub.client,
-          title: '⚠️ Subscription Overdue',
-          message: `Your "${sub.title}" subscription is ${days} day(s) overdue. Please make payment to avoid service interruption.`,
-          type: 'subscription',
-          link: '/my-subscriptions',
-        });
-      } else if (days > 0) {
-        sub.overdueDays = days;
-        sub.lastOverdueCheck = new Date();
-        await sub.save();
+      let billed = Math.max(amount, cyclesPaid * amount);
+      let tempDue = new Date(nextDue);
+      tempDue.setHours(23, 59, 59, 999);
+      if (now > tempDue && amount > 0) {
+        billed += amount;
+      }
+      const remaining = Math.max(0, billed - totalPaid);
+      const dueEnd = new Date(nextDue);
+      dueEnd.setHours(23, 59, 59, 999);
+
+      const days = now > dueEnd ? Math.ceil((now - dueEnd) / 86400000) : 0;
+
+      if (remaining === 0 || days <= 0) {
+        if (sub.status === 'overdue' || sub.overdueDays > 0) {
+          sub.status = 'active';
+          sub.overdueDays = 0;
+          sub.lastOverdueCheck = now;
+          sub.nextDueDate = nextDue;
+          sub.totalPaid = totalPaid;
+          sub.totalBilled = billed;
+          await sub.save();
+          updated++;
+        }
+      } else {
+        if (sub.status !== 'overdue' || sub.overdueDays !== days) {
+          sub.status = 'overdue';
+          sub.overdueDays = days;
+          sub.lastOverdueCheck = now;
+          sub.nextDueDate = nextDue;
+          sub.totalPaid = totalPaid;
+          sub.totalBilled = billed;
+          await sub.save();
+          updated++;
+
+          await createNotification({
+            recipient: sub.client,
+            title: '⚠️ Subscription Overdue',
+            message: `Your "${sub.title}" subscription is ${days} day(s) overdue. Please make payment to avoid service interruption.`,
+            type: 'subscription',
+            link: '/my-subscriptions',
+          });
+        }
       }
     }
 
-    res.json({ success: true, message: `Processed ${subs.length} subscriptions, ${updated} marked overdue` });
+    res.json({ success: true, message: `Processed ${subs.length} subscriptions, ${updated} updated` });
   } catch (err) { next(err); }
 };
+
 
 // ── CREATE INVOICE FROM PAYMENT (admin) ─────────────────
 exports.createInvoiceFromPayment = async (req, res, next) => {

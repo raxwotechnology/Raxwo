@@ -25,4 +25,8 @@ const clientProfileSchema = new mongoose.Schema({
   notes: [noteSchema],
 }, { timestamps: true });
 
+clientProfileSchema.index({ 'notes.followUpDate': 1 });
+clientProfileSchema.index({ branch: 1, status: 1 });
+
 module.exports = mongoose.model('ClientProfile', clientProfileSchema);
+

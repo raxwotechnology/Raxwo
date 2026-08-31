@@ -36,8 +36,10 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 /** Cash received from invoice payments in range (excludes draft/cancelled). */
 async function aggregateInvoicePaymentRevenue(branchMatch, range) {
+  const match = { ...branchMatch, status: { $nin: ['cancelled', 'draft'] } };
+  if (range) match['payments.date'] = range;
   const rows = await Invoice.aggregate([
-    { $match: { ...branchMatch, status: { $nin: ['cancelled', 'draft'] } } },
+    { $match: match },
     { $unwind: '$payments' },
     { $match: { 'payments.date': range } },
     { $group: { _id: null, total: { $sum: '$payments.amount' }, paymentCount: { $sum: 1 } } },
@@ -47,13 +49,14 @@ async function aggregateInvoicePaymentRevenue(branchMatch, range) {
 
 async function aggregateInvoicePaymentRevenueByMonth(branchMatch, yearStart, yearEnd) {
   return Invoice.aggregate([
-    { $match: { ...branchMatch, status: { $nin: ['cancelled', 'draft'] } } },
+    { $match: { ...branchMatch, status: { $nin: ['cancelled', 'draft'] }, 'payments.date': { $gte: yearStart, $lte: yearEnd } } },
     { $unwind: '$payments' },
     { $match: { 'payments.date': { $gte: yearStart, $lte: yearEnd } } },
-    { $group: { _id: { $month: '$payments.date' }, total: { $sum: '$payments.amount' }, count: { $sum: 1 } } },
+    { $group: { _id: { $month: '$payments.date' }, total: { $sum: '$payments.amount' }, count: { $sum: 1 } },
     { $sort: { _id: 1 } },
   ]);
 }
+
 
 function financeEntrySnapshot(e) {
   if (!e) return null;
@@ -322,8 +325,9 @@ exports.getEntries = async (req, res, next) => {
         .sort({ date: -1, createdAt: -1 })
         .populate('createdBy', 'name email')
         .populate('bankAccount', 'bankName accountNumber')
-        .populate('branch', 'name'),
-      PettyCash.find(pcQ).sort({ date: -1 }),
+        .populate('branch', 'name')
+        .lean(),
+      PettyCash.find(pcQ).sort({ date: -1 }).lean(),
       resolveSubscriptionIncome(branch, dateFilter, paymentMethod),
       resolveInvoicePaymentIncome(branch, dateFilter, paymentMethod),
       resolveChequeTransactions(branch, dateFilter, paymentMethod),
@@ -332,8 +336,8 @@ exports.getEntries = async (req, res, next) => {
     ]);
 
     const entries = rawEntries
-      .map((e) => e.toObject())
       .filter((e) => !isSubscriptionIncomeEntry(e) && !isInvoiceIncomeEntry(e));
+
 
     const pcEntries = normalizePettyCashEntries(pettyCash, { type, paymentMethod });
     const subEntries = type === 'expense' ? [] : subIncome.entries;

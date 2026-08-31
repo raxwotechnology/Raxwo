@@ -30,4 +30,8 @@ const pettyCashSchema = new mongoose.Schema({
   runningBalance: { type: Number, default: 0 },   // updated on each transaction
 }, { timestamps: true });
 
+pettyCashSchema.index({ branch: 1, date: -1 });
+pettyCashSchema.index({ date: -1 });
+
 module.exports = mongoose.model('PettyCash', pettyCashSchema);
+

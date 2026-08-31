@@ -177,9 +177,124 @@ function repairUploadUrl(url) {
   return url;
 }
 
+async function syncExternalSignatureRequests() {
+  try {
+    const Request = require('../models/Request');
+    const Agreement = require('../models/Agreement');
+    const Letter = require('../models/Letter');
+
+    // 1. Sync Request items
+    const hrRequests = await Request.find({}).populate({ path: 'employee', populate: { path: 'userId' } }).lean();
+    for (const r of hrRequests) {
+      const empUser = r.employee?.userId;
+      const empName = empUser?.name || (r.employee?.firstName ? `${r.employee.firstName} ${r.employee.lastName || ''}`.trim() : 'Employee');
+      const empEmail = empUser?.email || '';
+      const empPhone = r.employee?.mobile || r.employee?.phone || '';
+      const docType = r.type === 'experience_letter' ? 'Experience Letter'
+        : (r.type === 'salary_confirmation' ? 'Service Letter'
+        : (r.type === 'hr_document' ? 'HR Document' : 'Other'));
+      
+      const sigStatus = (r.status === 'admin_approved' || r.status === 'approved') ? 'signed'
+        : (r.status === 'rejected' ? 'rejected' : 'pending');
+
+      const titleStr = r.subject || 'Signature Request';
+      const existing = await SignatureRequest.findOne({ title: titleStr });
+
+      if (!existing) {
+        await SignatureRequest.create({
+          requester: empUser?._id || (r.employee?._id ? r.employee._id : new mongoose.Types.ObjectId()),
+          recipientType: 'employee',
+          employeeId: r.employee?._id || null,
+          employeeName: empName,
+          employeeEmail: empEmail,
+          employeePhone: empPhone,
+          employeeType: r.employee?.employmentType || 'permanent',
+          title: titleStr,
+          documentType: docType,
+          reason: r.description || titleStr,
+          urgency: 'normal',
+          notes: r.rejectionReason || '',
+          originalDocUrl: r.attachments?.[0] || r.generatedDocument || '/uploads/documents/sample.pdf',
+          signedDocUrl: sigStatus === 'signed' ? (r.generatedDocument || r.attachments?.[0] || '') : '',
+          status: sigStatus,
+          signedAt: sigStatus === 'signed' ? (r.updatedAt || r.createdAt) : undefined,
+          createdAt: r.createdAt
+        });
+      } else {
+        if (existing.status !== sigStatus) {
+          existing.status = sigStatus;
+          if (sigStatus === 'signed') existing.signedAt = r.updatedAt || new Date();
+          await existing.save();
+        }
+      }
+    }
+
+    // 2. Sync Agreement items
+    const agreements = await Agreement.find({ approvalStatus: 'approved' }).populate('client', 'name email').populate({ path: 'employee', populate: { path: 'userId' } }).lean();
+    for (const a of agreements) {
+      const existing = await SignatureRequest.findOne({ title: a.title });
+      if (!existing && a.title) {
+        const empUser = a.employee?.userId;
+        await SignatureRequest.create({
+          requester: a.createdBy || empUser?._id || new mongoose.Types.ObjectId(),
+          recipientType: a.partyType === 'employee' ? 'employee' : 'client',
+          clientId: a.client?._id || null,
+          clientName: a.client?.name || '',
+          clientEmail: a.client?.email || '',
+          employeeId: a.employee?._id || null,
+          employeeName: empUser?.name || 'Employee',
+          title: a.title,
+          documentType: 'Contract Agreement',
+          reason: `Approved Agreement: ${a.title} (${a.agreementNo || ''})`,
+          urgency: 'normal',
+          originalDocUrl: a.fileUrl || '/uploads/documents/sample.pdf',
+          signedDocUrl: a.fileUrl || '',
+          status: 'signed',
+          signedAt: a.approvedAt || a.signedAt || a.updatedAt,
+          createdAt: a.createdAt
+        });
+      }
+    }
+
+    // 3. Sync Letter items
+    const letters = await Letter.find({ approvalStatus: 'approved' }).populate('client', 'name email').populate({ path: 'employee', populate: { path: 'userId' } }).lean();
+    for (const l of letters) {
+      const existing = await SignatureRequest.findOne({ title: l.title });
+      if (!existing && l.title) {
+        const empUser = l.employee?.userId;
+        const docType = l.type === 'experience' ? 'Experience Letter'
+          : (l.type === 'appointment' || l.type === 'internship' ? 'Internship Certificate'
+          : (l.type === 'confirmation' ? 'NOC' : 'Service Letter'));
+        
+        await SignatureRequest.create({
+          requester: l.issuedBy || empUser?._id || new mongoose.Types.ObjectId(),
+          recipientType: l.recipientType || 'employee',
+          clientId: l.client?._id || null,
+          clientName: l.client?.name || '',
+          employeeId: l.employee?._id || null,
+          employeeName: empUser?.name || 'Employee',
+          title: l.title,
+          documentType: docType,
+          reason: `Approved Letter: ${l.title} (${l.letterRef || ''})`,
+          urgency: 'normal',
+          originalDocUrl: l.pdfUrl || '/uploads/documents/sample.pdf',
+          signedDocUrl: l.pdfUrl || '',
+          status: 'signed',
+          signedAt: l.updatedAt || l.createdAt,
+          createdAt: l.createdAt
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[syncExternalSignatureRequests] Error:', err.message);
+  }
+}
+
 // 2. Get Requests (With filters for Admin/Owner and scoped for Employees/Clients)
 exports.getRequests = async (req, res, next) => {
   try {
+    await syncExternalSignatureRequests();
+
     const { status, documentType, urgency, employeeId, clientId, recipientType, signedBy, search, startDate, endDate } = req.query;
     const isManagement = ['admin', 'owner', 'manager'].includes(req.user.role);
 
@@ -252,6 +367,7 @@ exports.getRequests = async (req, res, next) => {
     next(err);
   }
 };
+
 
 // 3. Get Request Details by ID
 exports.getRequestById = async (req, res, next) => {

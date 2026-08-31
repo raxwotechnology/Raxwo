@@ -98,7 +98,9 @@ exports.getEmployees = async (req, res, next) => {
     let employees = await Employee.find(query)
       .populate('userId', 'name email phone avatar role')
       .populate('manager', 'name email avatar role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
+
 
     if (search) {
       const s = search.toLowerCase();

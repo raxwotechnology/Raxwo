@@ -95,11 +95,13 @@ exports.getInvoices = async (req, res, next) => {
       .populate('branch', 'name')
       .populate('quotationRef', 'quotationNo')
       .populate('bankAccount', 'bankName accountNumber branchName')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, count: invoices.length, invoices });
   } catch (err) { next(err); }
 };
+
 
 
 // ─── GET single invoice ───────────────────────────────────────────────────────

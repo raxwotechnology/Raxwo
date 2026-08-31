@@ -34,4 +34,8 @@ const bankAccountSchema = new mongoose.Schema({
   transactions: [transactionSchema],
 }, { timestamps: true });
 
+bankAccountSchema.index({ branch: 1, isActive: 1 });
+bankAccountSchema.index({ isActive: 1 });
+
 module.exports = mongoose.model('BankAccount', bankAccountSchema);
+

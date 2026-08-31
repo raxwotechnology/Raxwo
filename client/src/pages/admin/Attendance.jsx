@@ -43,10 +43,11 @@ export default function AdminAttendance() {
   const canMarkAttendance = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
   const qc = useQueryClient()
   const now = new Date()
-  const [filterMode, setFilterMode] = useState('range') // default to date range showing today
+  const todayStr = now.toISOString().split('T')[0]
+  const [filterMode, setFilterMode] = useState('single') // default to Daily View (Day-by-Day)
+  const [singleDate, setSingleDate] = useState(todayStr)
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
-  const todayStr = now.toISOString().split('T')[0]
   const [dateFrom, setDateFrom] = useState(todayStr)
   const [dateTo, setDateTo] = useState(todayStr)
   const [search, setSearch] = useState('')
@@ -57,6 +58,30 @@ export default function AdminAttendance() {
   const [editingRecord, setEditingRecord] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [viewRecord, setViewRecord] = useState(null)
+
+  const handleSingleDateChange = (val) => {
+    setSingleDate(val)
+    setDateFrom(val)
+    setDateTo(val)
+  }
+
+  const handlePrevDay = () => {
+    const parts = singleDate.split('-').map(Number)
+    if (parts.length === 3) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2] - 1)
+      const prevStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      handleSingleDateChange(prevStr)
+    }
+  }
+
+  const handleNextDay = () => {
+    const parts = singleDate.split('-').map(Number)
+    if (parts.length === 3) {
+      const d = new Date(parts[0], parts[1] - 1, parts[2] + 1)
+      const nextStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      handleSingleDateChange(nextStr)
+    }
+  }
 
   // ── Data fetching ────────────────────────────────────────────────────────────
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
@@ -431,16 +456,38 @@ export default function AdminAttendance() {
         </div>
       )}
 
-      {/* Period Selector — Month or Date Range */}
+      {/* Period Selector — Daily View, Month View, or Date Range */}
       <div className="card card-body">
         <div className="flex flex-wrap gap-3 items-center">
           {/* Mode toggle */}
           <div className="flex rounded-lg border border-slate-200 overflow-hidden text-sm">
-            <button onClick={() => setFilterMode('month')} className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'month' ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Month View</button>
+            <button onClick={() => { setFilterMode('single'); handleSingleDateChange(singleDate); }} className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'single' ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Daily View</button>
             <button onClick={() => setFilterMode('range')} className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'range' ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Date Range</button>
+            <button onClick={() => setFilterMode('month')} className={`px-3 py-1.5 font-medium transition-colors ${filterMode === 'month' ? 'bg-secondary text-white' : 'text-slate-500 hover:bg-slate-50'}`}>Month View</button>
           </div>
 
-          {filterMode === 'month' ? (
+          {filterMode === 'single' ? (
+            <div className="flex items-center gap-1.5">
+              <button onClick={handlePrevDay} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors">
+                ◄ Prev
+              </button>
+              <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg px-2 py-1 bg-white">
+                <FiCalendar size={14} className="text-slate-400" />
+                <input
+                  type="date"
+                  className="bg-transparent text-sm font-semibold text-slate-800 focus:outline-none"
+                  value={singleDate}
+                  onChange={e => handleSingleDateChange(e.target.value)}
+                />
+              </div>
+              <button onClick={() => handleSingleDateChange(todayStr)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg text-xs transition-colors">
+                Today
+              </button>
+              <button onClick={handleNextDay} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors">
+                Next ►
+              </button>
+            </div>
+          ) : filterMode === 'month' ? (
             <div className="flex items-center gap-2">
               <FiCalendar size={14} className="text-slate-400" />
               <select className="form-select py-2 text-sm" value={month} onChange={e => setMonth(Number(e.target.value))}>

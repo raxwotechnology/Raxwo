@@ -24,12 +24,14 @@ function sameCalendarDay(a, b) {
 }
 
 async function aggregateInvoicePayments(branchId, dateFilter) {
-  const pipeline = [
-    { $match: { status: { $nin: ['cancelled', 'draft'] } } },
-  ];
+  const match = { status: { $nin: ['cancelled', 'draft'] } };
   if (branchId) {
-    pipeline[0].$match.branch = new mongoose.Types.ObjectId(branchId);
+    match.branch = new mongoose.Types.ObjectId(branchId);
   }
+  if (dateFilter) {
+    match['payments.date'] = dateFilter;
+  }
+  const pipeline = [{ $match: match }];
   pipeline.push({ $unwind: '$payments' });
   if (dateFilter) {
     pipeline.push({ $match: { 'payments.date': dateFilter } });
@@ -51,6 +53,7 @@ async function aggregateInvoicePayments(branchId, dateFilter) {
   const total = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
   return { payments, total, count: payments.length };
 }
+
 
 function normalizePaymentRow(p) {
   const kind = p.isAdvance ? 'Advance' : 'Payment';

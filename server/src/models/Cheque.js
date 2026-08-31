@@ -36,5 +36,8 @@ chequeSchema.pre('validate', function normalizeDirection() {
 
 chequeSchema.index({ status: 1, chequeDate: -1 });
 chequeSchema.index({ chequeNumber: 1 });
+chequeSchema.index({ branch: 1, status: 1 });
+chequeSchema.index({ ledgerPosted: 1, direction: 1, status: 1 });
 
 module.exports = mongoose.model('Cheque', chequeSchema);
+

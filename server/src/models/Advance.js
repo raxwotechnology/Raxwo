@@ -51,4 +51,9 @@ advanceSchema.pre('save', function (next) {
   next();
 });
 
+advanceSchema.index({ employee: 1, status: 1 });
+advanceSchema.index({ status: 1 });
+advanceSchema.index({ date: -1 });
+
 module.exports = mongoose.model('Advance', advanceSchema);
+

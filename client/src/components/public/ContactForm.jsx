@@ -39,7 +39,8 @@ export default function ContactForm({ title = 'Send Us a Message', subtitle = 'F
             <input
               {...register('name', { required: 'Name is required' })}
               placeholder="e.g. John Silva"
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              style={{ color: '#0f172a', backgroundColor: '#f8fafc' }}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
@@ -53,7 +54,8 @@ export default function ContactForm({ title = 'Send Us a Message', subtitle = 'F
               })}
               type="email"
               placeholder="you@company.com"
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              style={{ color: '#0f172a', backgroundColor: '#f8fafc' }}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
             {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
           </div>
@@ -65,7 +67,8 @@ export default function ContactForm({ title = 'Send Us a Message', subtitle = 'F
             <input
               {...register('phone')}
               placeholder="+94 77 123 4567"
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              style={{ color: '#0f172a', backgroundColor: '#f8fafc' }}
+              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             />
           </div>
 
@@ -73,13 +76,20 @@ export default function ContactForm({ title = 'Send Us a Message', subtitle = 'F
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Subject / Interest</label>
             <select
               {...register('subject')}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              style={{ color: '#0f172a', backgroundColor: '#ffffff' }}
+              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
             >
-              <option value="Custom Software Development">Custom Software Development</option>
-              <option value="Gym Management ERP">Gym Management ERP</option>
-              <option value="Mobile Shop ERP">Mobile Shop ERP</option>
-              <option value="Web & Mobile App">Web & Mobile App</option>
-              <option value="Other Inquiry">Other Inquiry</option>
+              <option value="Gym Management ERP Software" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Gym Management ERP Software</option>
+              <option value="Mobile Shop ERP System" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Mobile Shop ERP System</option>
+              <option value="Salon & Spa Management ERP" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Salon &amp; Spa Management ERP</option>
+              <option value="Restaurant & Hotel POS ERP" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Restaurant &amp; Hotel POS ERP</option>
+              <option value="Hardware & Distribution ERP" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Hardware &amp; Distribution ERP</option>
+              <option value="Custom Software Development" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Custom Software Development</option>
+              <option value="Web & Mobile App Development" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Web &amp; Mobile App Development</option>
+              <option value="E-Commerce & Online Store Solution" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">E-Commerce &amp; Online Store Solution</option>
+              <option value="UI/UX & Creative Studio Services" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">UI/UX &amp; Creative Studio Services</option>
+              <option value="Digital Marketing & Social Media Management" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Digital Marketing &amp; Social Media Management</option>
+              <option value="Other Inquiry" style={{ color: '#0f172a', backgroundColor: '#ffffff' }} className="text-slate-900 bg-white font-medium">Other Inquiry</option>
             </select>
           </div>
         </div>
@@ -90,7 +100,8 @@ export default function ContactForm({ title = 'Send Us a Message', subtitle = 'F
             {...register('message', { required: 'Message is required' })}
             rows={4}
             placeholder="Tell us about your project requirements, goals, or timeline..."
-            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            style={{ color: '#0f172a', backgroundColor: '#f8fafc' }}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
           />
           {errors.message && <p className="text-red-500 text-xs mt-1">{errors.message.message}</p>}
         </div>

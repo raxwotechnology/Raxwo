@@ -170,4 +170,10 @@ employeeSchema.virtual('internshipDaysRemaining').get(function () {
 employeeSchema.set('toJSON', { virtuals: true });
 employeeSchema.set('toObject', { virtuals: true });
 
+employeeSchema.index({ branch: 1, status: 1 });
+employeeSchema.index({ userId: 1 });
+employeeSchema.index({ manager: 1, employmentType: 1 });
+employeeSchema.index({ status: 1 });
+
 module.exports = mongoose.model('Employee', employeeSchema);
+

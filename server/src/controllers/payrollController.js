@@ -377,10 +377,12 @@ exports.getPayrolls = async (req, res, next) => {
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
       .populate('bankAccount', 'bankName accountNumber branchName currentBalance')
       .populate('deductedLoans')
-      .sort({ year: -1, month: -1 });
+      .sort({ year: -1, month: -1 })
+      .lean();
     res.json({ success: true, count: payrolls.length, payrolls });
   } catch (err) { next(err); }
 };
+
 
 // @desc    Get my payslips
 // @route   GET /api/payroll/my

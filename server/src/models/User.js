@@ -43,4 +43,8 @@ userSchema.methods.toJSON = function () {
   return obj;
 };
 
+userSchema.index({ branch: 1 });
+userSchema.index({ role: 1 });
+
 module.exports = mongoose.model('User', userSchema);
+

@@ -85,7 +85,8 @@ exports.getAccounts = async (req, res, next) => {
     if (req.query.branch) query.branch = req.query.branch;
     const accounts = await BankAccount.find(query)
       .populate('transactions.recordedBy', 'name email')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, count: accounts.length, accounts });
   } catch (err) { next(err); }
 };
@@ -94,7 +95,9 @@ exports.getAccounts = async (req, res, next) => {
 exports.getAccountTransactions = async (req, res, next) => {
   try {
     const account = await BankAccount.findById(req.params.id)
-      .populate('transactions.recordedBy', 'name email');
+      .populate('transactions.recordedBy', 'name email')
+      .lean();
+
     if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);

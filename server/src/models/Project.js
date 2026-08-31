@@ -95,4 +95,9 @@ const projectSchema = new mongoose.Schema({
   tags:          [String],
 }, { timestamps: true });
 
+projectSchema.index({ branch: 1, status: 1 });
+projectSchema.index({ client: 1 });
+projectSchema.index({ status: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Project', projectSchema);
+

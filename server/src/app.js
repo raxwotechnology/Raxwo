@@ -258,7 +258,7 @@ if (distDir) {
   console.log(`⚠️ React Frontend dist directory not found in: ${possibleDistPaths.join(', ')}`);
   app.get('*', (req, res, next) => {
     if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
-      return next();
+      return res.status(404).json({ success: false, message: `API Route ${req.originalUrl} not found` });
     }
     // If client URL is configured differently, offer HTML redirect page
     const clientUrl = process.env.CLIENT_URL || '';

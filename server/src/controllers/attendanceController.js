@@ -327,7 +327,9 @@ exports.getAttendance = async (req, res, next) => {
       ];
     }
 
-    const activeEmps = await Employee.find(empFilter).populate('userId', 'name email avatar isActive');
+    const activeEmps = await Employee.find(empFilter)
+      .populate('userId', 'name email avatar isActive')
+      .lean();
 
     // Strictly filter only employees with active user accounts
     const validActiveEmps = (includeFormer === 'true' || includeFormer === '1')
@@ -351,8 +353,26 @@ exports.getAttendance = async (req, res, next) => {
     if (status) query.status = status;
     if (startDate || endDate) {
       query.date = {};
-      if (startDate) query.date.$gte = new Date(startDate);
-      if (endDate) { const e = new Date(endDate); e.setHours(23, 59, 59, 999); query.date.$lte = e; }
+      if (startDate) {
+        const [sy, sm, sd] = startDate.split('-').map(Number);
+        if (sy && sm && sd) {
+          query.date.$gte = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+        } else {
+          const s = new Date(startDate);
+          s.setHours(0, 0, 0, 0);
+          query.date.$gte = s;
+        }
+      }
+      if (endDate) {
+        const [ey, em, ed] = endDate.split('-').map(Number);
+        if (ey && em && ed) {
+          query.date.$lte = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+        } else {
+          const e = new Date(endDate);
+          e.setHours(23, 59, 59, 999);
+          query.date.$lte = e;
+        }
+      }
     } else if (month && year) {
       const start = new Date(Number(year), Number(month) - 1, 1);
       const end = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
@@ -361,7 +381,9 @@ exports.getAttendance = async (req, res, next) => {
 
     const records = await Attendance.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar isActive' } })
-      .sort({ date: -1 });
+      .sort({ date: -1 })
+      .lean();
+
 
     // Filter out any record where employee is inactive/null
     const filteredRecords = records.filter(r => {

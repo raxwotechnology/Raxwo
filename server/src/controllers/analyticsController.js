@@ -291,11 +291,13 @@ exports.getDashboard = async (req, res, next) => {
       Project.find(projMatch).sort({ createdAt: -1 }).limit(5).populate('client', 'name'),
       Application.find().sort({ createdAt: -1 }).limit(5).populate('job', 'title'),
       require('../models/ClientProfile').aggregate([
+        { $match: { 'notes.followUpDate': { $lte: new Date(now.toDateString() + ' 23:59:59') } } },
         { $unwind: '$notes' },
         { $match: { 'notes.followUpDate': { $lte: new Date(now.toDateString() + ' 23:59:59') } } },
         { $sort: { 'notes.followUpDate': -1 } },
         { $limit: 10 }
       ]),
+
     ]);
 
     res.json({

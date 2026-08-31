@@ -95,4 +95,11 @@ quotationSchema.pre('save', async function (next) {
   }
 });
 
+// Composite indexes for fast query performance & sorting
+quotationSchema.index({ createdAt: -1 });
+quotationSchema.index({ status: 1, createdAt: -1 });
+quotationSchema.index({ client: 1, createdAt: -1 });
+quotationSchema.index({ branch: 1, createdAt: -1 });
+
 module.exports = mongoose.model('Quotation', quotationSchema);
+

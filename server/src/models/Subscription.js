@@ -165,8 +165,12 @@ subscriptionSchema.index({ nextDueDate: 1 });
 subscriptionSchema.index({ 'hostingDetails.expiryDate': 1 });
 subscriptionSchema.index({ status: 1, createdAt: -1 });  // list page default sort
 subscriptionSchema.index({ client: 1, createdAt: -1 });  // client-view queries
+subscriptionSchema.index({ branch: 1, status: 1 });
+subscriptionSchema.index({ 'payments.paidAt': 1 });
+subscriptionSchema.index({ branch: 1, createdAt: -1 });
 
 subscriptionSchema.set('toJSON', { virtuals: true });
 subscriptionSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Subscription', subscriptionSchema);
+

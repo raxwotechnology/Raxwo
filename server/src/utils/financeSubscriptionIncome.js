@@ -47,8 +47,15 @@ function sameCalendarDay(a, b) {
 
 async function aggregateSubscriptionPayments(branchId, dateFilter) {
   const pipeline = [];
+  const match = {};
   if (branchId) {
-    pipeline.push({ $match: { branch: new mongoose.Types.ObjectId(branchId) } });
+    match.branch = new mongoose.Types.ObjectId(branchId);
+  }
+  if (dateFilter) {
+    match['payments.paidAt'] = dateFilter;
+  }
+  if (Object.keys(match).length > 0) {
+    pipeline.push({ $match: match });
   }
   pipeline.push({ $unwind: '$payments' });
   if (dateFilter) {
@@ -71,6 +78,7 @@ async function aggregateSubscriptionPayments(branchId, dateFilter) {
   const total = payments.reduce((s, p) => s + Number(p.amount || 0), 0);
   return { payments, total, count: payments.length };
 }
+
 
 function normalizePaymentRow(p) {
   return {

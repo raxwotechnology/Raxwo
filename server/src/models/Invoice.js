@@ -133,4 +133,11 @@ invoiceSchema.pre('save', function (next) {
   next();
 });
 
+invoiceSchema.index({ branch: 1, createdAt: -1 });
+invoiceSchema.index({ status: 1, dueDate: 1 });
+invoiceSchema.index({ client: 1, createdAt: -1 });
+invoiceSchema.index({ project: 1 });
+invoiceSchema.index({ 'payments.date': 1 });
+
 module.exports = mongoose.model('Invoice', invoiceSchema);
+

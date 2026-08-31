@@ -61,13 +61,14 @@ exports.getQuotations = async (req, res, next) => {
       if (endDate) query.createdAt.$lte = new Date(endDate + 'T23:59:59.999Z');
     }
     const quotations = await Quotation.find(query)
-      .populate('client', 'name email phone')
+      .sort({ createdAt: -1 })
+      .populate('client', 'name email phone companyName')
       .populate('booking', 'projectTitle')
       .populate('generatedBy', 'name')
       .populate('branch', 'name')
       .populate('project', 'title deadline')
       .populate('bankAccount', 'bankName accountNumber branchName')
-      .sort({ createdAt: -1 });
+      .lean();
     res.json({ success: true, count: quotations.length, quotations });
   } catch (err) { next(err); }
 };
@@ -77,11 +78,12 @@ exports.getQuotations = async (req, res, next) => {
 exports.getQuotation = async (req, res, next) => {
   try {
     const quotation = await Quotation.findById(req.params.id)
-      .populate('client', 'name email phone')
+      .populate('client', 'name email phone companyName')
       .populate('generatedBy', 'name')
       .populate('confirmedBy', 'name')
       .populate('bankAccount', 'bankName accountNumber branchName')
-      .populate('convertedToInvoice', 'invoiceNo total status');
+      .populate('convertedToInvoice', 'invoiceNo total status')
+      .lean();
     if (!quotation) return res.status(404).json({ success: false, message: 'Quotation not found' });
     if (req.user.role === 'client') {
       const clientId = String(req.user.client || req.user._id);
