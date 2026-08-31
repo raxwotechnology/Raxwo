@@ -150,17 +150,17 @@ export default function PublicLayout() {
           <SiteLogo to="/" variant="dark" className="flex-shrink-0 group" />
 
           {/* Desktop nav — centered */}
-          <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1">
-            <a href="https://raxwo.net/" className="px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 text-white/70 hover:text-white hover:bg-white/10 flex items-center gap-1.5 whitespace-nowrap">
-              <FiHome size={14} /> Back
+          <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-0.5">
+            <a href="https://raxwo.net/" className="px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 text-white/70 hover:text-white hover:bg-white/10 flex items-center gap-1 whitespace-nowrap">
+              <FiHome size={13} /> Back
             </a>
-            <span className="w-px h-4 bg-white/20 mx-1" />
-            <NavLink to="/" end className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Home</NavLink>
+            <span className="w-px h-4 bg-white/20 mx-0.5" />
+            <NavLink to="/" end className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Home</NavLink>
             
             {/* Services dropdown */}
             <div className="group" ref={servicesRef}>
-              <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${servicesDropdownOpen || location.pathname === '/services' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                Services <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+              <button onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)} className={`flex items-center gap-1 px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${servicesDropdownOpen || location.pathname === '/services' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+                Services <FiChevronDown size={13} className={`transition-transform group-hover:rotate-180`} />
               </button>
               <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
                 <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
@@ -184,8 +184,8 @@ export default function PublicLayout() {
 
             {/* Software Products dropdown */}
             <div className="group" ref={productsRef}>
-              <button onClick={() => setProductsDropdownOpen(!productsDropdownOpen)} className={`flex items-center gap-1 px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${productsDropdownOpen || location.pathname === '/software-products' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
-                Software Products <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+              <button onClick={() => setProductsDropdownOpen(!productsDropdownOpen)} className={`flex items-center gap-1 px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${productsDropdownOpen || location.pathname === '/software-products' ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>
+                Software Products <FiChevronDown size={13} className={`transition-transform group-hover:rotate-180`} />
               </button>
               <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
                 <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
@@ -207,9 +207,9 @@ export default function PublicLayout() {
               </div>
             </div>
 
-            <NavLink to="/careers" className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
-            <NavLink to="/our-team" className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Our Team</NavLink>
-            <NavLink to="/contact" className={({ isActive }) => `px-3 py-2 rounded-lg text-base font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Let's Talk</NavLink>
+            <NavLink to="/careers" className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
+            <NavLink to="/our-team" className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Our Team</NavLink>
+            <NavLink to="/contact" className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Let's Talk</NavLink>
           </nav>
 
           <div className="hidden md:flex items-center gap-3 flex-shrink-0 ml-auto">
