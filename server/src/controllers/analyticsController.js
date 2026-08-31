@@ -517,8 +517,12 @@ exports.getAIPredictions = async (req, res, next) => {
 
 exports.getNotifications = async (req, res, next) => {
   try {
-    const notifications = await Notification.find({ recipient: req.user._id }).sort({ createdAt: -1 }).limit(20);
-    res.json({ success: true, notifications });
+    const notifications = await Notification.find({ recipient: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .maxTimeMS(5000)
+      .lean();
+    res.json({ success: true, notifications: notifications || [] });
   } catch (err) { next(err); }
 };
 

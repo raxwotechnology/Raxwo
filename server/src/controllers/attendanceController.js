@@ -330,7 +330,9 @@ exports.getAttendance = async (req, res, next) => {
     }
 
     const activeEmps = await Employee.find(empFilter)
+      .select('_id userId employeeNo branch status manager')
       .populate('userId', 'name email avatar isActive')
+      .maxTimeMS(8000)
       .lean();
 
     // Strictly filter only employees with active user accounts
@@ -343,13 +345,12 @@ exports.getAttendance = async (req, res, next) => {
     const query = {};
     if (employeeId) {
       query.employee = employeeId;
-    } else if (manager) {
+    } else if (manager || branch) {
       query.employee = { $in: Array.from(validActiveEmpIds) };
-    } else if (branch) {
-      query.employee = { $in: Array.from(validActiveEmpIds) };
-    } else if (includeFormer !== 'true' && includeFormer !== '1') {
+    } else if (!isTopMgr) {
       query.employee = { $in: Array.from(validActiveEmpIds) };
     }
+    // isTopMgr with no specific filter = no employee restriction (fetch all)
 
     if (status) query.status = status;
 
@@ -358,7 +359,6 @@ exports.getAttendance = async (req, res, next) => {
       if (startDate) {
         const [sy, sm, sd] = startDate.split('-').map(Number);
         if (sy && sm && sd) {
-          // Timezone-safe start boundary (UTC buffer covering local timezone differences)
           query.date.$gte = new Date(Date.UTC(sy, sm - 1, sd - 1, 0, 0, 0, 0));
         } else {
           const s = new Date(startDate);
@@ -383,11 +383,12 @@ exports.getAttendance = async (req, res, next) => {
       const end = new Date(Date.UTC(Number(year), Number(month), 1, 23, 59, 59, 999));
       query.date = { $gte: start, $lte: end };
     } else {
-      // Default to last 31 days if no date scope is provided to prevent streaming entire collection
-      const past31 = new Date();
-      past31.setDate(past31.getDate() - 31);
-      past31.setHours(0, 0, 0, 0);
-      query.date = { $gte: past31 };
+      // Default to today only if no date scope is provided
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      query.date = { $gte: todayStart, $lte: todayEnd };
     }
 
     const records = await Attendance.find(query)
@@ -398,7 +399,8 @@ exports.getAttendance = async (req, res, next) => {
       })
       .select('employee date status checkIn checkOut isHalfDay otHours lateDeductionAmount hourlyDeductionAmount breakTimes totalWorkedHours notes markedBy')
       .sort({ date: -1 })
-      .limit(2000)
+      .limit(1000)
+      .maxTimeMS(10000)
       .lean();
 
     // Filter out records where employee is null/missing
@@ -599,12 +601,8 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
     };
 
     const records = await Attendance.find(query)
-      .populate({
-        path: 'employee',
-        select: '_id userId employeeNo',
-        populate: { path: 'userId', select: 'name email role isActive' },
-      })
       .select('employee date status isHalfDay checkIn checkOut otHours totalWorkedHours')
+      .maxTimeMS(6000)
       .lean();
 
     const today = new Date();

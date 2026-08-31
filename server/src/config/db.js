@@ -17,16 +17,15 @@ const connectDB = async () => {
     try {
       attempt += 1;
       const conn = await mongoose.connect(uri, {
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 10000,
+        family: 4,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        serverSelectionTimeoutMS: 30000,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        heartbeatFrequencyMS: 10000,
       });
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-      if (process.env.ENSURE_STAFF_LOGINS === 'true') {
-        const { ensureStaffLogins } = require('../services/ensureStaffLogins');
-        ensureStaffLogins({ resetPassword: false }).catch((err) => {
-          console.error('[staff-logins] Could not ensure demo staff users:', err.message);
-        });
-      }
       return;
     } catch (error) {
       // If SRV lookups are blocked on this network, allow fallback to non-SRV/local URI.

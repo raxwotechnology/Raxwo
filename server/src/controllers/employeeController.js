@@ -96,9 +96,11 @@ exports.getEmployees = async (req, res, next) => {
     }
 
     let employees = await Employee.find(query)
+      .select('_id userId employeeNo department designation branch manager employmentType status basicSalary allowances joinedDate phone mobile')
       .populate('userId', 'name email phone avatar role')
       .populate('manager', 'name email avatar role')
       .sort({ createdAt: -1 })
+      .maxTimeMS(8000)
       .lean();
 
 

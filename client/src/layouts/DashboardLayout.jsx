@@ -155,8 +155,9 @@ export default function DashboardLayout({ role }) {
 
   const { data: notifData } = useQuery({
     queryKey: ['notifications'],
-    queryFn: () => api.get('/system-metrics/notifications').then(r => r.data),
+    queryFn: () => api.get('/system-metrics/notifications').then(r => r.data).catch(() => ({ notifications: [] })),
     refetchInterval: 30000,
+    staleTime: 15 * 1000,
   })
 
   const notifications = notifData?.notifications || []

@@ -130,6 +130,7 @@ export default function AdminQuotations() {
   const { data: quotData, isLoading } = useQuery({
     queryKey: ['quotations', statusFilter, startDate, endDate, serviceTypeFilter, branchFilter, clientFilter],
     queryFn: () => api.get(`/quotations${buildQuery()}`).then(r => r.data),
+    staleTime: 60 * 1000,
   })
   const { data: clientData } = useQuery({
     queryKey: ['clients-list'],

@@ -98,6 +98,7 @@ export default function AdminAttendance() {
       if (branchFilter) p.set('branch', branchFilter)
       return api.get(`/attendance?${p.toString()}`).then(r => r.data)
     },
+    staleTime: 60 * 1000,
   })
   const { data: analyticsData } = useQuery({
     queryKey: ['attendance-analytics', month, year, branchFilter, filterMode, dateFrom, dateTo],
@@ -108,10 +109,12 @@ export default function AdminAttendance() {
       if (branchFilter) p.set('branch', branchFilter)
       return api.get(`/attendance/analytics?${p.toString()}`).then(r => r.data)
     },
+    staleTime: 60 * 1000,
   })
   const { data: empData } = useQuery({
     queryKey: ['employees-list-mini'],
     queryFn: () => api.get(assignableEmployeesUrl()).then(r => r.data),
+    staleTime: 60 * 1000,
   })
 
   const records = useMemo(() => {

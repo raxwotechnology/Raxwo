@@ -7,7 +7,20 @@ process.on('uncaughtException', (err) => {
   console.error('⚠️ Uncaught Exception:', err);
 });
 
-require('dotenv').config();
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
+
+// Robust .env resolution: works when run from root or server directory
+[
+  path.resolve(__dirname, '../.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '../.env'),
+].forEach((p) => {
+  if (fs.existsSync(p)) dotenv.config({ path: p, override: false });
+});
+
 const app = require('./app');
 const connectDB = require('./config/db');
 const http = require('http');

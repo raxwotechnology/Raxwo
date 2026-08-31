@@ -14,9 +14,21 @@ exports.downloadDatabase = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+// In-memory settings cache to avoid repeated DB reads on every page load
+let settingsCache = null;
+let settingsCacheTime = 0;
+const SETTINGS_CACHE_TTL = 60000; // 1 minute
+
 exports.getSiteSettings = async (req, res, next) => {
   try {
-    let settings = await SiteSetting.findOne().lean();
+    const now = Date.now();
+    if (settingsCache && (now - settingsCacheTime) < SETTINGS_CACHE_TTL) {
+      return res.json({ success: true, settings: settingsCache });
+    }
+    let settings = await SiteSetting.findOne()
+      .select('-__v')
+      .maxTimeMS(5000)
+      .lean();
     if (!settings) {
       const created = await SiteSetting.create({});
       settings = created.toObject ? created.toObject() : created;
@@ -26,10 +38,12 @@ exports.getSiteSettings = async (req, res, next) => {
     if (plain.sealUrl) plain.sealUrl = toRelativeUploadUrl(plain.sealUrl);
     if (plain.letterheadUrl) plain.letterheadUrl = toRelativeUploadUrl(plain.letterheadUrl);
     const sigs = plain.signatures || {};
-    ['hr', 'admin', 'manager'].forEach((k) => {
+    ['hr', 'admin', 'manager', 'director', 'marketing'].forEach((k) => {
       if (sigs[k]?.url) sigs[k].url = toRelativeUploadUrl(sigs[k].url);
     });
     plain.signatures = sigs;
+    settingsCache = plain;
+    settingsCacheTime = now;
     res.json({ success: true, settings: plain });
   } catch (err) { next(err); }
 };

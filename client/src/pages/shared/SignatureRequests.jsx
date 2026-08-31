@@ -47,6 +47,26 @@ export default function SignatureRequests() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
 
+  const handleViewDoc = async (req) => {
+    setViewingDoc(req)
+    try {
+      const res = await api.get(`/signature-requests/${req._id}`)
+      if (res.data?.request) {
+        setViewingDoc(res.data.request)
+      }
+    } catch (e) {}
+  }
+
+  const handleOpenEditor = async (req) => {
+    setActiveEditorRequest(req)
+    try {
+      const res = await api.get(`/signature-requests/${req._id}`)
+      if (res.data?.request) {
+        setActiveEditorRequest(res.data.request)
+      }
+    } catch (e) {}
+  }
+
   // Delete Stamp Mutation
   const deleteStampMut = useMutation({
     mutationFn: async (id) => {
@@ -151,7 +171,8 @@ export default function SignatureRequests() {
       if (searchTerm.trim()) params.search = searchTerm.trim()
       const res = await api.get('/signature-requests', { params })
       return res.data
-    }
+    },
+    staleTime: 60 * 1000,
   })
 
   // Fetch Saved Stamps List Query
@@ -634,7 +655,7 @@ export default function SignatureRequests() {
                       <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={() => setViewingDoc(req)}
+                          onClick={() => handleViewDoc(req)}
                           className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg border border-slate-200 inline-flex items-center gap-1 transition-colors cursor-pointer"
                           title="View Document & Signature Details"
                         >
@@ -654,7 +675,7 @@ export default function SignatureRequests() {
                           <>
                             <button
                               type="button"
-                              onClick={() => setActiveEditorRequest(req)}
+                              onClick={() => handleOpenEditor(req)}
                               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors"
                               title="Sign & Stamp Document"
                             >
@@ -1313,6 +1334,15 @@ export default function SignatureRequests() {
               <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-900/5 min-h-[420px] flex items-center justify-center">
                 {(() => {
                   const docUrl = viewingDoc.signedDocUrl || viewingDoc.originalDocUrl
+                  if (!docUrl) {
+                    return (
+                      <div className="flex flex-col items-center justify-center p-12 text-slate-400">
+                        <FiFileText className="w-16 h-16 mb-3 text-slate-300 stroke-[1.5]" />
+                        <p className="text-sm font-semibold text-slate-600">No document file attached</p>
+                        <p className="text-xs text-slate-400 mt-1">This request was created without an uploaded document file.</p>
+                      </div>
+                    )
+                  }
                   const fullUrl = mediaUrl(docUrl)
                   const isImg = docUrl && (docUrl.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i) || docUrl.startsWith('data:image'))
                   

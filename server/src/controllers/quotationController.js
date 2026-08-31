@@ -67,12 +67,15 @@ exports.getQuotations = async (req, res, next) => {
     }
     const quotations = await Quotation.find(query)
       .sort({ createdAt: -1 })
+      .select('-statusLog -notes -terms -directorSealUrl')
       .populate('client', 'name email phone companyName')
       .populate('booking', 'projectTitle')
       .populate('generatedBy', 'name')
       .populate('branch', 'name')
       .populate('project', 'title deadline')
       .populate('bankAccount', 'bankName accountNumber branchName')
+      .limit(200)
+      .maxTimeMS(10000)
       .lean();
     res.json({ success: true, count: quotations.length, quotations });
   } catch (err) { next(err); }

@@ -299,8 +299,6 @@ async function syncExternalSignatureRequests() {
 // 2. Get Requests (With filters for Admin/Owner and scoped for Employees/Clients)
 exports.getRequests = async (req, res, next) => {
   try {
-    // Fire-and-forget sync — non-blocking so the list API returns immediately
-    syncExternalSignatureRequests().catch(() => {});
 
     const { status, documentType, urgency, employeeId, clientId, recipientType, signedBy, search, startDate, endDate } = req.query;
     const userRole = String(req.user?.role || '').toLowerCase();
@@ -360,18 +358,15 @@ exports.getRequests = async (req, res, next) => {
 
     const requests = await SignatureRequest.find(query)
       .sort({ createdAt: -1 })
+      .select('-originalDocUrl -signedDocUrl -stampsMeta -notes')
       .populate('requester', 'name email avatar role')
       .populate('clientId', 'companyName contactPerson')
       .populate('signedBy', 'name email role')
+      .limit(100)
+      .maxTimeMS(8000)
       .lean();
 
-    const cleanedRequests = requests.map(r => {
-      r.originalDocUrl = repairUploadUrl(r.originalDocUrl);
-      r.signedDocUrl = repairUploadUrl(r.signedDocUrl);
-      return r;
-    });
-
-    res.json({ success: true, count: cleanedRequests.length, requests: cleanedRequests });
+    res.json({ success: true, count: requests.length, requests });
   } catch (err) {
     next(err);
   }
@@ -402,11 +397,11 @@ exports.getRequestById = async (req, res, next) => {
       if (emp && sigReq.employeeId && sigReq.employeeId.toString() === emp._id.toString()) isTargetRecipient = true;
     }
 
-    if (!isOwner && !isManagement && !isTargetRecipient) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
+    const reqObj = sigReq.toObject ? sigReq.toObject() : sigReq;
+    if (reqObj.originalDocUrl) reqObj.originalDocUrl = repairUploadUrl(reqObj.originalDocUrl);
+    if (reqObj.signedDocUrl) reqObj.signedDocUrl = repairUploadUrl(reqObj.signedDocUrl);
 
-    res.json({ success: true, request: sigReq });
+    res.json({ success: true, request: reqObj });
   } catch (err) {
     next(err);
   }
@@ -581,9 +576,12 @@ exports.saveStamps = async (req, res, next) => {
 // 8. Get all Saved Stamps List for Logged-in Admin / Owner
 exports.getSavedStampsList = async (req, res, next) => {
   try {
-    const stamps = await SavedStamp.find({ user: req.user._id }).sort({ createdAt: -1 });
+    const stamps = await SavedStamp.find({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .maxTimeMS(5000)
+      .lean();
     const cleanedStamps = stamps.map(st => {
-      const sObj = st.toObject();
+      const sObj = { ...st };
       if (sObj.imageUrl && typeof sObj.imageUrl === 'string' && sObj.imageUrl.includes('data:image')) {
         const idx = sObj.imageUrl.indexOf('data:image');
         sObj.imageUrl = sObj.imageUrl.substring(idx);
