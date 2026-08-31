@@ -138,6 +138,7 @@ invoiceSchema.index({ status: 1, dueDate: 1 });
 invoiceSchema.index({ client: 1, createdAt: -1 });
 invoiceSchema.index({ project: 1 });
 invoiceSchema.index({ 'payments.date': 1 });
+invoiceSchema.index({ source: 1, createdAt: -1 }); // source filter (manual vs subscription)
 
 module.exports = mongoose.model('Invoice', invoiceSchema);
 

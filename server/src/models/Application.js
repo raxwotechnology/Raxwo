@@ -50,4 +50,7 @@ const applicationSchema = new mongoose.Schema({
   coverLetter: String,
 }, { timestamps: true });
 
+applicationSchema.index({ status: 1, createdAt: -1 });
+applicationSchema.index({ job: 1, status: 1 });
+
 module.exports = mongoose.model('Application', applicationSchema);

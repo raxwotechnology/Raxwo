@@ -111,6 +111,7 @@ export default function AdminInvoices() {
   const { data: siteData } = useQuery({
     queryKey: SITE_SETTINGS_QUERY_KEY,
     queryFn: () => api.get('/site-settings').then((r) => r.data),
+    staleTime: 5 * 60 * 1000, // site settings change rarely — cache for 5 minutes
   })
   const siteSettings = siteData?.settings || {}
 

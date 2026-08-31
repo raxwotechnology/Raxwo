@@ -51,4 +51,7 @@ signatureRequestSchema.pre('save', async function (next) {
   next();
 });
 
+signatureRequestSchema.index({ status: 1, createdAt: -1 });
+signatureRequestSchema.index({ requester: 1, status: 1 });
+
 module.exports = mongoose.model('SignatureRequest', signatureRequestSchema);

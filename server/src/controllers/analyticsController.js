@@ -201,6 +201,14 @@ exports.getDashboard = async (req, res, next) => {
       bankAccountsBalanceAgg,
       financeIncomeTotalAgg,
       financeExpenseTotalAgg,
+      allInvoicesAgg,
+      allPayrollAgg,
+      revToday,
+      expToday,
+      revMonth,
+      expMonth,
+      finances,
+      pettyCashRows,
     ] = await Promise.all([
       Invoice.countDocuments(invMatch),
       Invoice.countDocuments({ ...invMatch, status: 'paid' }),
@@ -220,6 +228,21 @@ exports.getDashboard = async (req, res, next) => {
         { $match: { ...finMatch, type: 'expense' } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
+      // All-time revenue (previously sequential awaits — now parallel)
+      Invoice.aggregate([{ $match: { ...invMatch, status: 'paid' } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+      Payroll.aggregate([{ $match: { ...relatedEmpMatch, status: { $in: ['approved', 'paid'] } } }, { $group: { _id: null, total: { $sum: '$netSalary' } } }]),
+      // Daily & Monthly (previously a separate Promise.all — merged here)
+      Invoice.aggregate([{ $match: { ...invMatch, status: 'paid', createdAt: { $gte: new Date(now.toDateString()) } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+      FinanceEntry.aggregate([{ $match: { ...finMatch, type: 'expense', date: { $gte: new Date(now.toDateString()) } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+      Invoice.aggregate([{ $match: { ...invMatch, status: 'paid', createdAt: { $gte: monthStart } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
+      FinanceEntry.aggregate([{ $match: { ...finMatch, type: 'expense', date: { $gte: monthStart } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+      // Finance method breakdown (previously a separate await)
+      FinanceEntry.aggregate([
+        { $match: finMatch },
+        { $group: { _id: { method: '$paymentMethod', type: '$type' }, total: { $sum: '$amount' } } },
+      ]),
+      // PettyCash (previously a separate await)
+      PettyCash.find(branch ? { branch } : {}).select('type amount paymentType').lean(),
     ]);
 
     const pendingPaymentsTotal = pendingPaymentsAgg[0]?.total || 0;
@@ -227,41 +250,19 @@ exports.getDashboard = async (req, res, next) => {
     const financeIncomeTotal = financeIncomeTotalAgg[0]?.total || 0;
     const financeExpenseTotal = financeExpenseTotalAgg[0]?.total || 0;
 
-    // Calculate all-time revenue (Invoices + Subscriptions + FinanceIncome)
-    const allInvoicesAgg = await Invoice.aggregate([{ $match: { ...invMatch, status: 'paid' } }, { $group: { _id: null, total: { $sum: '$total' } } }]);
-    const allPayrollAgg = await Payroll.aggregate([{ $match: { ...relatedEmpMatch, status: { $in: ['approved', 'paid'] } } }, { $group: { _id: null, total: { $sum: '$netSalary' } } }]);
-    
+    // All-time revenue & expense
     const allInvoiceTotal = allInvoicesAgg[0]?.total || 0;
     const allPayrollTotal = allPayrollAgg[0]?.total || 0;
-    
     const allTimeRevenue = allInvoiceTotal + financeIncomeTotal + (subscriptionRevenue[0]?.total || 0);
     const allTimeExpense = financeExpenseTotal + allPayrollTotal;
 
-    // Daily & Monthly Revenue/Expenses exact values
-    const todayStart = new Date(now.toDateString());
-    const [revToday, expToday, revMonth, expMonth] = await Promise.all([
-      Invoice.aggregate([{ $match: { ...invMatch, status: 'paid', createdAt: { $gte: todayStart } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
-      FinanceEntry.aggregate([{ $match: { ...finMatch, type: 'expense', date: { $gte: todayStart } } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
-      Invoice.aggregate([{ $match: { ...invMatch, status: 'paid', createdAt: { $gte: monthStart } } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
-      FinanceEntry.aggregate([{ $match: { ...finMatch, type: 'expense', date: { $gte: monthStart } } }, { $group: { _id: null, total: { $sum: '$amount' } } }])
-    ]);
-
+    // Daily & Monthly
     const revenueToday = revToday[0]?.total || 0;
     const expenseToday = expToday[0]?.total || 0;
     const revenueMonth = revMonth[0]?.total || 0;
     const expenseMonth = (expMonth[0]?.total || 0) + payrollCost.find(p => p._id === now.getMonth() + 1)?.total || 0;
 
-    // Balances
-    const [finances] = await Promise.all([
-      FinanceEntry.aggregate([
-        { $match: finMatch },
-        { $group: { 
-          _id: { method: '$paymentMethod', type: '$type' }, 
-          total: { $sum: '$amount' } 
-        }}
-      ])
-    ]);
-
+    // Cash/Bank balance breakdown
     let bankIn = 0, bankOut = 0, cashIn = 0, cashOut = 0;
     finances.forEach(f => {
       const method = f._id.method?.toLowerCase() || 'cash';
@@ -272,12 +273,10 @@ exports.getDashboard = async (req, res, next) => {
       }
     });
 
-    // Use actual bank account balances for bankBalance
     const bankBalance = bankAccountsTotalBalance;
     const cashBalance = cashIn - cashOut;
 
-    const pettyCashQuery = branch ? { branch } : {};
-    const pettyCashRows = await PettyCash.find(pettyCashQuery).lean();
+    // PettyCash balance
     const pettyCashCashRows = pettyCashRows.filter(
       (t) => !t.paymentType || String(t.paymentType).toLowerCase() === 'cash',
     );

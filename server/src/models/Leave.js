@@ -38,6 +38,7 @@ const leaveSchema = new mongoose.Schema({
 leaveSchema.index({ employee: 1, status: 1 });
 leaveSchema.index({ status: 1, createdAt: -1 });
 leaveSchema.index({ startDate: 1, endDate: 1 });
+leaveSchema.index({ employee: 1, startDate: 1 }); // for date range leave queries
 
 module.exports = mongoose.model('Leave', leaveSchema);
 

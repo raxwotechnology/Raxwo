@@ -37,4 +37,7 @@ const requestSchema = new mongoose.Schema({
   generatedDocument: { type: String, default: '' },
 }, { timestamps: true });
 
+requestSchema.index({ status: 1, createdAt: -1 });
+requestSchema.index({ employee: 1, status: 1 });
+
 module.exports = mongoose.model('Request', requestSchema);

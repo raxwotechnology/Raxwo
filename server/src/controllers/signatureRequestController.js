@@ -98,10 +98,10 @@ exports.createRequest = async (req, res, next) => {
       status: 'pending'
     });
 
-    // Notify all Admins & Owners
+    // Notify all Admins & Owners — fire in parallel (Promise.all) instead of sequential await
     const adminUsers = await User.find({ role: { $in: ['admin', 'owner', 'manager'] } }).select('_id email name');
-    
-    for (const admin of adminUsers) {
+
+    await Promise.all(adminUsers.map(async (admin) => {
       // In-app notification
       await createNotification({
         recipient: admin._id,
@@ -111,7 +111,7 @@ exports.createRequest = async (req, res, next) => {
         link: '/signature-requests'
       });
 
-      // Email notification
+      // Email notification — non-blocking (fire and forget)
       if (admin.email) {
         const html = `
           <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
@@ -125,13 +125,13 @@ exports.createRequest = async (req, res, next) => {
             <br/>
             <a href="${process.env.APP_URL || 'http://localhost:5173'}/signature-requests" 
                style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-               Review & Sign Document
+               Review &amp; Sign Document
             </a>
           </div>
         `;
         sendNotificationEmail(admin.email, `[Signature Request] ${sigReq.title} - ${empName}`, `New signature request from ${empName}`, html);
       }
-    }
+    }));
 
     res.status(201).json({ success: true, message: 'Signature request submitted successfully', request: sigReq });
   } catch (err) {

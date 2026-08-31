@@ -34,4 +34,8 @@ const workLogSchema = new mongoose.Schema({
   branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }
 }, { timestamps: true });
 
+workLogSchema.index({ approvalStatus: 1 });
+workLogSchema.index({ employee: 1, date: -1 });
+workLogSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('WorkLog', workLogSchema);

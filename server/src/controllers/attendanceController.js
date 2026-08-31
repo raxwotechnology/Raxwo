@@ -380,10 +380,14 @@ exports.getAttendance = async (req, res, next) => {
     }
 
     const records = await Attendance.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar isActive' } })
+      .populate({
+        path: 'employee',
+        select: '_id userId employeeNo branch',
+        populate: { path: 'userId', select: 'name email avatar isActive' },
+      })
+      .select('employee date status checkIn checkOut isHalfDay otHours lateDeductionAmount hourlyDeductionAmount breakTimes totalWorkedHours notes markedBy')
       .sort({ date: -1 })
       .lean();
-
 
     // Filter out any record where employee is inactive/null
     const filteredRecords = records.filter(r => {
@@ -407,8 +411,10 @@ exports.getAttendance = async (req, res, next) => {
 
     const recordMap = new Set(filteredRecords.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
     const dummyRecords = [];
-    
-    if (!status || status === 'absent') {
+
+    // Only generate dummy absent records for ranges <= 62 days to avoid memory explosion on large ranges
+    const rangeDays = Math.ceil((dEnd - dStart) / 86400000);
+    if ((!status || status === 'absent') && rangeDays <= 62) {
       const days = [];
       for (let d = new Date(dStart); d <= dEnd; d.setDate(d.getDate() + 1)) {
         days.push(new Date(d).toISOString().split('T')[0]);
@@ -543,7 +549,10 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
       ];
     }
 
-    const activeEmps = await Employee.find(empFilter).populate('userId', 'name employeeNo isActive');
+    const activeEmps = await Employee.find(empFilter)
+      .select('_id userId employeeNo branch manager status')
+      .populate('userId', 'name employeeNo isActive')
+      .lean();
 
     const validActiveEmps = activeEmps.filter(e => e.userId && e.userId.isActive !== false);
     const validActiveEmpIds = new Set(validActiveEmps.map(e => String(e._id)));
@@ -554,7 +563,13 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
     };
 
     const records = await Attendance.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email role isActive' } });
+      .populate({
+        path: 'employee',
+        select: '_id userId employeeNo',
+        populate: { path: 'userId', select: 'name email role isActive' },
+      })
+      .select('employee date status isHalfDay checkIn checkOut otHours totalWorkedHours')
+      .lean();
 
     const today = new Date();
     let dEnd = end > today ? today : end;

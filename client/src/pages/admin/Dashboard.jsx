@@ -31,7 +31,8 @@ export default function AdminDashboard() {
     queryKey: ['admin-dashboard', branchFilter],
     queryFn: () => api.get(`/system-metrics/dashboard${branchFilter ? `?branch=${branchFilter}` : ''}`).then(r => r.data),
     refetchInterval: 30000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false, // dashboard is expensive — don't re-fetch on window focus
+    staleTime: 25000,            // treat data as fresh for 25s (matches refetchInterval of 30s)
   })
 
   const kpis = data?.kpis || {}

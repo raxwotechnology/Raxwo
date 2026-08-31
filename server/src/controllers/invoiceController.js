@@ -82,12 +82,11 @@ exports.getInvoices = async (req, res, next) => {
       query.$or = [{ source: 'manual' }, { source: { $exists: false } }, { source: null }];
     }
 
-    // Auto-mark overdue
-    const now = new Date();
-    await Invoice.updateMany(
+    // Auto-mark overdue — fire-and-forget (non-blocking, does not delay the GET response)
+    Invoice.updateMany(
       { status: { $in: ['unpaid', 'partial'] }, dueDate: { $lt: now } },
       { status: 'overdue' }
-    );
+    ).catch(() => {}); // never block the list response
 
     const invoices = await Invoice.find(query)
       .populate('client', 'name email')

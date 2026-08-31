@@ -20,6 +20,7 @@ financeEntrySchema.index({ type: 1, category: 1, date: -1 });
 financeEntrySchema.index({ branch: 1, date: -1 });
 financeEntrySchema.index({ date: -1 });
 financeEntrySchema.index({ type: 1, date: -1 });
+financeEntrySchema.index({ branch: 1, type: 1, date: -1 }); // compound for branch+type dashboard queries
 
 module.exports = mongoose.model('FinanceEntry', financeEntrySchema);
 
