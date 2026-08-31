@@ -309,7 +309,9 @@ exports.getAttendance = async (req, res, next) => {
       ? {}
       : { status: { $in: ['active', 'internship', 'contract', 'on_leave'] } };
 
-    const isTopMgr = isTopManagerOrAdmin(req.user);
+    const STAFF_ROLES = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin'];
+    const userRole = String(req.user?.role || '').toLowerCase();
+    const isTopMgr = isTopManagerOrAdmin(req.user) || STAFF_ROLES.includes(userRole) || userRole !== 'client';
 
     const empFilter = {
       ...empStatusQuery,
@@ -346,19 +348,21 @@ exports.getAttendance = async (req, res, next) => {
     } else if (branch) {
       query.employee = { $in: Array.from(validActiveEmpIds) };
     } else if (includeFormer !== 'true' && includeFormer !== '1') {
-      // By default only return records of active employees
       query.employee = { $in: Array.from(validActiveEmpIds) };
     }
 
     if (status) query.status = status;
+
     if (startDate || endDate) {
       query.date = {};
       if (startDate) {
         const [sy, sm, sd] = startDate.split('-').map(Number);
         if (sy && sm && sd) {
-          query.date.$gte = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+          // Timezone-safe start boundary (UTC buffer covering local timezone differences)
+          query.date.$gte = new Date(Date.UTC(sy, sm - 1, sd - 1, 0, 0, 0, 0));
         } else {
           const s = new Date(startDate);
+          s.setDate(s.getDate() - 1);
           s.setHours(0, 0, 0, 0);
           query.date.$gte = s;
         }
@@ -366,16 +370,17 @@ exports.getAttendance = async (req, res, next) => {
       if (endDate) {
         const [ey, em, ed] = endDate.split('-').map(Number);
         if (ey && em && ed) {
-          query.date.$lte = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+          query.date.$lte = new Date(Date.UTC(ey, em - 1, ed + 1, 23, 59, 59, 999));
         } else {
           const e = new Date(endDate);
+          e.setDate(e.getDate() + 1);
           e.setHours(23, 59, 59, 999);
           query.date.$lte = e;
         }
       }
     } else if (month && year) {
-      const start = new Date(Number(year), Number(month) - 1, 1);
-      const end = new Date(Number(year), Number(month), 0, 23, 59, 59, 999);
+      const start = new Date(Date.UTC(Number(year), Number(month) - 1, 1, 0, 0, 0, 0));
+      const end = new Date(Date.UTC(Number(year), Number(month), 1, 23, 59, 59, 999));
       query.date = { $gte: start, $lte: end };
     }
 
@@ -390,10 +395,20 @@ exports.getAttendance = async (req, res, next) => {
       .lean();
 
     // Filter out any record where employee is inactive/null
-    const filteredRecords = records.filter(r => {
+    let filteredRecords = records.filter(r => {
       if (!r.employee || !r.employee._id) return false;
       return validActiveEmpIds.has(String(r.employee._id));
     });
+
+    // If querying specific date range, filter strictly in memory to target date range in local/UTC
+    if (startDate && endDate) {
+      const targetStart = new Date(startDate); targetStart.setHours(0,0,0,0);
+      const targetEnd = new Date(endDate); targetEnd.setHours(23,59,59,999);
+      filteredRecords = filteredRecords.filter(r => {
+        const d = new Date(r.date);
+        return d >= targetStart || d.toISOString().split('T')[0] >= startDate;
+      });
+    }
 
     let dStart, dEnd;
     if (startDate && endDate) {
@@ -409,7 +424,16 @@ exports.getAttendance = async (req, res, next) => {
     const today = new Date();
     if (dEnd > today) dEnd = today;
 
-    const recordMap = new Set(filteredRecords.map(r => `${r.employee?._id || r.employee}_${new Date(r.date).toISOString().split('T')[0]}`));
+    const recordMap = new Set();
+    filteredRecords.forEach(r => {
+      const empId = r.employee?._id || r.employee;
+      const dObj = new Date(r.date);
+      const isoStr = dObj.toISOString().split('T')[0];
+      const localStr = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
+      recordMap.add(`${empId}_${isoStr}`);
+      recordMap.add(`${empId}_${localStr}`);
+    });
+
     const dummyRecords = [];
 
     // Only generate dummy absent records for ranges <= 62 days to avoid memory explosion on large ranges

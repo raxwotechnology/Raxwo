@@ -118,7 +118,10 @@ export default function Agreements() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   })
-  const { data: clientsData } = useQuery({ queryKey: ['clients'], queryFn: () => api.get('/auth/users').then((r) => r.data) })
+  const { data: clientsData } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => api.get('/clients').then((r) => r.data).catch(() => api.get('/auth/users').then((r) => r.data)),
+  })
   const { data: projectsData } = useQuery({ queryKey: ['projects'], queryFn: () => api.get('/projects').then((r) => r.data) })
   const { data: invoicesData } = useQuery({ queryKey: ['invoices'], queryFn: () => api.get('/invoices').then((r) => r.data) })
   const { data: employeesData } = useQuery({ queryKey: ['employees-list'], queryFn: () => api.get('/employees').then((r) => r.data) })
@@ -131,7 +134,7 @@ export default function Agreements() {
       a.title?.toLowerCase().includes(search.toLowerCase()) ||
       a.agreementNo?.toLowerCase().includes(search.toLowerCase())
   )
-  const clients = (clientsData?.users || []).filter((u) => u.role === 'client')
+  const clients = (clientsData?.clients || clientsData?.users || []).filter((u) => !u.role || u.role === 'client')
   const projects = projectsData?.projects || []
   const invoices = invoicesData?.invoices || []
   const employees = employeesData?.employees || []

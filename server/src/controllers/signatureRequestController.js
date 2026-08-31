@@ -183,6 +183,10 @@ async function syncExternalSignatureRequests() {
     const Agreement = require('../models/Agreement');
     const Letter = require('../models/Letter');
 
+    // Single query to get all existing titles for ultra-fast in-memory check
+    const existingReqs = await SignatureRequest.find({}).select('title status').lean();
+    const existingTitleMap = new Map(existingReqs.map(s => [s.title, s.status]));
+
     // 1. Sync Request items
     const hrRequests = await Request.find({}).populate({ path: 'employee', populate: { path: 'userId' } }).lean();
     for (const r of hrRequests) {
@@ -198,9 +202,9 @@ async function syncExternalSignatureRequests() {
         : (r.status === 'rejected' ? 'rejected' : 'pending');
 
       const titleStr = r.subject || 'Signature Request';
-      const existing = await SignatureRequest.findOne({ title: titleStr });
+      const existingStatus = existingTitleMap.get(titleStr);
 
-      if (!existing) {
+      if (existingStatus === undefined) {
         await SignatureRequest.create({
           requester: empUser?._id || (r.employee?._id ? r.employee._id : new mongoose.Types.ObjectId()),
           recipientType: 'employee',
@@ -220,20 +224,17 @@ async function syncExternalSignatureRequests() {
           signedAt: sigStatus === 'signed' ? (r.updatedAt || r.createdAt) : undefined,
           createdAt: r.createdAt
         });
-      } else {
-        if (existing.status !== sigStatus) {
-          existing.status = sigStatus;
-          if (sigStatus === 'signed') existing.signedAt = r.updatedAt || new Date();
-          await existing.save();
-        }
+        existingTitleMap.set(titleStr, sigStatus);
+      } else if (existingStatus !== sigStatus) {
+        await SignatureRequest.updateOne({ title: titleStr }, { status: sigStatus, ...(sigStatus === 'signed' ? { signedAt: r.updatedAt || new Date() } : {}) });
+        existingTitleMap.set(titleStr, sigStatus);
       }
     }
 
     // 2. Sync Agreement items
     const agreements = await Agreement.find({ approvalStatus: 'approved' }).populate('client', 'name email').populate({ path: 'employee', populate: { path: 'userId' } }).lean();
     for (const a of agreements) {
-      const existing = await SignatureRequest.findOne({ title: a.title });
-      if (!existing && a.title) {
+      if (a.title && !existingTitleMap.has(a.title)) {
         const empUser = a.employee?.userId;
         await SignatureRequest.create({
           requester: a.createdBy || empUser?._id || new mongoose.Types.ObjectId(),
@@ -253,14 +254,14 @@ async function syncExternalSignatureRequests() {
           signedAt: a.approvedAt || a.signedAt || a.updatedAt,
           createdAt: a.createdAt
         });
+        existingTitleMap.set(a.title, 'signed');
       }
     }
 
     // 3. Sync Letter items
     const letters = await Letter.find({ approvalStatus: 'approved' }).populate('client', 'name email').populate({ path: 'employee', populate: { path: 'userId' } }).lean();
     for (const l of letters) {
-      const existing = await SignatureRequest.findOne({ title: l.title });
-      if (!existing && l.title) {
+      if (l.title && !existingTitleMap.has(l.title)) {
         const empUser = l.employee?.userId;
         const docType = l.type === 'experience' ? 'Experience Letter'
           : (l.type === 'appointment' || l.type === 'internship' ? 'Internship Certificate'
@@ -283,6 +284,7 @@ async function syncExternalSignatureRequests() {
           signedAt: l.updatedAt || l.createdAt,
           createdAt: l.createdAt
         });
+        existingTitleMap.set(l.title, 'signed');
       }
     }
   } catch (err) {
@@ -297,7 +299,9 @@ exports.getRequests = async (req, res, next) => {
     syncExternalSignatureRequests().catch(() => {});
 
     const { status, documentType, urgency, employeeId, clientId, recipientType, signedBy, search, startDate, endDate } = req.query;
-    const isManagement = ['admin', 'owner', 'manager'].includes(req.user.role);
+    const userRole = String(req.user?.role || '').toLowerCase();
+    const STAFF_ROLES = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin'];
+    const isManagement = STAFF_ROLES.includes(userRole) || userRole !== 'client';
 
     const query = {};
 
@@ -354,13 +358,13 @@ exports.getRequests = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .populate('requester', 'name email avatar role')
       .populate('clientId', 'companyName contactPerson')
-      .populate('signedBy', 'name email role');
+      .populate('signedBy', 'name email role')
+      .lean();
 
     const cleanedRequests = requests.map(r => {
-      const obj = r.toObject();
-      obj.originalDocUrl = repairUploadUrl(obj.originalDocUrl);
-      obj.signedDocUrl = repairUploadUrl(obj.signedDocUrl);
-      return obj;
+      r.originalDocUrl = repairUploadUrl(r.originalDocUrl);
+      r.signedDocUrl = repairUploadUrl(r.signedDocUrl);
+      return r;
     });
 
     res.json({ success: true, count: cleanedRequests.length, requests: cleanedRequests });

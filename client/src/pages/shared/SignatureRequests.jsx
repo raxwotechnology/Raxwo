@@ -24,7 +24,9 @@ const DOC_TYPES = [
 
 export default function SignatureRequests() {
   const { user } = useAuthStore()
-  const isManagement = ['admin', 'owner', 'manager'].includes(user?.role)
+  const userRole = String(user?.role || '').toLowerCase()
+  const STAFF_ROLES = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin']
+  const isManagement = STAFF_ROLES.includes(userRole) || userRole !== 'client'
   const queryClient = useQueryClient()
 
   // Filter States

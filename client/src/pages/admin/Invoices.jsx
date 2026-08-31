@@ -120,10 +120,10 @@ export default function AdminInvoices() {
     queryFn: () => api.get('/clients').then(r => r.data).catch(() => api.get('/auth/users').then(r => r.data)),
     enabled: showModal || !!viewingInv,
   })
-  const { data: projData } = useQuery({ queryKey: ['projects-list'], queryFn: () => api.get('/projects').then(r => r.data) })
-  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data) })
-  const { data: quotData } = useQuery({ queryKey: ['quotations-for-invoices'], queryFn: () => api.get('/quotations').then(r => r.data) })
-  const { data: bankData } = useQuery({ queryKey: ['banks-list'], queryFn: () => api.get('/bank-accounts').then(r => r.data).catch(() => api.get('/settings/bank-accounts').then(r => r.data)) })
+  const { data: projData } = useQuery({ queryKey: ['projects-list'], queryFn: () => api.get('/projects').then(r => r.data), enabled: showModal || !!viewingInv })
+  const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data), enabled: showModal || !!viewingInv })
+  const { data: quotData } = useQuery({ queryKey: ['quotations-for-invoices'], queryFn: () => api.get('/quotations').then(r => r.data), enabled: showModal || !!viewingInv })
+  const { data: bankData } = useQuery({ queryKey: ['banks-list'], queryFn: () => api.get('/bank-accounts').then(r => r.data).catch(() => api.get('/settings/bank-accounts').then(r => r.data)), enabled: showModal || !!viewingInv })
 
   const clients = (clientData?.users || clientData?.clients || []).filter((u) => !u.role || u.role === 'client')
   const projects = projData?.projects || []

@@ -1,5 +1,10 @@
 const Quotation = require('../models/Quotation');
 const Invoice = require('../models/Invoice');
+const User = require('../models/User');
+const Booking = require('../models/Booking');
+const Project = require('../models/Project');
+const Branch = require('../models/Branch');
+const BankAccount = require('../models/BankAccount');
 const SiteSetting = require('../models/SiteSetting');
 const { createAuditLog } = require('./auditController');
 const { createNotification } = require('../services/notificationService');
@@ -50,8 +55,8 @@ exports.getQuotations = async (req, res, next) => {
     if (serviceType) query.serviceType = serviceType;
     if (branch) query.branch = branch;
     if (req.user.role === 'client') {
-      if (!req.user.client) return res.json({ success: true, count: 0, quotations: [] });
-      query.client = req.user.client;
+      const clientIds = [req.user._id, req.user.client].filter(Boolean);
+      query.client = { $in: clientIds };
     } else if (client) {
       query.client = client;
     }

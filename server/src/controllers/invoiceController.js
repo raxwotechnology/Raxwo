@@ -1,5 +1,8 @@
 const Invoice    = require('../models/Invoice');
 const Quotation  = require('../models/Quotation');
+const User       = require('../models/User');
+const Branch     = require('../models/Branch');
+const BankAccount= require('../models/BankAccount');
 const Payment    = require('../models/Payment');
 const Project    = require('../models/Project');
 const SiteSetting= require('../models/SiteSetting');
@@ -90,6 +93,7 @@ exports.getInvoices = async (req, res, next) => {
     ).catch(() => {}); // never block the list response
 
     const invoices = await Invoice.find(query)
+      .select('-signatures.authorizer.data -signatures.seal.data')
       .populate('client', 'name email')
       .populate('project', 'title')
       .populate('branch', 'name')
