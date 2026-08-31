@@ -123,12 +123,13 @@ export default function AdminQuotations() {
     if (serviceTypeFilter) p.set('serviceType', serviceTypeFilter)
     if (branchFilter) p.set('branch', branchFilter)
     if (clientFilter) p.set('client', clientFilter)
-    return p.toString()
+    const q = p.toString()
+    return q ? `?${q}` : ''
   }
 
   const { data: quotData, isLoading } = useQuery({
     queryKey: ['quotations', statusFilter, startDate, endDate, serviceTypeFilter, branchFilter, clientFilter],
-    queryFn: () => api.get(`/quotations?${buildQuery()}`).then(r => r.data),
+    queryFn: () => api.get(`/quotations${buildQuery()}`).then(r => r.data),
   })
   const { data: clientData } = useQuery({
     queryKey: ['clients-list'],

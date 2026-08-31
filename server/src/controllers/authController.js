@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Branch = require('../models/Branch');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { getOrCreateReward, awardPoints, handleReferralForNewClient } = require('../services/rewardService');

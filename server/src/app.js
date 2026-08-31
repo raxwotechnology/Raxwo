@@ -9,6 +9,16 @@ require('dotenv').config();
 
 const errorHandler = require('./middleware/errorHandler');
 
+// Preload all Mongoose models so population registry is immediately available
+require('./models/User');
+require('./models/Employee');
+require('./models/Branch');
+require('./models/Project');
+require('./models/Invoice');
+require('./models/Quotation');
+require('./models/Agreement');
+require('./models/BankAccount');
+
 // Route imports
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
@@ -86,7 +96,7 @@ app.use(cors({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300,
+  max: 2000,
   message: { success: false, message: 'Too many requests, please try again later.' }
 });
 app.use('/api/', limiter);

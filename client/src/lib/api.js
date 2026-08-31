@@ -6,9 +6,13 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Request interceptor - attach token
+// Request interceptor - attach token and clean URLs
 api.interceptors.request.use(
   (config) => {
+    if (config.url) {
+      // Strip trailing '?' or '&' to avoid 307 CDN redirects on empty query strings
+      config.url = config.url.replace(/[?&]+$/, '')
+    }
     const stored = localStorage.getItem('raxwo-auth')
     if (stored) {
       const { state } = JSON.parse(stored)

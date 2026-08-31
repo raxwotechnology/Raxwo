@@ -3,6 +3,8 @@ const AgreementTemplate = require('../models/AgreementTemplate');
 const Project = require('../models/Project');
 const Invoice = require('../models/Invoice');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
+const Branch = require('../models/Branch');
 const { createNotification } = require('../services/notificationService');
 
 const POPULATE = [

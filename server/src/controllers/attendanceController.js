@@ -382,6 +382,12 @@ exports.getAttendance = async (req, res, next) => {
       const start = new Date(Date.UTC(Number(year), Number(month) - 1, 1, 0, 0, 0, 0));
       const end = new Date(Date.UTC(Number(year), Number(month), 1, 23, 59, 59, 999));
       query.date = { $gte: start, $lte: end };
+    } else {
+      // Default to last 31 days if no date scope is provided to prevent streaming entire collection
+      const past31 = new Date();
+      past31.setDate(past31.getDate() - 31);
+      past31.setHours(0, 0, 0, 0);
+      query.date = { $gte: past31 };
     }
 
     const records = await Attendance.find(query)
@@ -392,6 +398,7 @@ exports.getAttendance = async (req, res, next) => {
       })
       .select('employee date status checkIn checkOut isHalfDay otHours lateDeductionAmount hourlyDeductionAmount breakTimes totalWorkedHours notes markedBy')
       .sort({ date: -1 })
+      .limit(1000)
       .lean();
 
     // Filter out any record where employee is inactive/null
