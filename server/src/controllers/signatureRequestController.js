@@ -177,7 +177,11 @@ function repairUploadUrl(url) {
   return url;
 }
 
+let lastSyncTime = 0;
 async function syncExternalSignatureRequests() {
+  const now = Date.now();
+  if (now - lastSyncTime < 300000) return; // 5-minute cooldown
+  lastSyncTime = now;
   try {
     const Request = require('../models/Request');
     const Agreement = require('../models/Agreement');
