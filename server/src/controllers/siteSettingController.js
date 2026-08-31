@@ -16,9 +16,12 @@ exports.downloadDatabase = async (req, res, next) => {
 
 exports.getSiteSettings = async (req, res, next) => {
   try {
-    let settings = await SiteSetting.findOne();
-    if (!settings) settings = await SiteSetting.create({});
-    const plain = settings.toObject ? settings.toObject() : settings;
+    let settings = await SiteSetting.findOne().lean();
+    if (!settings) {
+      const created = await SiteSetting.create({});
+      settings = created.toObject ? created.toObject() : created;
+    }
+    const plain = settings;
     if (plain.logoUrl) plain.logoUrl = toRelativeUploadUrl(plain.logoUrl);
     if (plain.sealUrl) plain.sealUrl = toRelativeUploadUrl(plain.sealUrl);
     if (plain.letterheadUrl) plain.letterheadUrl = toRelativeUploadUrl(plain.letterheadUrl);

@@ -7,14 +7,14 @@ exports.getServices = async (req, res, next) => {
   try {
     const isPrivileged = ['admin', 'manager'].includes(req.user?.role);
     const query = isPrivileged ? { archived: { $ne: true } } : { active: true, archived: { $ne: true } };
-    const services = await Service.find(query).sort({ order: 1, createdAt: -1 });
+    const services = await Service.find(query).sort({ order: 1, createdAt: -1 }).lean();
     res.json({ success: true, count: services.length, services });
   } catch (err) { next(err); }
 };
 
 exports.getPublicServices = async (req, res, next) => {
   try {
-    const services = await Service.find({ active: true, archived: { $ne: true } }).sort({ order: 1, createdAt: -1 });
+    const services = await Service.find({ active: true, archived: { $ne: true } }).sort({ order: 1, createdAt: -1 }).lean();
     res.json({ success: true, count: services.length, services });
   } catch (err) { next(err); }
 };
