@@ -219,7 +219,7 @@ exports.getAllUsers = async (req, res, next) => {
   try {
     const { branch } = req.query;
     const query = branch ? { branch } : {};
-    const users = await User.find(query).sort({ createdAt: -1 }).populate('branch', 'name');
+    const users = await User.find(query).sort({ createdAt: -1 }).populate('branch', 'name').lean();
     res.json({ success: true, count: users.length, users });
   } catch (err) { next(err); }
 };

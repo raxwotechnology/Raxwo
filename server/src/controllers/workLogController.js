@@ -139,7 +139,9 @@ exports.getAllWorkLogs = async (req, res, next) => {
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar role' } })
       .populate('tasks.project', 'title')
       .populate('approvedBy', 'name')
-      .sort({ date: -1 });
+      .sort({ date: -1 })
+      .limit(500)
+      .lean();
 
     // Calculate submission rate if date is provided
     let submissionRate = 0;

@@ -16,7 +16,10 @@ const connectDB = async () => {
   while (true) {
     try {
       attempt += 1;
-      const conn = await mongoose.connect(uri);
+      const conn = await mongoose.connect(uri, {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 10000,
+      });
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
       if (process.env.ENSURE_STAFF_LOGINS === 'true') {
         const { ensureStaffLogins } = require('../services/ensureStaffLogins');

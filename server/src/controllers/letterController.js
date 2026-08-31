@@ -253,7 +253,10 @@ exports.getLetters = async (req, res, next) => {
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
       .populate('client', 'name email')
       .populate('issuedBy', 'name')
-      .sort({ createdAt: -1 });
+      .select('-signatures.provider.data -signatures.client.data -signatures.seal.data -signatures.witness.data')
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .lean();
     res.json({ success: true, count: letters.length, letters });
   } catch (err) { next(err); }
 };

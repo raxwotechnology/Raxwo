@@ -275,33 +275,11 @@ exports.getLeaves = async (req, res, next) => {
     const leaves = await Leave.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })
       .populate('approvedBy', 'name')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .lean();
 
-    // Enrich each leave with balance context (cached per employee to avoid N×M query overhead)
-    const balanceCache = new Map();
-    const getCachedBalances = async (empId) => {
-      const key = String(empId);
-      if (balanceCache.has(key)) return balanceCache.get(key);
-      const b = await getEmployeeBalances(empId);
-      balanceCache.set(key, b);
-      return b;
-    };
-
-    const enriched = await Promise.all(leaves.map(async (l) => {
-      try {
-        const empId = l.employee?._id;
-        if (!empId) return l.toObject();
-        const balances = await getCachedBalances(empId);
-        const typeBalance = balances[l.leaveType];
-        return {
-          ...l.toObject(),
-          balances,
-          typeBalance,
-        };
-      } catch { return l.toObject(); }
-    }));
-
-    res.json({ success: true, count: leaves.length, leaves: enriched });
+    res.json({ success: true, count: leaves.length, leaves });
   } catch (err) { next(err); }
 };
 

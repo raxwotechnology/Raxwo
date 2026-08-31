@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const morgan = require('morgan');
 const helmet = require('helmet');
@@ -9,16 +10,15 @@ require('dotenv').config();
 
 const errorHandler = require('./middleware/errorHandler');
 
-// Preload all Mongoose models so population registry is immediately available
-require('./models/User');
-require('./models/Employee');
-require('./models/Branch');
-require('./models/Project');
-require('./models/Invoice');
-require('./models/Quotation');
-require('./models/Agreement');
-require('./models/Subscription');
-require('./models/BankAccount');
+// Preload ALL Mongoose models dynamically so population registry is 100% complete
+const modelsDir = path.join(__dirname, 'models');
+if (fs.existsSync(modelsDir)) {
+  fs.readdirSync(modelsDir).forEach((file) => {
+    if (file.endsWith('.js')) {
+      try { require(path.join(modelsDir, file)); } catch (e) {}
+    }
+  });
+}
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
@@ -81,6 +81,17 @@ app.use((req, res, next) => {
   
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
+  }
+  next();
+});
+
+// Database connection check middleware (fail fast with 503 instead of 30s Gateway Timeout)
+app.use('/api', (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection is initializing. Please try again in a moment.'
+    });
   }
   next();
 });

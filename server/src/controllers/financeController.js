@@ -406,12 +406,13 @@ exports.getOverview = async (req, res, next) => {
     const empMatch = empIds ? { employee: { $in: empIds } } : {};
 
     const [paidInvoices, paidPayrolls, rawEntries, revenueByMonth, paymentRevenueAgg, incomeExpenseByCategory, pettyCashEntries, subIncome, invIncome, chequeTx, advanceExp, loanTx, bankLedger, cashAgg] = await Promise.all([
-      Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title'),
-      Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year'),
+      Invoice.find({ ...branchMatch, status: 'paid', paidAt: range }).select('invoiceNo total paidAt client project').populate('client', 'name email').populate('project', 'title').lean(),
+      Payroll.find({ ...empMatch, status: 'paid', paidAt: range }).select('netSalary month year').lean(),
       FinanceEntry.find({ ...branchMatch, date: range })
         .sort({ date: -1 })
         .populate('bankAccount', 'bankName accountNumber')
-        .populate('branch', 'name'),
+        .populate('branch', 'name')
+        .lean(),
       aggregateInvoicePaymentRevenueByMonth(branchMatch, yearStart, yearEnd),
       aggregateInvoicePaymentRevenue(branchMatch, range),
       FinanceEntry.aggregate([
@@ -419,7 +420,7 @@ exports.getOverview = async (req, res, next) => {
         { $group: { _id: { category: '$category', type: '$type' }, total: { $sum: '$amount' } } },
         { $sort: { total: -1 } },
       ]),
-      PettyCash.find({ ...(branch ? { branch } : {}), date: range }).sort({ date: -1 }),
+      PettyCash.find({ ...(branch ? { branch } : {}), date: range }).sort({ date: -1 }).lean(),
       resolveSubscriptionIncome(branch, range),
       resolveInvoicePaymentIncome(branch, range),
       resolveChequeTransactions(branch, range),
