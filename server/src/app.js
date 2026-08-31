@@ -85,16 +85,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Database connection check middleware (fail fast with 503 instead of 30s Gateway Timeout)
-app.use('/api', (req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
-    return res.status(503).json({
-      success: false,
-      message: 'Database connection is initializing. Please try again in a moment.'
-    });
-  }
-  next();
-});
+
 
 // Rate limiting
 const limiter = rateLimit({
