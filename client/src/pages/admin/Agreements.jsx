@@ -121,6 +121,7 @@ export default function Agreements() {
   const { data: clientsData } = useQuery({ queryKey: ['clients'], queryFn: () => api.get('/auth/users').then((r) => r.data) })
   const { data: projectsData } = useQuery({ queryKey: ['projects'], queryFn: () => api.get('/projects').then((r) => r.data) })
   const { data: invoicesData } = useQuery({ queryKey: ['invoices'], queryFn: () => api.get('/invoices').then((r) => r.data) })
+  const { data: employeesData } = useQuery({ queryKey: ['employees-list'], queryFn: () => api.get('/employees').then((r) => r.data) })
 
   const site = siteData?.settings || {}
   const templates = templatesRes?.templates || []
@@ -133,6 +134,7 @@ export default function Agreements() {
   const clients = (clientsData?.users || []).filter((u) => u.role === 'client')
   const projects = projectsData?.projects || []
   const invoices = invoicesData?.invoices || []
+  const employees = employeesData?.employees || []
 
   const buildPrintOptsWithSite = (s, agr, html) => {
     const base = buildAgreementPrintOpts(s, agr, html, agr?.signatures || signatures)

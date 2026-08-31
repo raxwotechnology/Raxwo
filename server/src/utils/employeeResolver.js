@@ -1,13 +1,17 @@
 const mongoose = require('mongoose');
 const Employee = require('../models/Employee');
 
-const STAFF_ROLES = ['developer', 'designer', 'marketing', 'manager'];
+const STAFF_ROLES = ['developer', 'designer', 'marketing', 'manager', 'admin', 'owner', 'director', 'hr'];
 
 const ROLE_DEFAULTS = {
   developer: { department: 'Engineering', designation: 'Software Developer' },
   designer: { department: 'Design', designation: 'UI/UX Designer' },
   marketing: { department: 'Marketing', designation: 'Marketing Executive' },
   manager: { department: 'Operations', designation: 'Manager' },
+  admin: { department: 'Administration', designation: 'System Administrator' },
+  owner: { department: 'Executive', designation: 'Managing Director' },
+  director: { department: 'Executive', designation: 'Director' },
+  hr: { department: 'Human Resources', designation: 'HR Officer' },
 };
 
 async function nextEmployeeNo() {

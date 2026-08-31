@@ -139,6 +139,7 @@ export default function AdminQuotations() {
   const { data: branchQuotData } = useQuery({
     queryKey: ['branches-for-quotation-modal'],
     queryFn: () => api.get('/branches').then((r) => r.data),
+    enabled: showModal,
   })
   const { data: projQuotData } = useQuery({
     queryKey: ['projects-for-quotation-modal'],

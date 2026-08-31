@@ -21,7 +21,7 @@ const errorHandler = (err, req, res, next) => {
     statusCode = 400;
   }
 
-  console.error(`[ERROR] ${statusCode}: ${message}`);
+  console.error(`[ERROR] ${statusCode}: ${message}`, statusCode === 500 ? (err.stack || err) : '');
   res.status(statusCode).json({ success: false, message });
 };
 

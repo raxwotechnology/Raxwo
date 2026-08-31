@@ -83,6 +83,7 @@ exports.getInvoices = async (req, res, next) => {
     }
 
     // Auto-mark overdue — fire-and-forget (non-blocking, does not delay the GET response)
+    const now = new Date();
     Invoice.updateMany(
       { status: { $in: ['unpaid', 'partial'] }, dueDate: { $lt: now } },
       { status: 'overdue' }

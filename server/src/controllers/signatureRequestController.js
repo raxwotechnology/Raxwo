@@ -293,7 +293,8 @@ async function syncExternalSignatureRequests() {
 // 2. Get Requests (With filters for Admin/Owner and scoped for Employees/Clients)
 exports.getRequests = async (req, res, next) => {
   try {
-    await syncExternalSignatureRequests();
+    // Fire-and-forget sync — non-blocking so the list API returns immediately
+    syncExternalSignatureRequests().catch(() => {});
 
     const { status, documentType, urgency, employeeId, clientId, recipientType, signedBy, search, startDate, endDate } = req.query;
     const isManagement = ['admin', 'owner', 'manager'].includes(req.user.role);
