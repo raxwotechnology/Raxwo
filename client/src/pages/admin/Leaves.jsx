@@ -113,8 +113,15 @@ export default function AdminLeaves() {
   const inv = () => qc.invalidateQueries(['leaves'])
 
   const updateMut = useMutation({
-    mutationFn: ({ id, status, remarks }) => api.put(`/leaves/${id}/status`, { status, remarks }),
-    onSuccess: () => { inv(); toast.success('Leave status updated') },
+    mutationFn: ({ id, status, remarks, rejectedReason }) => api.put(`/leaves/${id}/status`, { status, remarks, rejectedReason }),
+    onSuccess: (_, variables) => {
+      inv()
+      toast.success('Leave status updated')
+      if (variables?.id) {
+        setRemarks(r => { const next = { ...r }; delete next[variables.id]; return next })
+        setRejectionReasons(r => { const next = { ...r }; delete next[variables.id]; return next })
+      }
+    },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 

@@ -5,6 +5,8 @@ import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import useAuthStore from '../../store/authStore'
 import { mediaUrl } from '../../lib/media'
+import UserAvatar from '../../components/ui/UserAvatar'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import {
   FiUsers, FiUser, FiCalendar, FiClock, FiCheckCircle, FiAlertCircle,
   FiBriefcase, FiSearch, FiPhone, FiMail,
@@ -45,7 +47,7 @@ export default function TeamHub({ isManagerView = false }) {
   const isAdmin = user?.role === 'admin' && !isManagerView
 
   // Selection states
-  const [selectedLeaderId, setSelectedLeaderId] = useState(isManagerView ? user?._id : 'all')
+  const [selectedLeaderId, setSelectedLeaderId] = useState(isAdmin ? 'all' : (user?._id || 'all'))
   const [selectedEmpId, setSelectedEmpId] = useState('all') // 'all' or specific employeeId
   const [typeFilter, setTypeFilter] = useState('all') // 'all' | 'intern' | 'permanent'
   const [search, setSearch] = useState('')
@@ -350,8 +352,28 @@ export default function TeamHub({ isManagerView = false }) {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to delete target'),
   })
 
+  const deleteEmployeeMut = useMutation({
+    mutationFn: (id) => api.delete(`/employees/${id}`).then(r => r.data),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Employee permanently deleted')
+      qc.invalidateQueries({ queryKey: ['team-hub-employees'] })
+      qc.invalidateQueries({ queryKey: ['employees'] })
+      qc.invalidateQueries({ queryKey: ['staff-hierarchy'] })
+      qc.invalidateQueries({ queryKey: ['leaders-summary'] })
+      setSelectedEmpId('all')
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete employee')
+    }
+  })
+
+  const { requestDelete: requestDeleteEmployee, DeletePasswordModal: employeeDeleteModal } = useDeleteWithPassword(deleteEmployeeMut, {
+    title: 'Permanently Delete Employee',
+    message: 'Enter your admin password to permanently delete this employee and their user account.',
+  })
+
   const updateLeaveStatusMutation = useMutation({
-    mutationFn: ({ id, status, remarks }) => api.put(`/leaves/${id}/status`, { status, remarks }),
+    mutationFn: ({ id, status, remarks, rejectedReason }) => api.put(`/leaves/${id}/status`, { status, remarks, rejectedReason }),
     onSuccess: () => {
       toast.success('Leave status updated')
       qc.invalidateQueries({ queryKey: ['team-hub-leaves'] })
@@ -359,6 +381,16 @@ export default function TeamHub({ isManagerView = false }) {
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed to update leave status'),
   })
+
+  const handleRejectLeave = (id) => {
+    const reason = window.prompt('Please enter the reason for rejection:')
+    if (reason === null) return
+    if (!reason.trim()) {
+      toast.error('Rejection reason is required')
+      return
+    }
+    updateLeaveStatusMutation.mutate({ id, status: 'rejected', rejectedReason: reason.trim() })
+  }
 
   const approveWorkLogMutation = useMutation({
     mutationFn: ({ id, status }) => api.put(`/work-logs/${id}/approve`, { status }),
@@ -559,12 +591,12 @@ export default function TeamHub({ isManagerView = false }) {
                     : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                 }`}
               >
-                <div className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                  {leader.avatar ? (
-                    <img src={mediaUrl(leader.avatar)} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="font-bold text-[10px] text-slate-700">{leader.name?.charAt(0)}</span>
-                  )}
+                <div className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center overflow-hidden shrink-0 aspect-square">
+                  <UserAvatar
+                    user={{ name: leader.name, avatar: leader.avatar }}
+                    className="w-full h-full rounded-lg aspect-square"
+                    imgClassName="w-full h-full object-cover object-top aspect-square"
+                  />
                 </div>
                 <div className="text-left">
                   <p className="leading-tight truncate max-w-[130px] font-medium">{leader.name}</p>
@@ -723,12 +755,12 @@ export default function TeamHub({ isManagerView = false }) {
                     : 'bg-slate-50/70 border-slate-200 hover:bg-slate-100/80'
                 }`}
               >
-                <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center shrink-0 overflow-hidden relative">
-                  {emp.profilePhoto || emp.userId?.avatar ? (
-                    <img src={mediaUrl(emp.profilePhoto || emp.userId?.avatar)} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="font-bold text-xs text-slate-600">{emp.userId?.name?.charAt(0)}</span>
-                  )}
+                <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center shrink-0 overflow-hidden relative aspect-square">
+                  <UserAvatar
+                    user={{ name: emp.userId?.name, avatar: emp.profilePhoto || emp.userId?.avatar }}
+                    className="w-full h-full rounded-xl aspect-square"
+                    imgClassName="w-full h-full object-cover object-top aspect-square"
+                  />
                   {isIntern && (
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white" />
                   )}
@@ -739,11 +771,26 @@ export default function TeamHub({ isManagerView = false }) {
                     <p className="text-xs font-bold text-slate-800 truncate leading-tight">{emp.userId?.name || 'Unnamed'}</p>
                   </div>
                   <p className="text-[10px] text-slate-500 truncate mt-0.5">{emp.designation || 'Member'}</p>
-                  <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.2 rounded-md mt-1 border ${
-                    isIntern ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
-                  }`}>
-                    {isIntern ? 'Intern' : 'Staff'}
-                  </span>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.2 rounded-md border ${
+                      isIntern ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>
+                      {isIntern ? 'Intern' : 'Staff'}
+                    </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          requestDeleteEmployee(emp._id)
+                        }}
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                        title="Permanently Delete Employee"
+                      >
+                        <FiTrash2 size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </button>
             )
@@ -765,12 +812,12 @@ export default function TeamHub({ isManagerView = false }) {
           className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-5 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4"
         >
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-              {selectedEmployee.profilePhoto || selectedEmployee.userId?.avatar ? (
-                <img src={mediaUrl(selectedEmployee.profilePhoto || selectedEmployee.userId?.avatar)} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-xl font-bold text-white">{selectedEmployee.userId?.name?.charAt(0)}</span>
-              )}
+            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 overflow-hidden shadow-inner aspect-square">
+              <UserAvatar
+                user={{ name: selectedEmployee.userId?.name, avatar: selectedEmployee.profilePhoto || selectedEmployee.userId?.avatar }}
+                className="w-full h-full rounded-2xl aspect-square"
+                imgClassName="w-full h-full object-cover object-top aspect-square"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -816,6 +863,16 @@ export default function TeamHub({ isManagerView = false }) {
               >
                 <FiMail size={12} /> Email
               </a>
+            )}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => requestDeleteEmployee(selectedEmployee._id)}
+                className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-100 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-rose-500/30 cursor-pointer"
+                title="Permanently Delete Employee"
+              >
+                <FiTrash2 size={12} /> Delete
+              </button>
             )}
             <button
               onClick={() => setSelectedEmpId('all')}
@@ -969,7 +1026,7 @@ export default function TeamHub({ isManagerView = false }) {
                           Approve
                         </button>
                         <button
-                          onClick={() => updateLeaveStatusMutation.mutate({ id: l._id, status: 'rejected' })}
+                          onClick={() => handleRejectLeave(l._id)}
                           className="px-2.5 py-1 bg-rose-600 text-white rounded-lg text-[11px] font-bold hover:bg-rose-700"
                         >
                           Reject
@@ -1249,7 +1306,7 @@ export default function TeamHub({ isManagerView = false }) {
                                 Approve
                               </button>
                               <button
-                                onClick={() => updateLeaveStatusMutation.mutate({ id: l._id, status: 'rejected' })}
+                                onClick={() => handleRejectLeave(l._id)}
                                 className="px-2 py-1 bg-rose-600 text-white rounded text-[11px] font-bold hover:bg-rose-700"
                               >
                                 Reject
@@ -2374,6 +2431,7 @@ export default function TeamHub({ isManagerView = false }) {
           </motion.div>
         </div>
       )}
+      {employeeDeleteModal}
     </div>
   )
 }

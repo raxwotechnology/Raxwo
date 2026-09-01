@@ -4,6 +4,9 @@ import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
+import UserAvatar from '../../components/ui/UserAvatar'
+import useAuthStore from '../../store/authStore'
+import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import {
   FiUsers, FiUser, FiBriefcase, FiSearch, FiPhone, FiMail,
   FiLayers, FiChevronDown, FiChevronRight, FiGrid, FiList,
@@ -12,10 +15,33 @@ import {
 
 export default function StaffHierarchy() {
   const queryClient = useQueryClient()
+  const { user: currentUser } = useAuthStore()
+  const isAdmin = currentUser?.role === 'admin'
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('all')
-  const [viewMode, setViewMode] = useState('tree') // 'tree' | 'grid'
+  const [viewMode, setViewMode] = useState('team') // 'team' | 'tree' | 'grid'
   const [selectedMember, setSelectedMember] = useState(null)
+
+  // Permanently Delete Employee Mutation
+  const deleteEmployeeMut = useMutation({
+    mutationFn: (id) => api.delete(`/employees/${id}`).then(r => r.data),
+    onSuccess: (data) => {
+      toast.success(data?.message || 'Employee permanently deleted')
+      queryClient.invalidateQueries({ queryKey: ['staff-hierarchy'] })
+      queryClient.invalidateQueries({ queryKey: ['employees'] })
+      queryClient.invalidateQueries({ queryKey: ['team-hub-employees'] })
+      queryClient.invalidateQueries({ queryKey: ['public-our-team'] })
+      setSelectedMember(null)
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to delete employee')
+    }
+  })
+
+  const { requestDelete: requestDeleteEmployee, DeletePasswordModal: employeeDeleteModal } = useDeleteWithPassword(deleteEmployeeMut, {
+    title: 'Permanently Delete Employee',
+    message: 'Enter your admin password to permanently delete this employee and their user account.',
+  })
 
   // Unassign Leader Mutation
   const unassignLeaderMut = useMutation({
@@ -98,6 +124,76 @@ export default function StaffHierarchy() {
     return { directors, management, projectManagers, engineers, interns }
   }, [employees])
 
+  // Group employees by team leaders & their direct reports (Team Wise)
+  const teamHierarchy = useMemo(() => {
+    const leaderMap = new Map()
+    const unassignedMembers = []
+
+    // Build map of employees by userId
+    const employeeByUserMap = new Map()
+    employees.forEach(emp => {
+      const uid = String(emp.userId?._id || emp.userId || '')
+      if (uid) employeeByUserMap.set(uid, emp)
+    })
+
+    // Find all distinct leaders from employees' manager field
+    employees.forEach(emp => {
+      if (emp.manager?._id) {
+        const mgrId = String(emp.manager._id)
+        if (!leaderMap.has(mgrId)) {
+          const leaderEmp = employeeByUserMap.get(mgrId)
+          leaderMap.set(mgrId, {
+            id: mgrId,
+            user: emp.manager,
+            employee: leaderEmp || null,
+            members: []
+          })
+        }
+      }
+    })
+
+    // Also include directors / managers even if they currently have 0 assigned members
+    employees.forEach(emp => {
+      const role = (emp.userId?.role || '').toLowerCase()
+      const desig = (emp.designation || '').toLowerCase()
+      const uid = String(emp.userId?._id || emp._id)
+      const isLeaderRole = role === 'admin' || role === 'manager' || desig.includes('director') || desig.includes('ceo') || desig.includes('lead') || desig.includes('manager')
+      
+      if (isLeaderRole && !leaderMap.has(uid) && emp.employmentType !== 'intern') {
+        leaderMap.set(uid, {
+          id: uid,
+          user: emp.userId,
+          employee: emp,
+          members: []
+        })
+      }
+    })
+
+    // Distribute members into leader teams
+    filteredEmployees.forEach(emp => {
+      const mgrId = emp.manager?._id ? String(emp.manager._id) : null
+      if (mgrId && leaderMap.has(mgrId)) {
+        if (mgrId !== String(emp.userId?._id)) {
+          leaderMap.get(mgrId).members.push(emp)
+        }
+      } else {
+        unassignedMembers.push(emp)
+      }
+    })
+
+    // Convert teams to array and sort by member count descending
+    const teams = Array.from(leaderMap.values())
+      .filter(team => {
+        if (!search && deptFilter === 'all') return true
+        const matchLeader = (team.user?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+                            (team.employee?.designation || '').toLowerCase().includes(search.toLowerCase())
+        return matchLeader || team.members.length > 0
+      })
+      .sort((a, b) => b.members.length - a.members.length)
+
+    return { teams, unassignedMembers }
+  }, [employees, filteredEmployees, search, deptFilter])
+
   // Calculate direct reports count for any given user ID
   const directReportsMap = useMemo(() => {
     const map = {}
@@ -135,12 +231,12 @@ export default function StaffHierarchy() {
       >
         <div className="flex items-start gap-3">
           <div className="relative shrink-0">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shadow-inner">
-              {photo ? (
-                <img src={mediaUrl(photo)} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="font-bold text-sm text-slate-700">{emp.userId?.name?.charAt(0)}</span>
-              )}
+            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shadow-inner shrink-0 aspect-square">
+              <UserAvatar
+                user={{ name: emp.userId?.name, avatar: photo }}
+                className="w-full h-full rounded-2xl aspect-square"
+                imgClassName="w-full h-full object-cover object-top aspect-square"
+              />
             </div>
             {isIntern && (
               <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full border-2 border-white" title="Intern" />
@@ -178,10 +274,24 @@ export default function StaffHierarchy() {
                     unassignLeaderMut.mutate(emp._id)
                   }
                 }}
-                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors shrink-0"
                 title="Remove assigned leader"
               >
                 <FiUserX size={13} />
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  requestDeleteEmployee(emp._id)
+                }}
+                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
+                title="Permanently Delete Employee"
+              >
+                <FiTrash2 size={13} />
               </button>
             )}
 
@@ -212,22 +322,30 @@ export default function StaffHierarchy() {
         </div>
 
         {/* View mode toggle */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl self-start md:self-auto">
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl self-start md:self-auto overflow-x-auto">
+          <button
+            onClick={() => setViewMode('team')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              viewMode === 'team' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FiUsers size={14} /> Team Wise
+          </button>
           <button
             onClick={() => setViewMode('tree')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               viewMode === 'tree' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <FiLayers size={14} /> Hierarchy Tree
+            <FiLayers size={14} /> Corporate Tiers
           </button>
           <button
             onClick={() => setViewMode('grid')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
               viewMode === 'grid' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <FiGrid size={14} /> Directory Grid
+            <FiGrid size={14} /> All Staff Grid
           </button>
         </div>
       </div>
@@ -312,7 +430,123 @@ export default function StaffHierarchy() {
         </div>
       </div>
 
-      {/* ── VIEW MODE 1: HIERARCHY TREE VIEW ── */}
+      {/* ── VIEW MODE 1: TEAM WISE VIEW (LEADERS & THEIR MEMBERS) ── */}
+      {viewMode === 'team' && (
+        <div className="space-y-8">
+          {teamHierarchy.teams.length > 0 ? (
+            teamHierarchy.teams.map((team) => {
+              const internCount = team.members.filter(m => m.employmentType === 'intern').length
+              const staffCount = team.members.filter(m => m.employmentType !== 'intern').length
+              const leaderPhoto = team.employee?.profilePhoto || team.user?.avatar
+
+              return (
+                <div key={team.id} className="bg-slate-50/70 border border-slate-200/80 rounded-3xl p-5 sm:p-6 space-y-5 shadow-sm">
+                  {/* Team Leader Banner */}
+                  <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md">
+                    <div className="flex items-center gap-3.5 sm:gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 overflow-hidden shadow-inner aspect-square">
+                        <UserAvatar
+                          user={{ name: team.user?.name, avatar: leaderPhoto }}
+                          className="w-full h-full rounded-2xl aspect-square"
+                          imgClassName="w-full h-full object-cover object-top aspect-square"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">{team.user?.name || 'Team Leader'}</h2>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/80 text-white border border-secondary">
+                            👑 TEAM LEADER
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 mt-0.5">
+                          {team.employee?.designation || team.user?.role || 'Leader'} · {team.employee?.department || 'Engineering'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-400">
+                          {team.user?.email && <span>{team.user.email}</span>}
+                          {team.employee?.primaryPhone && <span>· {team.employee.primaryPhone}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Team Stats & Leader Actions */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-3 py-1.5 rounded-xl bg-white/10 text-white text-xs font-semibold flex items-center gap-1.5 border border-white/10">
+                        <FiUsers size={12} className="text-secondary" /> {team.members.length} Member{team.members.length !== 1 ? 's' : ''}
+                      </span>
+                      {staffCount > 0 && (
+                        <span className="px-3 py-1.5 rounded-xl bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-500/30">
+                          💼 {staffCount} Staff
+                        </span>
+                      )}
+                      {internCount > 0 && (
+                        <span className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-semibold border border-amber-500/30">
+                          🎓 {internCount} Intern{internCount !== 1 ? 's' : ''}
+                        </span>
+                      )}
+                      {team.employee && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMember(team.employee)}
+                          className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors cursor-pointer"
+                        >
+                          View Leader Profile
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Team Members List */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3 px-1">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>Assigned Team Members</span>
+                        <span className="text-[11px] font-normal text-slate-400">({team.members.length})</span>
+                      </h4>
+                    </div>
+
+                    {team.members.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {team.members.map(member => renderMemberCard(member))}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
+                        No team members currently assigned under {team.user?.name || 'this leader'}.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })
+          ) : (
+            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
+              No teams match the current filters.
+            </div>
+          )}
+
+          {/* Unassigned / Direct Company Personnel */}
+          {teamHierarchy.unassignedMembers.length > 0 && (
+            <div className="bg-slate-50/70 border border-slate-200/80 rounded-3xl p-5 sm:p-6 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                    Direct / Unassigned Personnel ({teamHierarchy.unassignedMembers.length})
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Staff and interns without an assigned team leader
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {teamHierarchy.unassignedMembers.map(member => renderMemberCard(member))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── VIEW MODE 2: HIERARCHY TREE VIEW ── */}
       {viewMode === 'tree' && (
         <div className="space-y-8">
           {/* Level 1: Board & Executive Directors */}
@@ -421,12 +655,12 @@ export default function StaffHierarchy() {
               </button>
 
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                  {selectedMember.profilePhoto || selectedMember.userId?.avatar ? (
-                    <img src={mediaUrl(selectedMember.profilePhoto || selectedMember.userId?.avatar)} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-2xl font-bold text-white">{selectedMember.userId?.name?.charAt(0)}</span>
-                  )}
+                <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner aspect-square">
+                  <UserAvatar
+                    user={{ name: selectedMember.userId?.name, avatar: selectedMember.profilePhoto || selectedMember.userId?.avatar }}
+                    className="w-full h-full rounded-2xl aspect-square"
+                    imgClassName="w-full h-full object-cover object-top aspect-square"
+                  />
                 </div>
 
                 <div>
@@ -487,6 +721,18 @@ export default function StaffHierarchy() {
                 </button>
               )}
 
+              {/* Permanently Delete Employee Action */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => requestDeleteEmployee(selectedMember._id)}
+                  disabled={deleteEmployeeMut.isPending}
+                  className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <FiTrash2 size={13} /> {deleteEmployeeMut.isPending ? 'Deleting Employee...' : 'Permanently Delete Employee'}
+                </button>
+              )}
+
               {/* Quick Contact Links */}
               <div className="pt-1 flex items-center gap-2">
                 {selectedMember.userId?.email && (
@@ -510,6 +756,8 @@ export default function StaffHierarchy() {
           </motion.div>
         </div>
       )}
+
+      {employeeDeleteModal}
     </div>
   )
 }

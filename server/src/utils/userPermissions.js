@@ -6,8 +6,8 @@
  */
 function isTopManagerOrAdmin(user) {
   if (!user) return false;
-  const staffRoles = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin'];
-  if (staffRoles.includes(user.role)) return true;
+  const topRoles = ['admin', 'owner', 'superadmin', 'director'];
+  if (topRoles.includes(user.role)) return true;
   if (user.email && user.email.toLowerCase() === 'manager@raxwo.com') return true;
   if (user.name && user.name.toLowerCase().includes('rashin')) return true;
   return false;

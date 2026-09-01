@@ -2,6 +2,7 @@ const Target   = require('../models/Target');
 const Employee  = require('../models/Employee');
 const Payroll   = require('../models/Payroll');
 const { createNotification } = require('../services/notificationService');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
 
 // ── Helper: push bonus into payroll ───────────────────────────────────────────
 async function pushBonusToPayroll(target, employee) {
@@ -34,12 +35,31 @@ exports.getTargets = async (req, res, next) => {
   try {
     const { employee, manager, type, targetLevel, year, status } = req.query;
     const query = {};
-    if (employee) query.employee = employee;
-    if (manager) query.manager = manager;
     if (targetLevel) query.targetLevel = targetLevel;
     if (type) query.type = type;
     if (year) query.year = Number(year);
     if (status) query.status = status;
+
+    if (req.user && !isTopManagerOrAdmin(req.user)) {
+      const myReports = await Employee.find({ $or: [{ manager: req.user._id }, { userId: req.user._id }] }).select('_id');
+      const myReportIds = myReports.map(e => e._id);
+      if (employee) {
+        if (myReportIds.some(id => String(id) === String(employee))) {
+          query.employee = employee;
+        } else {
+          query.employee = { $in: [] };
+        }
+      } else {
+        query.$or = [
+          { employee: { $in: myReportIds } },
+          { manager: req.user._id },
+          { createdBy: req.user._id }
+        ];
+      }
+    } else {
+      if (employee) query.employee = employee;
+      if (manager) query.manager = manager;
+    }
 
     const targets = await Target.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar' } })

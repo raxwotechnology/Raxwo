@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FiPlus, FiX, FiCheck, FiMessageSquare, FiFlag, FiUpload, FiLink, FiImage, FiFilter, FiCheckCircle, FiAlertCircle, FiClock } from 'react-icons/fi'
 import useAuthStore from '../../store/authStore'
 import ExportBar from '../../components/ui/ExportBar'
+import { mediaUrl, normalizeUploadPath } from '../../lib/media'
+import UserAvatar from '../../components/ui/UserAvatar'
 
 const ROLES = ['all', 'developer', 'designer', 'marketing', 'manager']
 
@@ -223,13 +225,11 @@ export default function WorkLogs() {
               <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-start flex-wrap gap-3">
                 <div className="flex items-center gap-3">
                   {isAdmin && (
-                    <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden shrink-0">
-                      {log.employee?.userId?.avatar
-                        ? <img src={`${baseUrl}${log.employee.userId.avatar}`} className="w-full h-full object-cover" alt="" />
-                        : <div className="w-full h-full flex items-center justify-center text-slate-500 font-bold text-sm">
-                          {log.employee?.userId?.name?.charAt(0)}
-                        </div>}
-                    </div>
+                    <UserAvatar
+                      user={{ name: log.employee?.userId?.name, avatar: log.employee?.userId?.avatar || log.employee?.profilePhoto }}
+                      className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-white shadow-sm"
+                      imgClassName="w-full h-full rounded-full object-cover object-top"
+                    />
                   )}
                   <div>
                     <h3 className="font-bold text-primary">{isAdmin ? log.employee?.userId?.name : 'My Work Log'}</h3>
@@ -289,12 +289,41 @@ export default function WorkLogs() {
                 {log.screenshots?.length > 0 && (
                   <div>
                     <p className="text-xs font-bold text-slate-500 uppercase mb-2">Screenshots</p>
+                    <div className="flex flex-wrap gap-2.5">
+                      {log.screenshots.map((s, i) => {
+                        const sUrl = s ? mediaUrl(normalizeUploadPath(s) || s) : ''
+                        return (
+                          <a key={i} href={sUrl} target="_blank" rel="noreferrer" className="block relative group overflow-hidden rounded-xl border border-slate-200 shadow-sm hover:border-secondary transition-all">
+                            <img
+                              src={sUrl}
+                              alt={`Screenshot ${i + 1}`}
+                              className="w-20 h-20 object-cover object-top rounded-xl group-hover:scale-105 transition-transform bg-slate-100"
+                              onError={(e) => {
+                                e.currentTarget.onerror = null
+                                e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+                              }}
+                            />
+                          </a>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {log.attachments?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Attachments</p>
                     <div className="flex flex-wrap gap-2">
-                      {log.screenshots.map((s, i) => (
-                        <a key={i} href={`${baseUrl}${s}`} target="_blank" rel="noreferrer">
-                          <img src={`${baseUrl}${s}`} alt="screenshot" className="w-20 h-20 object-cover rounded-xl border border-slate-200 hover:scale-105 transition-transform" />
-                        </a>
-                      ))}
+                      {log.attachments.map((att, i) => {
+                        const attUrl = att ? mediaUrl(normalizeUploadPath(att) || att) : ''
+                        const fileName = att?.split('/')?.pop() || `Attachment ${i + 1}`
+                        return (
+                          <a key={i} href={attUrl} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 text-xs text-secondary hover:underline bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl border border-slate-200 font-medium">
+                            <FiUpload size={12} /> {fileName}
+                          </a>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

@@ -310,9 +310,7 @@ exports.getAttendance = async (req, res, next) => {
       ? {}
       : { status: { $in: ['active', 'internship', 'contract', 'on_leave'] } };
 
-    const STAFF_ROLES = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin'];
-    const userRole = String(req.user?.role || '').toLowerCase();
-    const isTopMgr = isTopManagerOrAdmin(req.user) || STAFF_ROLES.includes(userRole) || userRole !== 'client';
+    const isTopMgr = isTopManagerOrAdmin(req.user);
 
     const empFilter = {
       ...empStatusQuery,

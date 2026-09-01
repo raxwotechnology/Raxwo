@@ -89,10 +89,12 @@ exports.getEmployees = async (req, res, next) => {
       query.status = { $nin: INACTIVE_STATUSES };
     }
 
-    // If logged-in user is a PM or Team Leader (not Admin and not Rashin Sheran), restrict list to interns under them
+    // If logged-in user is a PM or Team Leader (not Top Executive / Admin), strictly restrict to employees assigned to them (or their own employee record)
     if (req.user && !isTopManagerOrAdmin(req.user)) {
-      query.manager = req.user._id;
-      query.employmentType = 'intern';
+      query.$or = [
+        { manager: req.user._id },
+        { userId: req.user._id }
+      ];
     }
 
     let employees = await Employee.find(query)
@@ -162,6 +164,15 @@ exports.getEmployee = async (req, res, next) => {
       .populate('userId', 'name email phone avatar role')
       .populate('manager', 'name email');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    if (req.user && !isTopManagerOrAdmin(req.user)) {
+      const isAssignedToMe = employee.manager && String(employee.manager._id || employee.manager) === String(req.user._id);
+      const isMyOwnRecord = employee.userId && String(employee.userId._id || employee.userId) === String(req.user._id);
+      if (!isAssignedToMe && !isMyOwnRecord) {
+        return res.status(403).json({ success: false, message: 'You are not authorized to view this employee profile.' });
+      }
+    }
+
     res.json({ success: true, employee });
   } catch (err) { next(err); }
 };
@@ -221,6 +232,11 @@ exports.createEmployee = async (req, res, next) => {
     } else if (name && user.name !== name) {
       // Ensure correct employee name mapping (fixes "Admin User" showing due to reused accounts)
       user.name = name;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    if (profilePhoto && user) {
+      user.avatar = profilePhoto;
       await user.save({ validateBeforeSave: false });
     }
 

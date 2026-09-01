@@ -6,6 +6,7 @@ const { createNotification } = require('../services/notificationService');
 const emailService = require('../services/emailService');
 const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { sanitizeWorkLogTasks } = require('../utils/workLogSanitize');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
 const path = require('path');
 
 exports.submitWorkLog = async (req, res, next) => {
@@ -123,12 +124,28 @@ exports.getAllWorkLogs = async (req, res, next) => {
     const query = {};
     if (branch) query.branch = branch;
     if (role && role !== 'all') query.employeeRole = role;
-    if (employee) {
-      query.employee = employee;
-    } else if (manager) {
-      const empIds = await Employee.find({ manager }).select('_id');
-      query.employee = { $in: empIds.map(e => e._id) };
+
+    if (req.user && !isTopManagerOrAdmin(req.user)) {
+      const myReports = await Employee.find({ $or: [{ manager: req.user._id }, { userId: req.user._id }] }).select('_id');
+      const myReportIds = myReports.map(e => e._id);
+      if (employee) {
+        if (myReportIds.some(id => String(id) === String(employee))) {
+          query.employee = employee;
+        } else {
+          query.employee = { $in: [] }; // Not authorized
+        }
+      } else {
+        query.employee = { $in: myReportIds };
+      }
+    } else {
+      if (employee) {
+        query.employee = employee;
+      } else if (manager) {
+        const empIds = await Employee.find({ manager }).select('_id');
+        query.employee = { $in: empIds.map(e => e._id) };
+      }
     }
+
     if (date) {
       const d = new Date(date);
       d.setHours(0,0,0,0);

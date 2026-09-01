@@ -5,6 +5,7 @@ const LeavePolicy = require('../models/LeavePolicy');
 const Notification = require('../models/Notification');
 const { createNotification } = require('../services/notificationService');
 const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
 
 // ─── BALANCE TYPES that consume quota ─────────────────────────────────────────
 const BALANCE_TYPES = ['annual', 'medical', 'casual', 'half_day', 'short_leave', 'maternity', 'paternity'];
@@ -256,14 +257,29 @@ exports.getLeaves = async (req, res, next) => {
     const { status, employee, branch, startDate, endDate, manager } = req.query;
     let query = {};
     if (status) query.status = status;
-    if (employee) {
-      query.employee = employee;
-    } else if (manager) {
-      const empIds = await Employee.find({ manager }).select('_id');
-      query.employee = { $in: empIds.map(e => e._id) };
-    } else if (branch) {
-      const empIds = await Employee.find({ branch }).select('_id');
-      query.employee = { $in: empIds.map(e => e._id) };
+
+    if (req.user && !isTopManagerOrAdmin(req.user)) {
+      const myReports = await Employee.find({ $or: [{ manager: req.user._id }, { userId: req.user._id }] }).select('_id');
+      const myReportIds = myReports.map(e => e._id);
+      if (employee) {
+        if (myReportIds.some(id => String(id) === String(employee))) {
+          query.employee = employee;
+        } else {
+          query.employee = { $in: [] };
+        }
+      } else {
+        query.employee = { $in: myReportIds };
+      }
+    } else {
+      if (employee) {
+        query.employee = employee;
+      } else if (manager) {
+        const empIds = await Employee.find({ manager }).select('_id');
+        query.employee = { $in: empIds.map(e => e._id) };
+      } else if (branch) {
+        const empIds = await Employee.find({ branch }).select('_id');
+        query.employee = { $in: empIds.map(e => e._id) };
+      }
     }
 
     if (startDate || endDate) {

@@ -13,6 +13,7 @@ import { DEPARTMENTS, EMPLOYEE_STATUSES, EMPLOYEE_STATUS_FILTERS, STATUS_BADGE }
 import ExportBar from '../../components/ui/ExportBar'
 import { buildEmployeeSavePayload, resolveEmployeeDocUrls } from '../../lib/employeePayload'
 import { mediaUrl } from '../../lib/media'
+import UserAvatar from '../../components/ui/UserAvatar'
 
 function buildEmployeesQueryString(filters) {
   const params = new URLSearchParams()
@@ -416,13 +417,11 @@ export default function AdminEmployees() {
                   <tr key={emp._id}>
                     <td>
                       <div className="flex items-center gap-3">
-                        {emp.profilePhoto
-                          ? <img src={mediaUrl(emp.profilePhoto)} alt={emp.userId?.name}
-                              className="w-9 h-9 rounded-full object-cover flex-shrink-0 border-2 border-white shadow"/>
-                          : <div className="w-9 h-9 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
-                              {emp.userId?.name?.charAt(0).toUpperCase()}
-                            </div>
-                        }
+                        <UserAvatar
+                          user={{ name: emp.userId?.name, avatar: emp.profilePhoto || emp.userId?.avatar }}
+                          className="w-9 h-9 rounded-full flex-shrink-0 border-2 border-white shadow"
+                          imgClassName="w-full h-full rounded-full object-cover"
+                        />
                         <div>
                           <p className="font-medium text-gray-800">{emp.userId?.name}</p>
                           <p className="text-xs text-gray-400">{emp.userId?.email}</p>
@@ -449,25 +448,25 @@ export default function AdminEmployees() {
                     <td className="text-gray-500">{emp.epfNumber||'—'}</td>
                     <td><span className={`badge ${statusColor[emp.status]||'badge-gray'}`}>{EMPLOYEE_STATUSES.find(s => s.value === emp.status)?.label || emp.status}</span></td>
                     <td>
-                      <div className="flex gap-1">
+                      <div className="flex items-center gap-1">
                         <button type="button" onClick={() => setViewEmp(emp)}
-                          className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
-                          <FiEye size={14}/>
+                          className="p-1.5 text-gray-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-colors" title="View Details">
+                          <FiEye size={15}/>
                         </button>
                         <button
                           onClick={() => navigate(`/admin/work-logs?employee=${emp._id}`)}
-                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-gray-500 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
                           title="Work Logs" type="button">
-                          <FiClock size={14}/>
+                          <FiClock size={15}/>
                         </button>
                         <button
                           onClick={() => setActivityEmp(emp)}
-                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
+                          className="p-1.5 text-gray-500 hover:text-primary hover:bg-slate-100 rounded-lg transition-colors"
                           title="View activity" type="button">
-                          <FiActivity size={14}/>
+                          <FiActivity size={15}/>
                         </button>
-                        <button type="button" onClick={()=>openEdit(emp)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={14}/></button>
-                        <button type="button" onClick={() => { setDeletePendingEmp(emp); setDeletePassword('') }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove employee"><FiTrash2 size={14}/></button>
+                        <button type="button" onClick={()=>openEdit(emp)} className="p-1.5 text-gray-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-colors" title="Edit"><FiEdit2 size={15}/></button>
+                        <button type="button" onClick={() => { setDeletePendingEmp(emp); setDeletePassword('') }} className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Remove employee"><FiTrash2 size={15}/></button>
                       </div>
                     </td>
                   </tr>
@@ -499,13 +498,11 @@ export default function AdminEmployees() {
           employees.map(emp => (
             <div key={emp._id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-sm">
               <div className="flex items-center gap-3">
-                {emp.profilePhoto
-                  ? <img src={mediaUrl(emp.profilePhoto)} alt={emp.userId?.name}
-                      className="w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-white shadow"/>
-                  : <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary font-semibold text-sm flex-shrink-0">
-                      {emp.userId?.name?.charAt(0).toUpperCase()}
-                    </div>
-                }
+                <UserAvatar
+                  user={{ name: emp.userId?.name, avatar: emp.profilePhoto || emp.userId?.avatar }}
+                  className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-white shadow"
+                  imgClassName="w-full h-full rounded-full object-cover"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-bold text-slate-800 text-sm truncate">{emp.userId?.name}</p>
