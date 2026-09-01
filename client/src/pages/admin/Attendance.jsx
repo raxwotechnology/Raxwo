@@ -444,15 +444,23 @@ export default function AdminAttendance() {
                 <tr><th>Employee</th><th>Present</th><th>Half Day</th><th>Leave</th><th>Absent</th></tr>
               </thead>
               <tbody>
-                {byEmployee.slice(0, 10).map(e => (
-                  <tr key={e.employeeId}>
-                    <td className="font-medium">{e.name} <span className="text-xs text-slate-400">#{e.employeeNo}</span></td>
-                    <td><span className="badge badge-green">{e.present}</span></td>
-                    <td><span className="badge badge-blue">{e.half_day}</span></td>
-                    <td><span className="badge badge-yellow">{e.leave}</span></td>
-                    <td><span className="badge badge-red">{e.absent}</span></td>
-                  </tr>
-                ))}
+                {byEmployee.slice(0, 10).map(e => {
+                  const matchedEmp = employees.find(emp => String(emp._id) === String(e.employeeId))
+                  const empDisplayName = (e.name && e.name !== 'Unknown') ? e.name : (matchedEmp?.userId?.name || matchedEmp?.firstName ? `${matchedEmp.firstName} ${matchedEmp.lastName || ''}`.trim() : e.name || '—')
+                  const empDisplayNo = e.employeeNo || matchedEmp?.employeeNo || matchedEmp?.userId?.employeeNo || ''
+                  return (
+                    <tr key={e.employeeId}>
+                      <td className="font-medium">
+                        {empDisplayName}
+                        {empDisplayNo ? <span className="text-xs text-slate-400 ml-1.5">#{empDisplayNo}</span> : null}
+                      </td>
+                      <td><span className="badge badge-green">{e.present}</span></td>
+                      <td><span className="badge badge-blue">{e.half_day}</span></td>
+                      <td><span className="badge badge-yellow">{e.leave}</span></td>
+                      <td><span className="badge badge-red">{e.absent}</span></td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -551,8 +559,10 @@ export default function AdminAttendance() {
             ) : records.map(r => (
               <tr key={r._id}>
                 <td>
-                  <div className="font-medium text-slate-800">{r.employee?.userId?.name || '—'}</div>
-                  <div className="text-xs text-slate-400">{r.employee?.employeeNo}</div>
+                  <div className="font-medium text-slate-800">
+                    {r.employee?.userId?.name || (r.employee?.firstName ? `${r.employee.firstName} ${r.employee.lastName || ''}`.trim() : '') || (employees.find(emp => String(emp._id) === String(r.employee?._id || r.employee))?.userId?.name) || 'Employee'}
+                  </div>
+                  <div className="text-xs text-slate-400">{r.employee?.employeeNo || employees.find(emp => String(emp._id) === String(r.employee?._id || r.employee))?.employeeNo || ''}</div>
                 </td>
                 <td className="text-slate-600 text-sm whitespace-nowrap">{fmtDate(r.date)}</td>
                 <td>

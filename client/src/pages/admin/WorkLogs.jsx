@@ -65,7 +65,8 @@ export default function WorkLogs() {
       if (roleFilter && roleFilter !== 'all') params.set('role', roleFilter)
       if (employeeFilter) params.set('employee', employeeFilter)
       return api.get(`${endpoint}?${params.toString()}`).then(r => r.data)
-    }
+    },
+    staleTime: 30000,
   })
 
   const logs = data?.logs || []

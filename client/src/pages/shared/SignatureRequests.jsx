@@ -19,8 +19,174 @@ const DOC_TYPES = [
   'Service Letter',
   'Recommendation Letter',
   'Bank Document',
+  'Daily Work Log',
+  'Work Log',
+  'Report',
+  'Project Document',
   'Other'
 ]
+
+function DocViewerPreview({ docUrl, title, isManagement, onOpenEditor }) {
+  const [blobUrl, setBlobUrl] = useState(null)
+  const [docFormat, setDocFormat] = useState('loading')
+
+  useEffect(() => {
+    if (!docUrl) {
+      setDocFormat('empty')
+      return
+    }
+
+    let isMounted = true
+    let createdUrl = null
+
+    ;(async () => {
+      try {
+        const fullUrl = mediaUrl(docUrl)
+        const lower = (docUrl || '').toLowerCase()
+
+        // 1. Image formats
+        if (
+          lower.startsWith('data:image') ||
+          lower.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i)
+        ) {
+          if (isMounted) {
+            setBlobUrl(fullUrl)
+            setDocFormat('image')
+          }
+          return
+        }
+
+        // 2. Data URI PDF (convert to Blob URL to bypass browser iframe data: restrictions)
+        if (lower.startsWith('data:application/pdf') || docUrl.includes('JVBERi')) {
+          const base64 = docUrl.includes(',') ? docUrl.split(',')[1] : docUrl
+          const binaryStr = window.atob(base64)
+          const bytes = new Uint8Array(binaryStr.length)
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i)
+          }
+          const blob = new Blob([bytes], { type: 'application/pdf' })
+          createdUrl = URL.createObjectURL(blob)
+          if (isMounted) {
+            setBlobUrl(createdUrl)
+            setDocFormat('pdf')
+          }
+          return
+        }
+
+        // 3. Word DOCX format
+        if (
+          lower.includes('wordprocessingml') ||
+          lower.includes('.docx') ||
+          lower.includes('.doc') ||
+          (docUrl.startsWith('data:') && (docUrl.includes('UEsDB') || docUrl.includes('UEsD')))
+        ) {
+          if (isMounted) {
+            setBlobUrl(fullUrl)
+            setDocFormat('docx')
+          }
+          return
+        }
+
+        // 4. Regular HTTP PDF / standard file URL
+        if (isMounted) {
+          setBlobUrl(fullUrl)
+          setDocFormat('pdf')
+        }
+      } catch (err) {
+        if (isMounted) setDocFormat('error')
+      }
+    })()
+
+    return () => {
+      isMounted = false
+      if (createdUrl) URL.revokeObjectURL(createdUrl)
+    }
+  }, [docUrl])
+
+  if (docFormat === 'empty') {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-slate-400">
+        <FiFileText className="w-16 h-16 mb-3 text-slate-300 stroke-[1.5]" />
+        <p className="text-sm font-semibold text-slate-600">No document file attached</p>
+        <p className="text-xs text-slate-400 mt-1">This request was created without an uploaded document file.</p>
+      </div>
+    )
+  }
+
+  if (docFormat === 'image') {
+    return (
+      <div className="max-w-full max-h-full flex items-center justify-center p-2">
+        <img
+          src={blobUrl}
+          alt={title}
+          className="max-h-[65vh] max-w-full object-contain rounded-2xl shadow-xl border border-slate-200 bg-white"
+        />
+      </div>
+    )
+  }
+
+  if (docFormat === 'docx') {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center space-y-4 max-w-md bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl">
+          <FiFileText size={48} />
+        </div>
+        <div>
+          <h4 className="font-bold text-slate-900 text-base">{title || 'Word Document (.docx)'}</h4>
+          <p className="text-xs text-slate-500 mt-1">Microsoft Word / Office Document format</p>
+        </div>
+        <div className="flex gap-2 w-full pt-2">
+          {isManagement && onOpenEditor && (
+            <button
+              type="button"
+              onClick={onOpenEditor}
+              className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm inline-flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <FiEdit3 size={14} /> Open in Sign &amp; Stamp Editor
+            </button>
+          )}
+          <a
+            href={blobUrl}
+            download={`${title || 'document'}.docx`}
+            className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 inline-flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <FiDownload size={14} /> Download File
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  if (docFormat === 'pdf') {
+    return (
+      <div className="w-full h-[65vh] rounded-2xl overflow-hidden border border-slate-200 bg-white shadow-lg relative">
+        <object
+          data={blobUrl}
+          type="application/pdf"
+          className="w-full h-full"
+        >
+          <iframe
+            src={blobUrl}
+            title={title}
+            className="w-full h-full border-0"
+          >
+            <div className="flex flex-col items-center justify-center p-8 text-center h-full">
+              <p className="text-sm font-semibold text-slate-700">PDF preview loading...</p>
+              <a href={blobUrl} download={`${title || 'document'}.pdf`} className="mt-3 btn-primary text-xs">Download PDF</a>
+            </div>
+          </iframe>
+        </object>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center p-12 text-slate-400">
+      <span className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-600 rounded-full animate-spin mb-3" />
+      <p className="text-xs font-semibold text-slate-500">Loading document preview...</p>
+    </div>
+  )
+}
 
 export default function SignatureRequests() {
   const { user } = useAuthStore()
@@ -46,25 +212,44 @@ export default function SignatureRequests() {
   const [viewingStampModal, setViewingStampModal] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
+  const [loadingDocId, setLoadingDocId] = useState(null)
 
   const handleViewDoc = async (req) => {
-    setViewingDoc(req)
+    setLoadingDocId(req._id)
     try {
+      if (req.originalDocUrl || req.signedDocUrl) {
+        setViewingDoc(req)
+      }
       const res = await api.get(`/signature-requests/${req._id}`)
       if (res.data?.request) {
         setViewingDoc(res.data.request)
+      } else if (!req.originalDocUrl && !req.signedDocUrl) {
+        setViewingDoc(req)
       }
-    } catch (e) {}
+    } catch (e) {
+      if (!viewingDoc) setViewingDoc(req)
+    } finally {
+      setLoadingDocId(null)
+    }
   }
 
   const handleOpenEditor = async (req) => {
-    setActiveEditorRequest(req)
+    setLoadingDocId(req._id)
     try {
+      if (req.originalDocUrl) {
+        setActiveEditorRequest(req)
+      }
       const res = await api.get(`/signature-requests/${req._id}`)
       if (res.data?.request) {
         setActiveEditorRequest(res.data.request)
+      } else if (!req.originalDocUrl) {
+        setActiveEditorRequest(req)
       }
-    } catch (e) {}
+    } catch (e) {
+      if (!activeEditorRequest) setActiveEditorRequest(req)
+    } finally {
+      setLoadingDocId(null)
+    }
   }
 
   // Delete Stamp Mutation
@@ -218,7 +403,7 @@ export default function SignatureRequests() {
         employeeId: '',
         file: null
       })
-      queryClient.invalidateQueries(['signature-requests'])
+      queryClient.invalidateQueries({ queryKey: ['signature-requests'] })
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to submit request')
@@ -248,7 +433,7 @@ export default function SignatureRequests() {
         employeeId: '',
         file: null
       })
-      queryClient.invalidateQueries(['signature-requests'])
+      queryClient.invalidateQueries({ queryKey: ['signature-requests'] })
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to update request')
@@ -266,7 +451,7 @@ export default function SignatureRequests() {
     onSuccess: () => {
       toast.success('Stamp added to your library!')
       setNewStampForm({ title: '', type: 'signature', isDefault: false, file: null })
-      queryClient.invalidateQueries(['saved-stamps-list'])
+      queryClient.invalidateQueries({ queryKey: ['saved-stamps-list'] })
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || 'Failed to save stamp')
@@ -359,9 +544,20 @@ export default function SignatureRequests() {
   }
 
   // Download Signed Document Helper (Handles Base64 Data URIs & HTTP URLs)
-  const handleDownloadSignedDoc = async (signedDocUrl, requestRef) => {
+  const handleDownloadSignedDoc = async (signedDocUrl, requestRef, requestId) => {
     try {
-      let fileUrl = mediaUrl(signedDocUrl)
+      let targetUrl = signedDocUrl
+      if (!targetUrl && requestId) {
+        setLoadingDocId(requestId)
+        try {
+          const res = await api.get(`/signature-requests/${requestId}`)
+          targetUrl = res.data?.request?.signedDocUrl || res.data?.request?.originalDocUrl
+        } finally {
+          setLoadingDocId(null)
+        }
+      }
+
+      let fileUrl = mediaUrl(targetUrl)
       if (!fileUrl) return toast.error('No signed document file available')
 
       // If it's a data URI, fix any corrupt leading chars before the magic bytes
@@ -656,30 +852,33 @@ export default function SignatureRequests() {
                         <button
                           type="button"
                           onClick={() => handleViewDoc(req)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg border border-slate-200 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                          disabled={loadingDocId === req._id}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg border border-slate-200 inline-flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
                           title="View Document & Signature Details"
                         >
-                          <FiEye size={14} /> View
+                          {loadingDocId === req._id ? <FiRefreshCw className="animate-spin" size={13} /> : <FiEye size={14} />} View
                         </button>
 
-                        {req.status === 'signed' && req.signedDocUrl ? (
+                        {req.status === 'signed' ? (
                           <button
                             type="button"
-                            onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                            onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef, req._id)}
+                            disabled={loadingDocId === req._id}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                             title="Download Signed Document"
                           >
-                            <FiDownload size={14} /> Download
+                            {loadingDocId === req._id ? <FiRefreshCw className="animate-spin" size={13} /> : <FiDownload size={14} />} Download
                           </button>
                         ) : isManagement && req.status === 'pending' ? (
                           <>
                             <button
                               type="button"
                               onClick={() => handleOpenEditor(req)}
-                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors"
+                              disabled={loadingDocId === req._id}
+                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
                               title="Sign & Stamp Document"
                             >
-                              <FiEdit3 size={14} /> Sign &amp; Stamp
+                              {loadingDocId === req._id ? <FiRefreshCw className="animate-spin" size={13} /> : <FiEdit3 size={14} />} Sign &amp; Stamp
                             </button>
                             <button
                               type="button"
@@ -691,15 +890,15 @@ export default function SignatureRequests() {
                             </button>
                           </>
                         ) : (
-                          <a
-                            href={mediaUrl(req.originalDocUrl)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"
+                          <button
+                            type="button"
+                            onClick={() => handleViewDoc(req)}
+                            disabled={loadingDocId === req._id}
+                            className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                             title="View Original Document"
                           >
-                            <FiFileText size={14} />
-                          </a>
+                            {loadingDocId === req._id ? <FiRefreshCw className="animate-spin" size={13} /> : <FiFileText size={14} />}
+                          </button>
                         )}
 
                         {(isManagement || ((req.requester?._id === user?._id || req.requester === user?._id) && req.status === 'pending')) && (
@@ -825,22 +1024,24 @@ export default function SignatureRequests() {
                 </span>
 
                 <div className="flex items-center gap-2">
-                  {req.status === 'signed' && req.signedDocUrl ? (
+                  {req.status === 'signed' ? (
                     <button
                       type="button"
-                      onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef)}
-                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                      onClick={() => handleDownloadSignedDoc(req.signedDocUrl, req.requestRef, req._id)}
+                      disabled={loadingDocId === req._id}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 disabled:opacity-50"
                     >
-                      <FiDownload size={13} /> Download
+                      {loadingDocId === req._id ? <FiRefreshCw className="animate-spin" size={13} /> : <FiDownload size={13} />} Download
                     </button>
                   ) : isManagement && req.status === 'pending' ? (
                     <>
                       <button
                         type="button"
-                        onClick={() => setActiveEditorRequest(req)}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                        onClick={() => handleOpenEditor(req)}
+                        disabled={loadingDocId === req._id}
+                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 disabled:opacity-50"
                       >
-                        <FiEdit3 size={13} /> Sign
+                        {loadingDocId === req._id ? <FiRefreshCw className="animate-spin" size={13} /> : <FiEdit3 size={13} />} Sign
                       </button>
                       <button
                         type="button"
@@ -851,14 +1052,14 @@ export default function SignatureRequests() {
                       </button>
                     </>
                   ) : (
-                    <a
-                      href={mediaUrl(req.originalDocUrl)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 flex items-center gap-1"
+                    <button
+                      type="button"
+                      onClick={() => handleViewDoc(req)}
+                      disabled={loadingDocId === req._id}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 flex items-center gap-1 disabled:opacity-50"
                     >
-                      <FiFileText size={13} /> View
-                    </a>
+                      {loadingDocId === req._id ? <FiRefreshCw className="animate-spin" size={13} /> : <FiFileText size={13} />} View
+                    </button>
                   )}
 
                   {(isManagement || ((req.requester?._id === user?._id || req.requester === user?._id) && req.status === 'pending')) && (
@@ -1332,40 +1533,15 @@ export default function SignatureRequests() {
               </div>
 
               <div className="p-4 sm:p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-900/5 min-h-[420px] flex items-center justify-center">
-                {(() => {
-                  const docUrl = viewingDoc.signedDocUrl || viewingDoc.originalDocUrl
-                  if (!docUrl) {
-                    return (
-                      <div className="flex flex-col items-center justify-center p-12 text-slate-400">
-                        <FiFileText className="w-16 h-16 mb-3 text-slate-300 stroke-[1.5]" />
-                        <p className="text-sm font-semibold text-slate-600">No document file attached</p>
-                        <p className="text-xs text-slate-400 mt-1">This request was created without an uploaded document file.</p>
-                      </div>
-                    )
-                  }
-                  const fullUrl = mediaUrl(docUrl)
-                  const isImg = docUrl && (docUrl.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i) || docUrl.startsWith('data:image'))
-                  
-                  if (isImg) {
-                    return (
-                      <div className="max-w-full max-h-full flex items-center justify-center p-2">
-                        <img
-                          src={fullUrl}
-                          alt={viewingDoc.title}
-                          className="max-h-[65vh] max-w-full object-contain rounded-2xl shadow-xl border border-slate-200 bg-white"
-                        />
-                      </div>
-                    )
-                  }
-                  
-                  return (
-                    <iframe
-                      src={fullUrl}
-                      title={viewingDoc.title}
-                      className="w-full h-[65vh] rounded-2xl border border-slate-200 bg-white shadow-lg"
-                    />
-                  )
-                })()}
+                <DocViewerPreview
+                  docUrl={viewingDoc.signedDocUrl || viewingDoc.originalDocUrl}
+                  title={viewingDoc.title}
+                  isManagement={isManagement}
+                  onOpenEditor={() => {
+                    setViewingDoc(null)
+                    setActiveEditorRequest(viewingDoc)
+                  }}
+                />
               </div>
 
               <div className="p-4 px-6 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">

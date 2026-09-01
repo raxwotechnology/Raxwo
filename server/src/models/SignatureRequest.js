@@ -20,7 +20,19 @@ const signatureRequestSchema = new mongoose.Schema({
   title: { type: String, required: true },
   documentType: {
     type: String,
-    enum: ['Internship Certificate', 'Contract Agreement', 'NOC', 'Service Letter', 'Recommendation Letter', 'Bank Document', 'Other'],
+    enum: [
+      'Internship Certificate',
+      'Contract Agreement',
+      'NOC',
+      'Service Letter',
+      'Recommendation Letter',
+      'Bank Document',
+      'Daily Work Log',
+      'Work Log',
+      'Report',
+      'Project Document',
+      'Other'
+    ],
     default: 'Other'
   },
   reason: { type: String, required: true },

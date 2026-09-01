@@ -97,10 +97,30 @@ function sniffFormat(buf) {
   return 'image'
 }
 
+function dataUriToArrayBuffer(dataUri) {
+  const comma = dataUri.indexOf(',')
+  const base64 = comma >= 0 ? dataUri.substring(comma + 1) : dataUri
+  const binaryString = window.atob(base64)
+  const len = binaryString.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
+  }
+  return bytes.buffer
+}
+
 // ── Fetch ArrayBuffer — supports Data URIs, blob URIs, and server static files ──
 async function fetchArrayBuffer(pathUrl) {
   if (!pathUrl) throw new Error('No path URL provided')
-  if (pathUrl.startsWith('data:') || pathUrl.startsWith('blob:')) {
+  if (pathUrl.startsWith('data:')) {
+    try {
+      return dataUriToArrayBuffer(pathUrl)
+    } catch {
+      const res = await fetch(pathUrl)
+      return res.arrayBuffer()
+    }
+  }
+  if (pathUrl.startsWith('blob:')) {
     const res = await fetch(pathUrl)
     return res.arrayBuffer()
   }
@@ -442,21 +462,24 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   // ── DOCX overlay stamp handlers ───────────────────────────────────────
   const addDocxStamp = useCallback((title, type, srcUrl) => {
     if (!srcUrl) return
-    const imgObj = new Image(); imgObj.crossOrigin = 'anonymous'
+    const isData = srcUrl.startsWith('data:') || srcUrl.startsWith('blob:')
+    const imgObj = new Image()
+    if (!isData) imgObj.crossOrigin = 'anonymous'
+
     imgObj.onload = () => {
       const isSeal = type === 'seal'
       const natW = imgObj.naturalWidth || 100
       const natH = imgObj.naturalHeight || 100
       const aspect = natW / natH
-      let w = isSeal ? 130 : 200
-      let h = isSeal ? 130 : 80
+      let w = isSeal ? 140 : 220
+      let h = isSeal ? 140 : 90
 
       if (isSeal) {
-        const maxD = 130
+        const maxD = 140
         if (aspect >= 1) { w = maxD; h = Math.round(maxD / aspect) }
         else { h = maxD; w = Math.round(maxD * aspect) }
       } else {
-        const maxW = 200; const maxH = 85
+        const maxW = 220; const maxH = 90
         w = maxW; h = Math.round(maxW / aspect)
         if (h > maxH) { h = maxH; w = Math.round(maxH * aspect) }
       }
@@ -475,7 +498,10 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       setSelectedStampId(stamp.id)
       toast.success(`${stamp.title} added — drag to position`)
     }
-    imgObj.src = srcUrl.startsWith('data:') ? srcUrl : mediaUrl(srcUrl)
+    imgObj.onerror = () => {
+      toast.error('Failed to load stamp image preview')
+    }
+    imgObj.src = isData ? srcUrl : mediaUrl(srcUrl)
   }, [])
 
   const handleDocxStampMouseDown = (e, stampId) => {
@@ -502,7 +528,10 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
   // ── Canvas stamp handlers ─────────────────────────────────────────────
   const addStampInstance = useCallback((title, type, srcUrl) => {
     if (!srcUrl) return
-    const imgObj = new Image(); imgObj.crossOrigin = 'anonymous'
+    const isData = srcUrl.startsWith('data:') || srcUrl.startsWith('blob:')
+    const imgObj = new Image()
+    if (!isData) imgObj.crossOrigin = 'anonymous'
+
     imgObj.onload = () => {
       const canvas = canvasRef.current
       const W = canvas?.width || 1240; const H = canvas?.height || 1754
@@ -536,7 +565,10 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
       setSelectedStampId(stamp.id)
       toast.success(`${stamp.title} added — drag to position`)
     }
-    imgObj.src = srcUrl.startsWith('data:') ? srcUrl : mediaUrl(srcUrl)
+    imgObj.onerror = () => {
+      toast.error('Failed to load stamp image preview')
+    }
+    imgObj.src = isData ? srcUrl : mediaUrl(srcUrl)
   }, [currentPage])
 
   const handleMouseDown = (e) => {
@@ -991,10 +1023,16 @@ export default function DocSignatureEditorModal({ request, onClose, onSuccess })
                     <p className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <FiBookmark className="text-blue-600" /> Saved Stamps
                     </p>
-                    <span className="text-[10px] text-slate-400 font-semibold">{savedLibrary.length} item(s)</span>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      {loadingLibrary ? 'Loading...' : `${savedLibrary.length} item(s)`}
+                    </span>
                   </div>
 
-                  {savedLibrary.length > 0 ? (
+                  {loadingLibrary ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-xs text-slate-400">
+                      <FiRefreshCw className="animate-spin text-blue-600" size={15} /> Loading stamps...
+                    </div>
+                  ) : savedLibrary.length > 0 ? (
                     <div className="grid grid-cols-2 gap-2">
                       {savedLibrary.map(st => {
                         const src = (st.imageUrl && (st.imageUrl.startsWith('data:') || st.imageUrl.startsWith('blob:')))

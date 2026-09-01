@@ -28,6 +28,7 @@ const adminNav = [
     { to: '/admin/team-hub', label: 'Team Leaders & Members', icon: FiUsers },
     { to: '/admin/staff-hierarchy', label: 'Organization Hierarchy', icon: FiLayers },
     { to: '/admin/attendance', label: 'Attendance', icon: FiClipboard },
+    { to: '/admin/work-logs', label: 'Daily Work Logs', icon: FiCheckSquare },
     { to: '/admin/leaves', label: 'Leave Management', icon: FiCalendar },
     { to: '/admin/policies', label: 'Policy Management', icon: FiShield },
     { to: '/admin/payroll', label: 'Payroll', icon: FiDollarSign },

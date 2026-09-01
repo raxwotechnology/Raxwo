@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const Employee = require('../models/Employee');
+const User = require('../models/User');
 const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { computeAttendanceHours } = require('../utils/attendanceHours');
 const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
@@ -330,9 +331,8 @@ exports.getAttendance = async (req, res, next) => {
     }
 
     const activeEmps = await Employee.find(empFilter)
-      .select('_id userId employeeNo branch status manager')
+      .select('_id userId employeeNo branch status manager firstName lastName')
       .populate('userId', 'name email avatar isActive')
-      .maxTimeMS(8000)
       .lean();
 
     // Strictly filter only employees with active user accounts
@@ -341,6 +341,7 @@ exports.getAttendance = async (req, res, next) => {
       : activeEmps.filter(e => e.userId && e.userId.isActive !== false);
 
     const validActiveEmpIds = new Set(validActiveEmps.map(e => String(e._id)));
+    const empMap = new Map(validActiveEmps.map(e => [String(e._id), e]));
 
     const query = {};
     if (employeeId) {
@@ -359,10 +360,9 @@ exports.getAttendance = async (req, res, next) => {
       if (startDate) {
         const [sy, sm, sd] = startDate.split('-').map(Number);
         if (sy && sm && sd) {
-          query.date.$gte = new Date(Date.UTC(sy, sm - 1, sd - 1, 0, 0, 0, 0));
+          query.date.$gte = new Date(Date.UTC(sy, sm - 1, sd, 0, 0, 0, 0));
         } else {
           const s = new Date(startDate);
-          s.setDate(s.getDate() - 1);
           s.setHours(0, 0, 0, 0);
           query.date.$gte = s;
         }
@@ -370,17 +370,16 @@ exports.getAttendance = async (req, res, next) => {
       if (endDate) {
         const [ey, em, ed] = endDate.split('-').map(Number);
         if (ey && em && ed) {
-          query.date.$lte = new Date(Date.UTC(ey, em - 1, ed + 1, 23, 59, 59, 999));
+          query.date.$lte = new Date(Date.UTC(ey, em - 1, ed, 23, 59, 59, 999));
         } else {
           const e = new Date(endDate);
-          e.setDate(e.getDate() + 1);
           e.setHours(23, 59, 59, 999);
           query.date.$lte = e;
         }
       }
     } else if (month && year) {
       const start = new Date(Date.UTC(Number(year), Number(month) - 1, 1, 0, 0, 0, 0));
-      const end = new Date(Date.UTC(Number(year), Number(month), 1, 23, 59, 59, 999));
+      const end = new Date(Date.UTC(Number(year), Number(month), 0, 23, 59, 59, 999));
       query.date = { $gte: start, $lte: end };
     } else {
       // Default to today only if no date scope is provided
@@ -391,20 +390,23 @@ exports.getAttendance = async (req, res, next) => {
       query.date = { $gte: todayStart, $lte: todayEnd };
     }
 
-    const records = await Attendance.find(query)
-      .populate({
-        path: 'employee',
-        select: '_id userId employeeNo branch status',
-        populate: { path: 'userId', select: 'name email avatar isActive' },
-      })
+    const rawRecords = await Attendance.find(query)
       .select('employee date status checkIn checkOut isHalfDay otHours lateDeductionAmount hourlyDeductionAmount breakTimes totalWorkedHours notes markedBy')
       .sort({ date: -1 })
       .limit(1000)
-      .maxTimeMS(10000)
       .lean();
 
+    // Map populated employee object onto raw records
+    const records = rawRecords.map(r => {
+      const empId = String(r.employee?._id || r.employee);
+      const resolvedEmp = empMap.get(empId) || (typeof r.employee === 'object' ? r.employee : null) || { _id: empId };
+      return {
+        ...r,
+        employee: resolvedEmp
+      };
+    });
+
     // Filter out records where employee is null/missing
-    // For top-managers with no specific filter, show all records (skip set restriction)
     const restrictByEmpSet = !isTopMgr || employeeId || branch || manager;
     let filteredRecords = records.filter(r => {
       if (!r.employee || !r.employee._id) return false;
@@ -413,16 +415,6 @@ exports.getAttendance = async (req, res, next) => {
       }
       return true;
     });
-
-    // If querying specific date range, filter strictly in memory to target date range in local/UTC
-    if (startDate && endDate) {
-      const targetStart = new Date(startDate); targetStart.setHours(0,0,0,0);
-      const targetEnd = new Date(endDate); targetEnd.setHours(23,59,59,999);
-      filteredRecords = filteredRecords.filter(r => {
-        const d = new Date(r.date);
-        return d >= targetStart || d.toISOString().split('T')[0] >= startDate;
-      });
-    }
 
     let dStart, dEnd;
     if (startDate && endDate) {
@@ -440,7 +432,7 @@ exports.getAttendance = async (req, res, next) => {
 
     const recordMap = new Set();
     filteredRecords.forEach(r => {
-      const empId = r.employee?._id || r.employee;
+      const empId = String(r.employee?._id || r.employee);
       const dObj = new Date(r.date);
       const isoStr = dObj.toISOString().split('T')[0];
       const localStr = `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`;
@@ -475,7 +467,7 @@ exports.getAttendance = async (req, res, next) => {
         }
       }
     }
-    const allRecords = [...filteredRecords.map(r => r.toObject ? r.toObject() : r), ...dummyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const allRecords = [...filteredRecords, ...dummyRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     res.json({ success: true, count: allRecords.length, records: allRecords });
   } catch (err) { next(err); }
@@ -588,12 +580,13 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
     }
 
     const activeEmps = await Employee.find(empFilter)
-      .select('_id userId employeeNo branch manager status')
+      .select('_id userId employeeNo branch manager status firstName lastName')
       .populate('userId', 'name employeeNo isActive')
       .lean();
 
     const validActiveEmps = activeEmps.filter(e => e.userId && e.userId.isActive !== false);
     const validActiveEmpIds = new Set(validActiveEmps.map(e => String(e._id)));
+    const empMap = new Map(validActiveEmps.map(e => [String(e._id), e]));
 
     const query = {
       date: { $gte: start, $lte: end },
@@ -639,8 +632,10 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
 
     const byEmployee = allRecords.reduce((acc, row) => {
       const empId = String(row.employee?._id || row.employee);
-      const name = row.employee?.userId?.name || 'Unknown';
-      if (!acc[empId]) acc[empId] = { employeeId: empId, employeeNo: row.employee?.employeeNo || '', name, present: 0, absent: 0, leave: 0, half_day: 0 };
+      const empObj = empMap.get(empId) || (typeof row.employee === 'object' ? row.employee : null);
+      const name = empObj?.userId?.name || (empObj?.firstName ? `${empObj.firstName} ${empObj.lastName || ''}`.trim() : '') || 'Employee';
+      const employeeNo = empObj?.employeeNo || empObj?.userId?.employeeNo || '';
+      if (!acc[empId]) acc[empId] = { employeeId: empId, employeeNo, name, present: 0, absent: 0, leave: 0, half_day: 0 };
       const key = row.isHalfDay ? 'half_day' : row.status;
       if (acc[empId][key] !== undefined) acc[empId][key] += 1;
       return acc;

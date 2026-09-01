@@ -136,7 +136,7 @@ exports.getAllWorkLogs = async (req, res, next) => {
     }
 
     const logs = await WorkLog.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email avatar role' } })
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email role' } })
       .populate('tasks.project', 'title')
       .populate('approvedBy', 'name')
       .sort({ date: -1 })

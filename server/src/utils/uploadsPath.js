@@ -21,11 +21,32 @@ function uploadSubdir(name) {
   return path.join(getUploadsRoot(), name);
 }
 
+function saveBase64ImageFile(dataUri, subdir = 'avatars', prefix = 'img') {
+  if (!dataUri || typeof dataUri !== 'string') return '';
+  if (!dataUri.startsWith('data:image/')) return toRelativeUploadUrl(dataUri);
+  try {
+    const match = dataUri.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+    if (!match) return dataUri;
+    const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+    const buffer = Buffer.from(match[2], 'base64');
+    const targetDir = uploadSubdir(subdir);
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+    const filename = `${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+    const filePath = path.join(targetDir, filename);
+    fs.writeFileSync(filePath, buffer);
+    return `/uploads/${subdir}/${filename}`;
+  } catch (e) {
+    console.error('Failed to save base64 image file:', e.message);
+    return dataUri;
+  }
+}
+
 /** Store only `/uploads/...` in the database so any API host works with mediaUrl(). */
-function toRelativeUploadUrl(urlOrPath) {
+function toRelativeUploadUrl(urlOrPath, subdir = 'avatars') {
   if (!urlOrPath || typeof urlOrPath !== 'string') return '';
   let trimmed = urlOrPath.trim();
   if (!trimmed) return '';
+  if (trimmed.startsWith('data:image/')) return saveBase64ImageFile(trimmed, subdir);
   if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
 
   trimmed = trimmed.replace(/\\/g, '/');
@@ -62,4 +83,5 @@ module.exports = {
   uploadSubdir,
   toRelativeUploadUrl,
   relativeUploadPath,
+  saveBase64ImageFile,
 };

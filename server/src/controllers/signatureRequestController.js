@@ -142,12 +142,26 @@ exports.createRequest = async (req, res, next) => {
 function repairUploadUrl(url) {
   if (!url || typeof url !== 'string') return url;
 
-  // 1. If already a valid Data URI or Blob URI, return directly without modification
-  if (url.startsWith('data:') || url.startsWith('blob:')) {
+  // 1. If already a blob URI, return directly
+  if (url.startsWith('blob:')) return url;
+
+  // 2. Normalize and fix Data URIs
+  if (url.startsWith('data:')) {
+    const commaIdx = url.indexOf(',');
+    if (commaIdx !== -1) {
+      const header = url.substring(0, commaIdx);
+      const content = url.substring(commaIdx + 1);
+      if (header.includes('octet-stream') || header.includes('unknown') || !header.includes(';base64')) {
+        if (content.includes('JVBERi')) return `data:application/pdf;base64,${content}`;
+        if (content.startsWith('UEsDB')) return `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${content}`;
+        if (content.startsWith('iVBORw0KGgo')) return `data:image/png;base64,${content}`;
+        if (content.startsWith('/9j/')) return `data:image/jpeg;base64,${content}`;
+      }
+    }
     return url;
   }
 
-  // 2. Fix broken/prefixed base64 strings while preserving proper MIME types
+  // 3. Fix broken/prefixed base64 strings while preserving proper MIME types
   if (url.includes('base64,')) {
     const idx = url.indexOf('base64,');
     const prefix = url.substring(0, idx);
@@ -161,7 +175,7 @@ function repairUploadUrl(url) {
     return `data:image/png;base64,${content}`;
   }
 
-  // 3. Fix base64 strings incorrectly saved inside upload path
+  // 4. Fix base64 strings incorrectly saved inside upload path
   if (url.includes('/uploads/') && (url.includes('==') || url.includes('iVBORw') || url.includes('JVBERi') || url.includes('UEsDB') || url.length > 200)) {
     const lastSlash = url.lastIndexOf('/');
     const base64Content = url.substring(lastSlash + 1);
@@ -299,7 +313,6 @@ async function syncExternalSignatureRequests() {
 // 2. Get Requests (With filters for Admin/Owner and scoped for Employees/Clients)
 exports.getRequests = async (req, res, next) => {
   try {
-
     const { status, documentType, urgency, employeeId, clientId, recipientType, signedBy, search, startDate, endDate } = req.query;
     const userRole = String(req.user?.role || '').toLowerCase();
     const STAFF_ROLES = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin'];
@@ -357,16 +370,23 @@ exports.getRequests = async (req, res, next) => {
     }
 
     const requests = await SignatureRequest.find(query)
+      .select('_id requestRef title documentType reason urgency status requester employeeId employeeName employeeEmail employeePhone employeeType clientId clientName clientEmail signedBy signedByName signedByRole signedAt rejectionReason createdAt updatedAt')
       .sort({ createdAt: -1 })
-      .select('-originalDocUrl -signedDocUrl -stampsMeta -notes')
-      .populate('requester', 'name email avatar role')
+      .populate('requester', 'name email role')
       .populate('clientId', 'companyName contactPerson')
       .populate('signedBy', 'name email role')
       .limit(100)
-      .maxTimeMS(8000)
       .lean();
 
-    res.json({ success: true, count: requests.length, requests });
+    const formattedRequests = requests.map(r => ({
+      ...r,
+      hasOriginalDoc: true,
+      hasSignedDoc: r.status === 'signed',
+      originalDocUrl: '',
+      signedDocUrl: ''
+    }));
+
+    res.json({ success: true, count: formattedRequests.length, requests: formattedRequests });
   } catch (err) {
     next(err);
   }
@@ -382,19 +402,6 @@ exports.getRequestById = async (req, res, next) => {
 
     if (!sigReq) {
       return res.status(404).json({ success: false, message: 'Signature request not found' });
-    }
-
-    const isOwner = sigReq.requester._id.toString() === req.user._id.toString();
-    const isManagement = ['admin', 'owner', 'manager'].includes(req.user.role);
-
-    let isTargetRecipient = false;
-    if (req.user.role === 'client') {
-      const clientProf = await ClientProfile.findOne({ userId: req.user._id });
-      if (clientProf && sigReq.clientId && sigReq.clientId.toString() === clientProf._id.toString()) isTargetRecipient = true;
-      if (sigReq.clientEmail && sigReq.clientEmail === req.user.email) isTargetRecipient = true;
-    } else {
-      const emp = await Employee.findOne({ userId: req.user._id });
-      if (emp && sigReq.employeeId && sigReq.employeeId.toString() === emp._id.toString()) isTargetRecipient = true;
     }
 
     const reqObj = sigReq.toObject ? sigReq.toObject() : sigReq;
@@ -576,10 +583,17 @@ exports.saveStamps = async (req, res, next) => {
 // 8. Get all Saved Stamps List for Logged-in Admin / Owner
 exports.getSavedStampsList = async (req, res, next) => {
   try {
-    const stamps = await SavedStamp.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
+    const userRole = String(req.user?.role || '').toLowerCase();
+    const STAFF_ROLES = ['admin', 'owner', 'manager', 'developer', 'marketing', 'designer', 'hr', 'director', 'superadmin'];
+    const isManagement = STAFF_ROLES.includes(userRole) || userRole !== 'client';
+
+    const query = isManagement ? {} : { user: req.user._id };
+
+    const stamps = await SavedStamp.find(query)
+      .sort({ isDefault: -1, createdAt: -1 })
       .maxTimeMS(5000)
       .lean();
+
     const cleanedStamps = stamps.map(st => {
       const sObj = { ...st };
       if (sObj.imageUrl && typeof sObj.imageUrl === 'string' && sObj.imageUrl.includes('data:image')) {
@@ -588,6 +602,38 @@ exports.getSavedStampsList = async (req, res, next) => {
       }
       return sObj;
     });
+
+    // Also include site-wide stamps from SiteSetting if not already present in the library
+    try {
+      const settings = await SiteSetting.findOne().lean();
+      if (settings) {
+        if (settings.sealUrl && !cleanedStamps.some(s => s.imageUrl === settings.sealUrl)) {
+          cleanedStamps.push({
+            _id: 'site_company_seal',
+            title: 'Official Company Seal',
+            type: 'seal',
+            imageUrl: settings.sealUrl,
+            isDefault: true
+          });
+        }
+        if (settings.signatures) {
+          Object.entries(settings.signatures).forEach(([roleKey, sigData]) => {
+            if (sigData?.url && !cleanedStamps.some(s => s.imageUrl === sigData.url)) {
+              cleanedStamps.push({
+                _id: `site_sig_${roleKey}`,
+                title: `${sigData.label || roleKey.toUpperCase()} Signature`,
+                type: 'signature',
+                imageUrl: sigData.url,
+                isDefault: false
+              });
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('SiteSetting stamp merge notice:', e.message);
+    }
+
     res.json({ success: true, count: cleanedStamps.length, stamps: cleanedStamps });
   } catch (err) {
     next(err);
