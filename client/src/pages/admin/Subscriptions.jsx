@@ -96,7 +96,8 @@ export default function AdminSubscriptions() {
 
   const emptyForm = {
     client: '', project: '', branch: '', title: '', description: '', subscriptionType: 'custom', customServiceType: '',
-    amount: '3000', billingFrequency: 'monthly', billingDay: 1,
+    amount: '3000', billingFrequency: 'monthly', billingDay: 30,
+    nextDueDate: '',
     reminderDaysBefore: '5',
     status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active',
     paymentMethod: 'cash', bankAccount: '',
@@ -331,6 +332,7 @@ export default function AdminSubscriptions() {
       title: sub.title, description: sub.description || '',
       subscriptionType: sub.subscriptionType, customServiceType: sub.customServiceType || '', amount: sub.amount,
       billingFrequency: sub.billingFrequency, billingDay: sub.billingDay,
+      nextDueDate: sub.nextDueDate ? new Date(sub.nextDueDate).toISOString().split('T')[0] : '',
       reminderDaysBefore: sub.reminderDaysBefore != null ? String(sub.reminderDaysBefore) : '',
       status: sub.status,
       hostingUrl: sub.hostingDetails?.hostingUrl || '',
@@ -388,6 +390,9 @@ export default function AdminSubscriptions() {
     
     payload.amount = Number(payload.amount) || 0
     payload.billingDay = Number(payload.billingDay) || 1
+    if (form.nextDueDate) {
+      payload.nextDueDate = form.nextDueDate
+    }
     const rd = form.reminderDaysBefore === '' || form.reminderDaysBefore == null
       ? null
       : Number(form.reminderDaysBefore)
@@ -1112,6 +1117,27 @@ export default function AdminSubscriptions() {
                     <option value="overdue">Overdue</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                </div>
+                <div>
+                  <label className="form-label font-medium text-slate-700">Next Due Date</label>
+                  <input
+                    type="date"
+                    className="form-input font-medium"
+                    value={form.nextDueDate}
+                    onChange={e => {
+                      f('nextDueDate')(e.target.value)
+                      if (e.target.value) {
+                        const parts = e.target.value.split('-')
+                        if (parts.length === 3) {
+                          const day = parseInt(parts[2], 10)
+                          if (!isNaN(day) && day >= 1 && day <= 31) {
+                            f('billingDay')(day)
+                          }
+                        }
+                      }
+                    }}
+                  />
+                  <p className="text-[11px] text-slate-500 mt-1 font-medium">Explicit next billing cycle date</p>
                 </div>
               </div>
 

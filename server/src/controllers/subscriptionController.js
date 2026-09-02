@@ -201,10 +201,20 @@ exports.createSubscription = async (req, res, next) => {
     }
 
     // Calculate initial nextDueDate if not provided
+    if (payload.nextDueDate) {
+      const nd = new Date(payload.nextDueDate);
+      if (!Number.isNaN(nd.getTime())) {
+        nd.setHours(12, 0, 0, 0);
+        payload.nextDueDate = nd;
+      } else {
+        delete payload.nextDueDate;
+      }
+    }
     if (!payload.nextDueDate) {
       const now = new Date();
       const billingDay = payload.billingDay || 1;
       const next = new Date(now.getFullYear(), now.getMonth() + 1, billingDay);
+      next.setHours(12, 0, 0, 0);
       payload.nextDueDate = next;
     }
 
@@ -220,10 +230,6 @@ exports.createSubscription = async (req, res, next) => {
         paidAt: new Date(),
         note: 'Initial setup payment'
       }];
-      if (payload.nextDueDate) {
-        payload.nextDueDate = advanceDueDate(payload.nextDueDate, payload.billingFrequency || 'monthly');
-        payload.totalBilled = (payload.amount || 0) * 2;
-      }
     }
 
     const sub = await Subscription.create(payload);
@@ -289,6 +295,16 @@ exports.updateSubscription = async (req, res, next) => {
       }
     });
     if (updates.reminderDaysBefore === 0) updates.reminderDaysBefore = null;
+
+    if (updates.nextDueDate) {
+      const nd = new Date(updates.nextDueDate);
+      if (!Number.isNaN(nd.getTime())) {
+        nd.setHours(12, 0, 0, 0);
+        updates.nextDueDate = nd;
+      } else {
+        delete updates.nextDueDate;
+      }
+    }
 
     const sub = await Subscription.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true })
       .populate('client', 'name email phone')
@@ -383,36 +399,20 @@ exports.recordPayment = async (req, res, next) => {
 
     const totalPaid = sub.payments.reduce((s, p) => s + Number(p.amount || 0), 0);
     sub.totalPaid = totalPaid;
-    const subAmt = Number(sub.amount || 0);
-    const cyclesPaid = subAmt > 0 ? Math.floor(totalPaid / subAmt) : 0;
 
-    let startDate = sub.startDate ? new Date(sub.startDate) : new Date(sub.createdAt || Date.now());
-    let nextDue = new Date(startDate);
-    for (let i = 0; i < cyclesPaid; i++) {
-      nextDue = advanceDueDate(nextDue, sub.billingFrequency);
+    // Advance nextDueDate from current nextDueDate
+    let nextDue = sub.nextDueDate ? new Date(sub.nextDueDate) : new Date();
+    nextDue = advanceDueDate(nextDue, sub.billingFrequency);
+    if (sub.billingDay) {
+      const maxDays = new Date(nextDue.getFullYear(), nextDue.getMonth() + 1, 0).getDate();
+      nextDue.setDate(Math.min(sub.billingDay, maxDays));
     }
+    nextDue.setHours(12, 0, 0, 0);
     sub.nextDueDate = nextDue;
 
-    let billed = Math.max(subAmt, cyclesPaid * subAmt);
-    const now = new Date();
-    let tempDue = new Date(nextDue);
-    tempDue.setHours(23, 59, 59, 999);
-    if (now > tempDue && subAmt > 0) {
-      billed += subAmt;
-    }
-    sub.totalBilled = billed;
-
-    const remaining = Math.max(0, billed - totalPaid);
-    const dueEnd = new Date(nextDue);
-    dueEnd.setHours(23, 59, 59, 999);
-
-    if (remaining === 0 || now <= dueEnd) {
-      sub.status = 'active';
-      sub.overdueDays = 0;
-    } else {
-      sub.status = 'overdue';
-      sub.overdueDays = Math.ceil((now - dueEnd) / 86400000);
-    }
+    sub.totalBilled = totalPaid;
+    sub.status = 'active';
+    sub.overdueDays = 0;
 
     await sub.save();
 
@@ -801,43 +801,32 @@ exports.processOverdue = async (req, res, next) => {
     for (const sub of subs) {
       const totalPaid = (sub.payments || []).reduce((s, p) => s + Number(p.amount || 0), 0);
       const amount = Number(sub.amount || 0);
-      const cyclesPaid = amount > 0 ? Math.floor(totalPaid / amount) : 0;
-      
-      let startDate = sub.startDate ? new Date(sub.startDate) : new Date(sub.createdAt || Date.now());
-      let nextDue = new Date(startDate);
-      for (let i = 0; i < cyclesPaid; i++) {
-        nextDue = advanceDueDate(nextDue, sub.billingFrequency);
-      }
 
-      let billed = Math.max(amount, cyclesPaid * amount);
-      let tempDue = new Date(nextDue);
-      tempDue.setHours(23, 59, 59, 999);
-      if (now > tempDue && amount > 0) {
-        billed += amount;
-      }
-      const remaining = Math.max(0, billed - totalPaid);
-      const dueEnd = new Date(nextDue);
+      const dueEnd = new Date(sub.nextDueDate || now);
       dueEnd.setHours(23, 59, 59, 999);
 
+      let billed = Math.max(sub.totalBilled || 0, totalPaid);
+      if (now > dueEnd && amount > 0 && billed <= totalPaid) {
+        billed = totalPaid + amount;
+      }
+      const remaining = Math.max(0, billed - totalPaid);
       const days = now > dueEnd ? Math.ceil((now - dueEnd) / 86400000) : 0;
 
       if (remaining === 0 || days <= 0) {
-        if (sub.status === 'overdue' || sub.overdueDays > 0) {
+        if (sub.status === 'overdue' || sub.overdueDays > 0 || sub.totalPaid !== totalPaid || sub.totalBilled !== billed) {
           sub.status = 'active';
           sub.overdueDays = 0;
           sub.lastOverdueCheck = now;
-          sub.nextDueDate = nextDue;
           sub.totalPaid = totalPaid;
           sub.totalBilled = billed;
           await sub.save();
           updated++;
         }
       } else {
-        if (sub.status !== 'overdue' || sub.overdueDays !== days) {
+        if (sub.status !== 'overdue' || sub.overdueDays !== days || sub.totalPaid !== totalPaid || sub.totalBilled !== billed) {
           sub.status = 'overdue';
           sub.overdueDays = days;
           sub.lastOverdueCheck = now;
-          sub.nextDueDate = nextDue;
           sub.totalPaid = totalPaid;
           sub.totalBilled = billed;
           await sub.save();
