@@ -244,6 +244,21 @@ exports.sendSubscriptionHistoryEmail = async (clientEmail, clientName, subDetail
     ])}
     ${btnHtml('View Online', viewUrl)}
   `);
+  const mailOpts = {
+    to: clientEmail,
+    subject: `Payment History: ${subDetails.title || 'Subscription'}`,
+    html,
+  };
+  if (pdfBuffer) {
+    mailOpts.attachments = [{
+      filename: `Subscription_History_${subDetails.subscriptionNo || 'sub'}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }];
+  }
+  await sendLoggedMail(mailOpts, 'subscription');
+};
+
 exports.sendInvoicePaymentReceiptEmail = async (clientEmail, clientName, invoiceDetails, paymentDetails) => {
   const viewUrl = `${APP_URL}/client/invoices`;
   const isSettled = invoiceDetails.remainingBalance === 0 || invoiceDetails.status === 'paid';
