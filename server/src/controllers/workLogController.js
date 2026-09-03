@@ -250,3 +250,58 @@ exports.approveWorkLog = async (req, res, next) => {
     res.json({ success: true, workLog });
   } catch (err) { next(err); }
 };
+
+exports.bulkApproveWorkLogs = async (req, res, next) => {
+  try {
+    const { logIds, approvalStatus = 'approved', approvalNote = '' } = req.body;
+    if (!Array.isArray(logIds) || !logIds.length) {
+      return res.status(400).json({ success: false, message: 'Select at least one work log.' });
+    }
+    if (!['approved', 'rejected'].includes(approvalStatus)) {
+      return res.status(400).json({ success: false, message: 'Invalid approval status' });
+    }
+
+    const updatedLogs = await WorkLog.find({ _id: { $in: logIds } })
+      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } });
+
+    const now = new Date();
+    await WorkLog.updateMany(
+      { _id: { $in: logIds } },
+      {
+        $set: {
+          approvalStatus,
+          approvalNote: approvalNote || '',
+          approvedBy: req.user._id,
+          approvedAt: now,
+          status: approvalStatus === 'approved' ? 'reviewed' : 'flagged',
+        }
+      }
+    );
+
+    // Send notifications and emails
+    for (const workLog of updatedLogs) {
+      if (workLog.employee?.userId) {
+        const uid = workLog.employee.userId._id || workLog.employee.userId;
+        const empUser = workLog.employee.userId;
+        await createNotification({
+          recipient: uid,
+          title: `Work Log ${approvalStatus === 'approved' ? 'Approved ✅' : 'Rejected ❌'}`,
+          message: `Your work log for ${new Date(workLog.date).toLocaleDateString()} has been ${approvalStatus}${approvalNote ? ': ' + approvalNote : '.'}`,
+          type: 'system',
+          link: '/developer/work-logs'
+        }).catch(() => {});
+
+        if (approvalStatus === 'approved' && empUser?.email) {
+          emailService.sendWorkLogApprovedEmail(empUser.email, empUser.name, workLog.date, approvalNote)
+            .catch(() => {});
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      count: logIds.length,
+      message: `Successfully ${approvalStatus === 'approved' ? 'approved' : 'rejected'} ${logIds.length} work log(s)`
+    });
+  } catch (err) { next(err); }
+};

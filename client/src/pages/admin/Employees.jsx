@@ -429,16 +429,41 @@ export default function AdminEmployees() {
                       </div>
                     </td>
                     <td>
-                      <div className="flex flex-col gap-1.5 min-w-[96px]">
+                      <div className="flex flex-col gap-1.5 min-w-[120px]">
                         <span className="font-mono text-xs font-semibold text-slate-700 tracking-wide">{emp.employeeNo || '—'}</span>
                         <span className={`inline-flex w-fit items-center text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ring-1 ring-inset ${EMPLOYMENT_TYPE_META[emp.employmentType]?.className || EMPLOYMENT_TYPE_META.permanent.className}`}>
                           {EMPLOYMENT_TYPE_META[emp.employmentType]?.label || 'Permanent'}
                         </span>
-                        {emp.employmentType === 'intern' && emp.internshipDaysRemaining !== null && (
-                          <span className={`text-[10px] font-medium flex items-center gap-1 ${emp.internshipDaysRemaining <= 14 ? 'text-red-500' : 'text-slate-400'}`}>
-                            {emp.internshipDaysRemaining <= 14 && <FiAlertCircle size={10} />}
-                            {emp.internshipDaysRemaining}d left
-                          </span>
+                        {(emp.employmentType === 'intern' || emp.status === 'internship') && (
+                          <div className="flex flex-col gap-0.5 mt-0.5">
+                            {(() => {
+                              const days = emp.internshipDaysRemaining != null
+                                ? emp.internshipDaysRemaining
+                                : (emp.internship?.endDate ? Math.max(0, Math.ceil((new Date(emp.internship.endDate) - new Date()) / 86400000)) : null)
+                              
+                              if (days === null && !emp.internship?.endDate) {
+                                return <span className="text-[10px] text-slate-400 font-medium">No end date</span>
+                              }
+                              if (days !== null && days <= 0) {
+                                return (
+                                  <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded flex items-center gap-1 w-fit">
+                                    <FiAlertCircle size={10} /> Expired
+                                  </span>
+                                )
+                              }
+                              return (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 w-fit ${days <= 14 ? 'text-amber-700 bg-amber-50 border border-amber-200' : 'text-emerald-700 bg-emerald-50 border border-emerald-200'}`}>
+                                  {days <= 14 && <FiAlertCircle size={10} />}
+                                  {days}d remaining
+                                </span>
+                              )
+                            })()}
+                            {emp.internship?.endDate && (
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                Ends: {new Date(emp.internship.endDate).toLocaleDateString('en-LK')}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -524,6 +549,23 @@ export default function AdminEmployees() {
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">ID / Type</span>
                   <p className="font-medium text-slate-700">{emp.employeeNo || '—'} · <span className="capitalize">{emp.employmentType?.replace('_', ' ')}</span></p>
+                  {(emp.employmentType === 'intern' || emp.status === 'internship') && emp.internship?.endDate && (
+                    <div className="mt-0.5">
+                      {(() => {
+                        const days = emp.internshipDaysRemaining != null
+                          ? emp.internshipDaysRemaining
+                          : Math.max(0, Math.ceil((new Date(emp.internship.endDate) - new Date()) / 86400000))
+                        if (days <= 0) {
+                          return <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-1 py-0.2 rounded inline-block">Expired</span>
+                        }
+                        return (
+                          <span className={`text-[10px] font-bold px-1 py-0.2 rounded inline-block ${days <= 14 ? 'text-amber-700 bg-amber-50 border border-amber-200' : 'text-emerald-700 bg-emerald-50 border border-emerald-200'}`}>
+                            {days}d left (Ends {new Date(emp.internship.endDate).toLocaleDateString('en-LK')})
+                          </span>
+                        )
+                      })()}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Basic Salary</span>

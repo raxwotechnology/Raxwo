@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../../lib/api'
@@ -7,7 +8,7 @@ import toast from 'react-hot-toast'
 import {
   FiFolder, FiCalendar, FiTrendingUp, FiClock, FiCheckSquare,
   FiAlertCircle, FiChevronDown, FiChevronUp, FiUsers, FiFlag,
-  FiCode, FiSearch
+  FiCode, FiSearch, FiCheckCircle, FiExternalLink, FiUserPlus
 } from 'react-icons/fi'
 
 const STATUS_COLOR = {
@@ -15,6 +16,7 @@ const STATUS_COLOR = {
   active:    'badge-green',
   on_hold:   'badge-yellow',
   completed: 'badge-blue',
+  paid_completed: 'badge-green',
   cancelled: 'badge-red',
 }
 
@@ -40,6 +42,7 @@ function daysLeft(deadline) {
 
 export default function DeveloperProjects() {
   const { user } = useAuthStore()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -56,6 +59,21 @@ export default function DeveloperProjects() {
       api.put(`/projects/${projectId}/tasks/${taskId}`, { status }).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['developer-projects'] }); toast.success('Task updated') },
     onError: e => toast.error(e.response?.data?.message || 'Failed to update task'),
+  })
+
+  const completeMut = useMutation({
+    mutationFn: ({ projectId, status, progress }) =>
+      api.put(`/projects/${projectId}`, {
+        status,
+        progress,
+        ...(status === 'completed' ? { completedDate: new Date() } : {})
+      }).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['developer-projects'] })
+      qc.invalidateQueries({ queryKey: ['admin-projects'] })
+      toast.success('Project status updated successfully!')
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Failed to update project status')
   })
 
   const filtered = useMemo(() => {
@@ -185,10 +203,40 @@ export default function DeveloperProjects() {
                       </div>
 
                       {/* Meta info */}
-                      <div className="flex flex-wrap gap-3 text-xs text-slate-400">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
                         {p.deadline && <span className="flex items-center gap-1"><FiCalendar size={11} /> Due {new Date(p.deadline).toLocaleDateString('en-LK')}</span>}
                         {p.technologies?.length > 0 && <span className="flex items-center gap-1"><FiCode size={11} /> {p.technologies.slice(0,3).join(', ')}{p.technologies.length > 3 ? ` +${p.technologies.length - 3}` : ''}</span>}
                         {myTsk.length > 0 && <span className="flex items-center gap-1"><FiCheckSquare size={11} /> {doneTasks}/{myTsk.length} my tasks done</span>}
+                        {p.assignedEmployees?.length > 0 && (
+                          <span className="flex items-center gap-1 text-slate-500 font-medium">
+                            <FiUsers size={11} /> {p.assignedEmployees.length} team members
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Quick Actions for Developer / PM */}
+                      <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100 flex-wrap">
+                        {!['completed', 'paid_completed'].includes(p.status) ? (
+                          <button
+                            type="button"
+                            onClick={() => completeMut.mutate({ projectId: p._id, status: 'completed', progress: 100 })}
+                            disabled={completeMut.isPending}
+                            className="btn-primary btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1 text-xs py-1 px-2.5 shadow-xs"
+                          >
+                            <FiCheckCircle size={13} /> Complete Project (100%)
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-1 border border-emerald-200">
+                            <FiCheckCircle size={12} /> 100% Completed
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/${user?.role || 'developer'}/projects/${p._id}`)}
+                          className="btn-outline btn-sm text-xs font-semibold text-secondary hover:bg-blue-50 py-1 px-2.5 gap-1"
+                        >
+                          <FiExternalLink size={12} /> View Project & Team
+                        </button>
                       </div>
                     </div>
 

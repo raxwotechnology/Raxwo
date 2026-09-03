@@ -422,13 +422,25 @@ exports.recordPayment = async (req, res, next) => {
       link: '/invoices',
     });
 
+    const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
+
+    // Send email receipt to client
+    if (populated.client?.email) {
+      const { sendInvoicePaymentReceiptEmail } = require('../services/emailService');
+      sendInvoicePaymentReceiptEmail(populated.client.email, populated.client.name, populated, {
+        amount: payAmt,
+        date: date || new Date(),
+        method: method || 'cash',
+        reference: reference || ''
+      }).catch(err => console.warn('[recordPayment] Receipt email failed:', err.message));
+    }
+
     if (invoice.status === 'paid') {
       await awardPoints({ userId: invoice.client, action: 'complete_invoice_payment', sourceKey: `inv-paid:${invoice._id}`, note: 'Invoice paid' });
     }
 
     await syncProjectsForInvoice(invoice._id);
 
-    const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
     res.json({ success: true, invoice: populated });
   } catch (err) { next(err); }
 };
@@ -484,9 +496,21 @@ exports.recordAdvance = async (req, res, next) => {
       link: '/invoices',
     });
 
+    const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
+
+    // Send email receipt to client
+    if (populated.client?.email) {
+      const { sendInvoicePaymentReceiptEmail } = require('../services/emailService');
+      sendInvoicePaymentReceiptEmail(populated.client.email, populated.client.name, populated, {
+        amount: payAmt,
+        date: date || new Date(),
+        method: method || 'cash',
+        reference: reference || ''
+      }).catch(err => console.warn('[recordAdvance] Receipt email failed:', err.message));
+    }
+
     await syncProjectsForInvoice(invoice._id);
 
-    const populated = await Invoice.findById(invoice._id).populate(POPULATE_INVOICE);
     res.json({ success: true, invoice: populated });
   } catch (err) { next(err); }
 };

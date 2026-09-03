@@ -22,9 +22,9 @@ function getReminderState(sub) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const daysUntilDue = Math.round((due - today) / 86400000)
-  const reminderDays = Number(sub.reminderDaysBefore) || 0
-  const isOverdue = (sub.overdueDays > 0) || (daysUntilDue < 0 && sub.remainingBalance > 0)
-  const isInReminder = !isOverdue && reminderDays > 0 && daysUntilDue >= 0 && daysUntilDue <= reminderDays && sub.remainingBalance > 0
+  const reminderDays = Number(sub.reminderDaysBefore) > 0 ? Number(sub.reminderDaysBefore) : 5
+  const isOverdue = (sub.overdueDays > 0) || daysUntilDue < 0
+  const isInReminder = !isOverdue && daysUntilDue >= 0 && daysUntilDue <= reminderDays && (sub.status === 'active' || (sub.remainingBalance || 0) > 0)
   return { isInReminder, isOverdue, daysUntilDue }
 }
 
@@ -533,9 +533,9 @@ export default function AdminSubscriptions() {
         {analyticsViewMode === 'monthly' ? (
           [
             { label: 'Monthly Collected', value: `LKR ${(overview.monthlyCollected || 0).toLocaleString()}`, cls: 'kpi-green', sub: selectedMonth ? `Month: ${selectedMonth}` : 'Current Month' },
-            { label: 'Pending Payments', value: `LKR ${(overview.pendingPayments || 0).toLocaleString()}`, cls: 'kpi-blue', sub: 'Expected Balance' },
-            { label: 'Overdue Payments', value: `LKR ${(overview.overduePayments || 0).toLocaleString()}`, cls: 'kpi-red', sub: 'Past Due Date' },
-            { label: 'Total Collected', value: `LKR ${(overview.totalCollected || 0).toLocaleString()}`, cls: 'kpi-navy', sub: 'Overall Revenue' },
+            { label: 'Pending Payments', value: `LKR ${(overview.pendingPayments || 0).toLocaleString()}`, cls: 'kpi-blue', sub: `Expected: LKR ${(overview.totalMRR || 0).toLocaleString()}` },
+            { label: 'Overdue Payments', value: `LKR ${(overview.overduePayments || 0).toLocaleString()}`, cls: 'kpi-red', sub: `${overview.overdueCount || 0} Overdue Subscriptions` },
+            { label: 'Total Collected', value: `LKR ${(overview.totalCollected || 0).toLocaleString()}`, cls: 'kpi-navy', sub: 'All-time Revenue' },
           ].map(({ label, value, cls, sub }) => (
             <div key={label} className={`kpi-card ${cls}`}>
               <p className="text-xs uppercase text-slate-500 font-medium">{label}</p>
@@ -546,7 +546,7 @@ export default function AdminSubscriptions() {
         ) : (
           [
             { label: 'Monthly MRR', value: `LKR ${(overview.totalMRR || 0).toLocaleString()}`, cls: 'kpi-blue', sub: 'Monthly Recurring' },
-            { label: 'Total Overdue', value: `LKR ${(overview.totalOverdue || 0).toLocaleString()}`, cls: 'kpi-red', sub: 'All Outstanding' },
+            { label: 'Total Overdue', value: `LKR ${(overview.totalOverdue || 0).toLocaleString()}`, cls: 'kpi-red', sub: `${overview.overdueCount || 0} Overdue Subscriptions` },
             { label: 'Total Collected', value: `LKR ${(overview.totalCollected || 0).toLocaleString()}`, cls: 'kpi-green', sub: 'All-time Income' },
             { label: 'Active Subs', value: overview.activeCount || 0, cls: 'kpi-navy', sub: 'Active Contracts' },
           ].map(({ label, value, cls, sub }) => (
@@ -705,26 +705,34 @@ export default function AdminSubscriptions() {
                         />
                         <span className="font-medium text-slate-700 text-sm truncate flex-1">{s.title}</span>
                         <span className="text-xs font-semibold text-slate-500 shrink-0">LKR {Number(s.amount || 0).toLocaleString()}</span>
-                        {s.overdueDays > 0 && (
-                          <span
-                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold shrink-0"
-                            style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}
-                          >
-                            <FiAlertCircle size={9} /> {s.overdueDays}d
-                          </span>
-                        )}
                         {(() => {
+                          const { isInReminder, daysUntilDue } = getReminderState(s)
                           const pSt = getSubPaymentStatus(s)
                           return (
-                            <span
-                              className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shrink-0"
-                              style={{
-                                background: pSt === 'overdue' ? 'rgba(239,68,68,0.1)' : pSt === 'unpaid' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
-                                color: pSt === 'overdue' ? '#dc2626' : pSt === 'unpaid' ? '#d97706' : '#059669',
-                              }}
-                            >
-                              {pSt === 'unpaid' ? 'unpaid' : pSt}
-                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isInReminder && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                  <FiAlertCircle size={9} /> Due in {daysUntilDue}d
+                                </span>
+                              )}
+                              {s.overdueDays > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold shrink-0"
+                                  style={{ background: 'rgba(239,68,68,0.1)', color: '#dc2626' }}
+                                >
+                                  <FiAlertCircle size={9} /> {s.overdueDays}d
+                                </span>
+                              )}
+                              <span
+                                className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shrink-0"
+                                style={{
+                                  background: pSt === 'overdue' ? 'rgba(239,68,68,0.1)' : pSt === 'unpaid' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+                                  color: pSt === 'overdue' ? '#dc2626' : pSt === 'unpaid' ? '#d97706' : '#059669',
+                                }}
+                              >
+                                {pSt === 'unpaid' ? 'unpaid' : pSt}
+                              </span>
+                            </div>
                           )
                         })()}
                       </div>

@@ -153,7 +153,9 @@ export default function EmployeeDetail({ employee, onClose, onEdit }) {
   const history = e.historyLog || []
   const docs = e.documents || []
 
-  const daysLeft = e.internshipDaysRemaining != null ? e.internshipDaysRemaining : null
+  const daysLeft = e.internshipDaysRemaining != null
+    ? e.internshipDaysRemaining
+    : (internship.endDate ? Math.max(0, Math.ceil((new Date(internship.endDate) - new Date()) / 86400000)) : null)
 
   return createPortal(
     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-end sm:justify-end z-[99999]">

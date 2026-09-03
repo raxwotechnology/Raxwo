@@ -29,10 +29,12 @@ async function sendMail({ to, subject, html, text, from: fromOverride, attachmen
   if (!transport) {
     return { sent: false, reason: 'SMTP not configured (set SMTP_HOST, SMTP_USER, SMTP_PASS in .env)' };
   }
-  const from = fromOverride || process.env.SMTP_FROM || process.env.SMTP_USER;
+  const smtpUser = process.env.SMTP_USER || 'raxwotechnology@gmail.com';
+  const from = fromOverride || `"Raxwo Technology" <${smtpUser}>`;
+  const replyTo = process.env.REPLY_TO || 'contact@raxwo.net';
   console.log(`[Mailer] Attempting to send to: ${to}, subject: ${subject}, from: ${from}`);
   try {
-    await transport.sendMail({ from, to, subject, html, text, attachments: attachments || undefined });
+    await transport.sendMail({ from, replyTo, to, subject, html, text, attachments: attachments || undefined });
     return { sent: true };
   } catch (err) {
     console.error(`[Mailer] SMTP send error: ${err.message} (code: ${err.code})`);

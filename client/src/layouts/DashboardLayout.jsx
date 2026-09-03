@@ -78,14 +78,19 @@ const adminNav = [
 ]
 
 const excludedManagerPaths = [
+  '/admin/financial',
   '/admin/financial-reports',
-  '/admin/payroll',
-  '/admin/income-tax',
-  '/admin/branches',
+  '/admin/finance-entries',
+  '/admin/petty-cash',
+  '/admin/cheques',
   '/admin/bank-management',
   '/admin/bank-transactions',
-  '/admin/financial',
-  '/admin/finance-entries',
+  '/admin/income-tax',
+  '/admin/payroll',
+  '/admin/advances',
+  '/admin/loans',
+  '/admin/epf',
+  '/admin/branches',
 ]
 
 const managerNav = adminNav.map(group => ({

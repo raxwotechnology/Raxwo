@@ -244,7 +244,7 @@ exports.createSubscription = async (req, res, next) => {
         method: payload.paymentMethod,
         note: `Sub No: ${sub.subscriptionNo || ''} | Initial setup`,
         bankAccount: payload.bankAccount || null,
-        syncPayment: true,
+        syncPayment: false,
       });
 
       if (payload.bankAccount && isLedgerBankMethod(payload.paymentMethod)) {
@@ -451,6 +451,17 @@ exports.recordPayment = async (req, res, next) => {
       link: '/my-subscriptions',
     });
 
+    const populatedSub = await Subscription.findById(sub._id).populate('client', 'name email phone');
+    if (populatedSub?.client?.email) {
+      const { sendSubscriptionPaymentReceiptEmail } = require('../services/emailService');
+      sendSubscriptionPaymentReceiptEmail(populatedSub.client.email, populatedSub.client.name, populatedSub, {
+        amount: Number(amount),
+        date: paymentDate,
+        method: m,
+        reference: reference || ''
+      }).catch(err => console.warn('[subscription recordPayment] Receipt email failed:', err.message));
+    }
+
     res.json({ success: true, subscription: sub });
   } catch (err) { next(err); }
 };
@@ -654,34 +665,15 @@ exports.getBillingOverview = async (req, res, next) => {
       else if (s.billingFrequency === 'annual') monthlyEquiv = amount / 12;
       totalMRR += monthlyEquiv;
 
-      const overdue = calcOverdueDays(s.nextDueDate);
-      
-      let dynamicBilled = s.totalBilled || 0;
-      if (dynamicBilled === 0 && amount > 0) dynamicBilled = amount;
-      let tempNext = advanceDueDate(new Date(s.nextDueDate || new Date()), s.billingFrequency);
-      tempNext.setHours(23, 59, 59, 999);
-      while (now > tempNext) {
-         dynamicBilled += amount;
-         tempNext = advanceDueDate(tempNext, s.billingFrequency);
-      }
-      const remaining = Math.max(0, dynamicBilled - totalPaid);
-
-      if (overdue > 0 || (remaining > 0 && overdue > 0)) {
-        totalOverdue += remaining;
-        overduePayments += remaining;
-        overdueCount++;
-      }
-      if (remaining > 0) {
-        pendingPayments += remaining;
-      }
-
       // Calculate total & monthly collected from payment records
+      let collectedInPeriod = 0;
       (s.payments || []).forEach((p) => {
         const pAmt = p.amount || 0;
         totalCollected += pAmt;
         if (p.paidAt) {
           const pd = new Date(p.paidAt);
           if (pd >= rangeStart && pd <= rangeEnd) {
+            collectedInPeriod += pAmt;
             monthlyCollected += pAmt;
           }
         }
@@ -690,6 +682,17 @@ exports.getBillingOverview = async (req, res, next) => {
       // Fallback if payments array is empty but totalPaid > 0
       if ((!s.payments || s.payments.length === 0) && totalPaid > 0) {
         totalCollected += totalPaid;
+      }
+
+      const overdue = calcOverdueDays(s.nextDueDate);
+      const periodRemaining = Math.max(0, monthlyEquiv - collectedInPeriod);
+
+      if (overdue > 0 && periodRemaining > 0) {
+        totalOverdue += periodRemaining;
+        overduePayments += periodRemaining;
+        overdueCount++;
+      } else if (periodRemaining > 0) {
+        pendingPayments += periodRemaining;
       }
 
       // Skip orphaned subscriptions (client was deleted) from client grouping
@@ -714,15 +717,16 @@ exports.getBillingOverview = async (req, res, next) => {
           ? s.customServiceType
           : SUBSCRIPTION_TYPE_LABELS[s.subscriptionType] || s.subscriptionType,
         amount: s.amount,
-        status: overdue > 0 ? 'overdue' : s.status,
+        status: overdue > 0 && periodRemaining > 0 ? 'overdue' : periodRemaining > 0 ? 'unpaid' : 'paid',
         overdueDays: overdue,
         nextDueDate: s.nextDueDate,
-        remaining,
+        remaining: periodRemaining,
+        collectedThisMonth: collectedInPeriod,
       });
-      clientSummaries[clientId].totalDue += dynamicBilled;
-      clientSummaries[clientId].totalPaid += s.totalPaid;
-      if (overdue > 0) {
-        clientSummaries[clientId].overdueAmount += remaining;
+      clientSummaries[clientId].totalDue += monthlyEquiv;
+      clientSummaries[clientId].totalPaid += collectedInPeriod;
+      if (overdue > 0 && periodRemaining > 0) {
+        clientSummaries[clientId].overdueAmount += periodRemaining;
         clientSummaries[clientId].overdueSubs++;
       }
     });

@@ -8,7 +8,7 @@ import api from '../../lib/api'
 import { assignableEmployeesUrl } from '../../lib/employeeApi'
 import { mediaUrl } from '../../lib/media'
 import toast from 'react-hot-toast'
-import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiInfo, FiUser } from 'react-icons/fi'
+import { FiPlus, FiX, FiFolder, FiSearch, FiEdit2, FiTrash2, FiUsers, FiInfo, FiUser, FiCheckCircle, FiCheckSquare } from 'react-icons/fi'
 import { invoicePaymentDisplay } from '../../lib/invoicePayment'
 import SearchableSelect from '../../components/ui/SearchableSelect'
 import { lookupLoaders } from '../../lib/lookupApi'
@@ -16,7 +16,7 @@ import ExportBar from '../../components/ui/ExportBar'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 
 const SERVICE_TYPES = ['ERP', 'POS', 'Hosting', 'Website', 'Maintenance', 'Custom', 'Other']
-const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', cancelled:'badge-red', overdue:'badge-red' }
+const statusColor = { planning:'badge-gray', active:'badge-green', on_hold:'badge-yellow', completed:'badge-blue', paid_completed:'badge-green', cancelled:'badge-red', overdue:'badge-red' }
 const paymentStatusColor = { unpaid: 'badge-yellow', partial: 'badge-blue', paid: 'badge-green', none: 'badge-gray' }
 const priorityColor = { low:'badge-gray', medium:'badge-yellow', high:'badge-red', critical:'badge-purple' }
 
@@ -296,9 +296,26 @@ export default function AdminProjects() {
                   {p.paymentStatus === 'none' ? 'Unpaid' : p.paymentStatus}
                 </span>
               </div>
-              <div className="flex gap-1">
-                <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors"><FiEdit2 size={13}/></button>
-                <button type="button" onClick={() => requestDeleteProject(p._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><FiTrash2 size={13}/></button>
+              <div className="flex items-center gap-1">
+                {!['completed', 'paid_completed'].includes(p.status) ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      updateMut.mutate({ id: p._id, data: { status: 'completed', progress: 100 } })
+                    }}
+                    className="p-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold px-2 border border-emerald-200"
+                    title="Mark 100% Completed"
+                  >
+                    <FiCheckCircle size={13}/> Complete
+                  </button>
+                ) : (
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
+                    <FiCheckCircle size={12}/> 100%
+                  </span>
+                )}
+                <button onClick={() => openEdit(p)} className="p-1.5 text-gray-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors" title="Edit"><FiEdit2 size={13}/></button>
+                <button type="button" onClick={() => requestDeleteProject(p._id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><FiTrash2 size={13}/></button>
               </div>
             </div>
             <div className="cursor-pointer" onClick={() => navigate(`/admin/projects/${p._id}`)}>
@@ -329,17 +346,24 @@ export default function AdminProjects() {
 
             {/* Progress */}
             <div className="mb-3">
-              <div className="flex justify-between text-xs text-gray-500 mb-1"><span>Progress</span><span>{p.progress}%</span></div>
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>Progress</span>
+                <span className="font-bold">{p.progress}%</span>
+              </div>
               <div className="progress-bar">
-                <div className="progress-fill bg-secondary" style={{width:`${p.progress}%`}}/>
+                <div className={`progress-fill ${p.progress >= 100 ? 'bg-emerald-500' : 'bg-secondary'}`} style={{width:`${p.progress}%`}}/>
               </div>
             </div>
 
             <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-50">
               <span>Client: <span className="text-gray-700 font-medium">{p.client?.name || 'Internal'}</span></span>
-              {p.assignedEmployees?.length > 0 && (
-                <span className="flex items-center gap-1"><FiUsers size={11}/> {p.assignedEmployees.length} members</span>
-              )}
+              <button
+                type="button"
+                onClick={() => navigate(`/admin/projects/${p._id}`)}
+                className="flex items-center gap-1 text-slate-600 hover:text-secondary font-medium"
+              >
+                <FiUsers size={12}/> {p.assignedEmployees?.length || 0} members
+              </button>
             </div>
             {p.deadline && <p className="text-xs text-gray-400 mt-1">Due: {new Date(p.deadline).toLocaleDateString('en-LK')}</p>}
             {p.invoice && (() => {

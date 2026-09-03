@@ -244,19 +244,57 @@ exports.sendSubscriptionHistoryEmail = async (clientEmail, clientName, subDetail
     ])}
     ${btnHtml('View Online', viewUrl)}
   `);
-  const mailOpts = {
+exports.sendInvoicePaymentReceiptEmail = async (clientEmail, clientName, invoiceDetails, paymentDetails) => {
+  const viewUrl = `${APP_URL}/client/invoices`;
+  const isSettled = invoiceDetails.remainingBalance === 0 || invoiceDetails.status === 'paid';
+  const html = await buildEmailHTML('Payment Receipt', `
+    <p>Hi <strong>${clientName}</strong>,</p>
+    <p>We have successfully received and recorded your payment for Invoice <strong>${invoiceDetails.invoiceNo}</strong>.</p>
+    ${infoBoxHtml([
+      { label: 'Invoice No', value: invoiceDetails.invoiceNo },
+      { label: 'Payment Amount', value: `${invoiceDetails.currency || 'LKR'} ${Number(paymentDetails.amount || 0).toLocaleString()}` },
+      { label: 'Payment Date', value: paymentDetails.date ? new Date(paymentDetails.date).toLocaleDateString('en-LK') : new Date().toLocaleDateString('en-LK') },
+      { label: 'Payment Method', value: String(paymentDetails.method || 'cash').replace(/_/g, ' ').toUpperCase() },
+      ...(paymentDetails.reference ? [{ label: 'Reference', value: paymentDetails.reference }] : []),
+      { label: 'Total Paid to Date', value: `${invoiceDetails.currency || 'LKR'} ${Number(invoiceDetails.totalPaid || 0).toLocaleString()}` },
+      { label: 'Remaining Balance', value: `${invoiceDetails.currency || 'LKR'} ${Number(invoiceDetails.remainingBalance || 0).toLocaleString()}` },
+      { label: 'Status', value: isSettled ? 'FULLY PAID ✅' : 'PARTIALLY PAID' }
+    ])}
+    <p>${isSettled ? 'Thank you! Your invoice has been settled in full.' : 'Thank you for your payment.'}</p>
+    ${btnHtml('View Invoice in Portal', viewUrl)}
+  `);
+  await sendLoggedMail({
     to: clientEmail,
-    subject: `Payment History: ${subDetails.title}`,
-    html,
-  };
-  if (pdfBuffer) {
-    mailOpts.attachments = [{
-      filename: `Subscription_History_${subDetails.subscriptionNo || 'receipt'}.pdf`,
-      content: pdfBuffer,
-      contentType: 'application/pdf',
-    }];
-  }
-  await sendLoggedMail(mailOpts, 'subscription');
+    subject: `Payment Receipt: Invoice ${invoiceDetails.invoiceNo} (${invoiceDetails.currency || 'LKR'} ${Number(paymentDetails.amount || 0).toLocaleString()})`,
+    html
+  }, 'payment');
+};
+
+exports.sendSubscriptionPaymentReceiptEmail = async (clientEmail, clientName, subDetails, paymentDetails) => {
+  const viewUrl = `${APP_URL}/my-subscriptions`;
+  const remaining = Math.max(0, (subDetails.totalBilled || subDetails.amount || 0) - (subDetails.totalPaid || 0));
+  const isSettled = remaining <= 0;
+  const html = await buildEmailHTML('Subscription Payment Receipt', `
+    <p>Hi <strong>${clientName}</strong>,</p>
+    <p>We have successfully received your payment for subscription <strong>"${subDetails.title}"</strong>.</p>
+    ${infoBoxHtml([
+      { label: 'Subscription', value: subDetails.title },
+      { label: 'Payment Amount', value: `LKR ${Number(paymentDetails.amount || 0).toLocaleString()}` },
+      { label: 'Payment Date', value: paymentDetails.date ? new Date(paymentDetails.date).toLocaleDateString('en-LK') : new Date().toLocaleDateString('en-LK') },
+      { label: 'Payment Method', value: String(paymentDetails.method || 'cash').replace(/_/g, ' ').toUpperCase() },
+      ...(paymentDetails.reference ? [{ label: 'Reference', value: paymentDetails.reference }] : []),
+      { label: 'Total Paid', value: `LKR ${Number(subDetails.totalPaid || 0).toLocaleString()}` },
+      { label: 'Remaining Balance', value: `LKR ${remaining.toLocaleString()}` },
+      ...(subDetails.nextDueDate ? [{ label: 'Next Due Date', value: new Date(subDetails.nextDueDate).toLocaleDateString('en-LK') }] : [])
+    ])}
+    <p>${isSettled ? 'Your subscription balance is up to date. Thank you!' : 'Thank you for your payment.'}</p>
+    ${btnHtml('View My Subscriptions', viewUrl)}
+  `);
+  await sendLoggedMail({
+    to: clientEmail,
+    subject: `Payment Receipt: ${subDetails.title} (LKR ${Number(paymentDetails.amount || 0).toLocaleString()})`,
+    html
+  }, 'payment');
 };
 
 /* ─── Payroll & HR Notifications ─────────────────────────────────────────────── */

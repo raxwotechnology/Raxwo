@@ -162,7 +162,7 @@ employeeSchema.pre('save', async function (next) {
 
 // Virtual: days remaining in internship
 employeeSchema.virtual('internshipDaysRemaining').get(function () {
-  if (this.employmentType !== 'intern' || !this.internship?.endDate) return null;
+  if ((this.employmentType !== 'intern' && this.status !== 'internship') || !this.internship?.endDate) return null;
   const diff = new Date(this.internship.endDate) - new Date();
   return Math.max(0, Math.ceil(diff / 86400000));
 });

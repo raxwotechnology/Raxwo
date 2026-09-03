@@ -3,14 +3,17 @@ import { mediaUrl, normalizeUploadPath } from '../../lib/media'
 
 export default function UserAvatar({ user, className = '', imgClassName = '' }) {
   const [broken, setBroken] = useState(false)
-  const avatarPath = user?.avatar || user?.profilePhoto || ''
+  const avatarPath = typeof user === 'string'
+    ? user
+    : (user?.avatar || user?.profilePhoto || user?.userId?.avatar || user?.userId?.profilePhoto || '')
 
   // Reset broken state whenever the avatar URL changes
   useEffect(() => {
     setBroken(false)
   }, [avatarPath])
 
-  const initial = user?.name?.charAt(0)?.toUpperCase() || '?'
+  const name = typeof user === 'string' ? '' : (user?.name || user?.userId?.name || '')
+  const initial = name ? name.charAt(0).toUpperCase() : '?'
 
   const getSrc = () => {
     if (!avatarPath || broken) return ''

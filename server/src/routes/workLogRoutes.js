@@ -43,6 +43,7 @@ router.get('/my', authorize('developer', 'designer', 'marketing', 'manager', 'ad
 
 // Admin/Manager routes
 router.get('/', authorize('admin', 'manager'), workLogController.getAllWorkLogs);
+router.put('/bulk-approve', authorize('admin', 'manager'), workLogController.bulkApproveWorkLogs);
 router.post('/:id/comments', authorize('admin', 'manager'), workLogController.addComment);
 router.put('/:id/status', authorize('admin', 'manager'), workLogController.updateStatus);
 router.put('/:id/approve', authorize('admin', 'manager'), workLogController.approveWorkLog);

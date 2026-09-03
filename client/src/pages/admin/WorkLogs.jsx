@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FiPlus, FiX, FiCheck, FiMessageSquare, FiFlag, FiUpload, FiLink, FiImage, FiFilter, FiCheckCircle, FiAlertCircle, FiClock } from 'react-icons/fi'
+import { FiPlus, FiX, FiCheck, FiMessageSquare, FiFlag, FiUpload, FiLink, FiImage, FiFilter, FiCheckCircle, FiAlertCircle, FiClock, FiCheckSquare, FiSquare, FiUsers, FiLayers } from 'react-icons/fi'
 import useAuthStore from '../../store/authStore'
 import ExportBar from '../../components/ui/ExportBar'
 import { mediaUrl, normalizeUploadPath } from '../../lib/media'
@@ -25,7 +25,8 @@ export default function WorkLogs() {
   const { user } = useAuthStore()
   const qc = useQueryClient()
   const [searchParams] = useSearchParams()
-  const employeeFilter = searchParams.get('employee') || ''
+  const [employeeFilter, setEmployeeFilter] = useState(searchParams.get('employee') || '')
+  const [approvalFilter, setApprovalFilter] = useState('all')
   const [showSubmit, setShowSubmit] = useState(false)
   const [tasks, setTasks] = useState([{ taskName: '', hours: '', project: '', notes: '' }])
   const [blockers, setBlockers] = useState('')
@@ -42,6 +43,12 @@ export default function WorkLogs() {
   const [approveTarget, setApproveTarget] = useState(null)
   const [approvalNote, setApprovalNote] = useState('')
 
+  // Bulk Selection State
+  const [selectedLogs, setSelectedLogs] = useState([])
+  const [bulkModal, setBulkModal] = useState(false)
+  const [bulkAction, setBulkAction] = useState('approved')
+  const [bulkNote, setBulkNote] = useState('')
+
   const isAdmin = ['admin', 'manager'].includes(user?.role)
 
   // Ensure employee profile exists before submit (fixes "Employee record not found" on Hostinger)
@@ -57,6 +64,9 @@ export default function WorkLogs() {
   const { data: branchData } = useQuery({ queryKey: ['branches-list'], queryFn: () => api.get('/branches').then(r => r.data), enabled: isAdmin })
   const branches = branchData?.branches || []
 
+  const { data: empData } = useQuery({ queryKey: ['employees-worklogs-list'], queryFn: () => api.get('/employees').then(r => r.data), enabled: isAdmin })
+  const employeesList = empData?.employees || []
+
   const endpoint = isAdmin ? '/work-logs' : '/work-logs/my'
   const { data, isLoading } = useQuery({
     queryKey: ['work-logs', isAdmin, branchFilter, dateFilter, roleFilter, employeeFilter],
@@ -71,7 +81,10 @@ export default function WorkLogs() {
     staleTime: 30000,
   })
 
-  const logs = data?.logs || []
+  const rawLogs = data?.logs || []
+  const logs = approvalFilter === 'all' 
+    ? rawLogs 
+    : rawLogs.filter(l => l.approvalStatus === approvalFilter || (approvalFilter === 'pending' && !l.approvalStatus))
   const submissionRate = data?.submissionRate || 0
 
   const canSubmit = tasks.some((t) => String(t.taskName || '').trim() && Number(t.hours) > 0)
@@ -125,6 +138,19 @@ export default function WorkLogs() {
     onError: e => toast.error(e.response?.data?.message || 'Failed')
   })
 
+  const bulkApproveMut = useMutation({
+    mutationFn: ({ logIds, approvalStatus, approvalNote }) =>
+      api.put('/work-logs/bulk-approve', { logIds, approvalStatus, approvalNote }),
+    onSuccess: (res) => {
+      toast.success(res.data?.message || 'Work logs updated successfully')
+      setSelectedLogs([])
+      setBulkModal(false)
+      setBulkNote('')
+      qc.invalidateQueries({ queryKey: ['work-logs'] })
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed to update selected work logs')
+  })
+
   const commentMut = useMutation({
     mutationFn: ({ id, comment }) => api.post(`/work-logs/${id}/comments`, { comment }),
     onSuccess: () => {
@@ -139,6 +165,33 @@ export default function WorkLogs() {
   const addLink = () => setProjectLinks([...projectLinks, { url: '', label: '' }])
   const updateLink = (idx, field, val) => { const l = [...projectLinks]; l[idx][field] = val; setProjectLinks(l) }
 
+  // Selection helpers
+  const toggleSelectLog = (id) => {
+    setSelectedLogs(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const allVisibleIds = logs.map(l => l._id)
+  const pendingIds = logs.filter(l => l.approvalStatus === 'pending' || !l.approvalStatus).map(l => l._id)
+
+  const isAllSelected = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedLogs.includes(id))
+  const isAllPendingSelected = pendingIds.length > 0 && pendingIds.every(id => selectedLogs.includes(id))
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedLogs([])
+    } else {
+      setSelectedLogs(allVisibleIds)
+    }
+  }
+
+  const selectOnlyPending = () => {
+    if (isAllPendingSelected) {
+      setSelectedLogs([])
+    } else {
+      setSelectedLogs(pendingIds)
+    }
+  }
+
   const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000'
 
   return (
@@ -148,14 +201,22 @@ export default function WorkLogs() {
           <h1 className="page-title">Daily Work Logs</h1>
           <p className="page-subtitle">Track daily tasks and project contributions.</p>
         </div>
-        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full md:w-auto items-stretch sm:items-center">
           {isAdmin && (
             <>
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                 <input type="date" className="form-input text-sm flex-1 sm:w-auto" value={dateFilter} onChange={e => setDateFilter(e.target.value)} />
                 <select className="form-select text-sm flex-1 sm:w-auto" value={branchFilter} onChange={e => setBranchFilter(e.target.value)}>
                   <option value="">All Branches</option>
                   {branches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+                <select className="form-select text-sm flex-1 sm:w-48" value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)}>
+                  <option value="">All Employees</option>
+                  {employeesList.map(emp => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.userId?.name || emp.employeeNo} {emp.employmentType === 'intern' ? '(Intern)' : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex overflow-x-auto rounded-xl border border-slate-200 bg-white no-scrollbar w-full sm:w-auto">
@@ -179,7 +240,7 @@ export default function WorkLogs() {
                   { header: 'Notes', accessor: 'notes' }
                 ]}
                 title="Work Logs Report"
-                filters={{ Date: dateFilter, Branch: branchFilter, Role: roleFilter }}
+                filters={{ Date: dateFilter, Branch: branchFilter, Role: roleFilter, Employee: employeeFilter }}
               />
             </>
           )}
@@ -215,164 +276,268 @@ export default function WorkLogs() {
         </div>
       )}
 
+      {/* Admin Status Filter & Bulk Selection Bar */}
+      {isAdmin && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+          {/* Status Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto no-scrollbar">
+            {[
+              { key: 'all', label: 'All Logs', count: rawLogs.length },
+              { key: 'pending', label: 'Pending', count: rawLogs.filter(l => l.approvalStatus === 'pending' || !l.approvalStatus).length },
+              { key: 'approved', label: 'Approved', count: rawLogs.filter(l => l.approvalStatus === 'approved').length },
+              { key: 'rejected', label: 'Rejected', count: rawLogs.filter(l => l.approvalStatus === 'rejected').length },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setApprovalFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  approvalFilter === tab.key
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {tab.label}
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${approvalFilter === tab.key ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {tab.count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Bulk Selection Controls */}
+          {logs.length > 0 && (
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700 hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded accent-indigo-600 cursor-pointer"
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                  />
+                  <span>Select All ({allVisibleIds.length})</span>
+                </label>
+
+                {pendingIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={selectOnlyPending}
+                    className="text-xs font-semibold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    Select Pending ({pendingIds.length})
+                  </button>
+                )}
+              </div>
+
+              {selectedLogs.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { setBulkAction('approved'); setBulkModal(true) }}
+                    className="btn-primary btn-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1 text-xs px-3 py-1"
+                  >
+                    <FiCheckCircle size={13} /> Approve All ({selectedLogs.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setBulkAction('rejected'); setBulkModal(true) }}
+                    className="btn-danger btn-sm text-xs px-2.5 py-1"
+                  >
+                    Reject ({selectedLogs.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLogs([])}
+                    className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+                    title="Clear Selection"
+                  >
+                    <FiX size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-16"><div className="w-8 h-8 border-4 border-secondary/30 border-t-secondary rounded-full animate-spin" /></div>
       ) : (
         <div className="space-y-4">
-          {logs.map(log => (
-            <motion.div key={log._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className="card p-0 overflow-hidden border border-slate-200">
-              <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-start flex-wrap gap-3">
-                <div className="flex items-center gap-3">
-                  {isAdmin && (
-                    <UserAvatar
-                      user={{ name: log.employee?.userId?.name, avatar: log.employee?.userId?.avatar || log.employee?.profilePhoto }}
-                      className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-white shadow-sm"
-                      imgClassName="w-full h-full rounded-full object-cover object-top"
-                    />
-                  )}
-                  <div>
-                    <h3 className="font-bold text-primary">{isAdmin ? log.employee?.userId?.name : 'My Work Log'}</h3>
-                    <p className="text-xs text-slate-500">
-                      {new Date(log.date).toLocaleDateString()} · {log.totalHours} hrs
-                      {isAdmin && log.employeeRole && <span className="ml-2 capitalize badge badge-gray text-[10px]">{log.employeeRole}</span>}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${statusBadge(log.status, log.approvalStatus)}`}>
-                    {log.approvalStatus === 'approved' ? '✅ Approved' : log.approvalStatus === 'rejected' ? '❌ Rejected' : log.status}
-                  </span>
-                  {isAdmin && log.approvalStatus === 'pending' && (
-                    <button onClick={() => setApproveTarget(log._id)} className="btn-primary btn-sm text-xs gap-1">
-                      <FiCheck size={12} /> Review
-                    </button>
-                  )}
-                  {isAdmin && log.status !== 'flagged' && (
-                    <button onClick={() => statusMut.mutate({ id: log._id, status: 'flagged' })}
-                      className="btn-outline btn-sm text-red-500 border-red-200 hover:bg-red-50 text-xs gap-1">
-                      <FiFlag size={12} /> Flag
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-4 space-y-4">
-                <div>
-                  <p className="text-xs font-bold text-slate-500 uppercase mb-2">Tasks</p>
-                  <ul className="space-y-1.5">
-                    {log.tasks.map((t, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
-                        <FiCheck size={14} className="text-emerald-500 mt-0.5 shrink-0" />
-                        <span className="font-medium">{t.taskName}</span>
-                        <span className="text-slate-400">({t.hours}h)</span>
-                        {t.project && <span className="badge badge-gray text-[10px]">{t.project.title}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {log.projectLinks?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">Project Links</p>
-                    <div className="flex flex-wrap gap-2">
-                      {log.projectLinks.map((l, i) => (
-                        <a key={i} href={l.url} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-1 text-xs text-secondary hover:underline bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
-                          <FiLink size={10} /> {l.label || l.url}
-                        </a>
-                      ))}
+          {logs.map(log => {
+            const isSelected = selectedLogs.includes(log._id)
+            return (
+              <motion.div
+                key={log._id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`card p-0 overflow-hidden border transition-all duration-200 ${
+                  isSelected
+                    ? 'border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/10 shadow-md'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className={`p-4 border-b flex justify-between items-start flex-wrap gap-3 transition-colors ${isSelected ? 'bg-indigo-50/40 border-indigo-100' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="flex items-center gap-3">
+                    {isAdmin && (
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded accent-indigo-600 cursor-pointer shrink-0"
+                        checked={isSelected}
+                        onChange={() => toggleSelectLog(log._id)}
+                      />
+                    )}
+                    {isAdmin && (
+                      <UserAvatar
+                        user={{ name: log.employee?.userId?.name, avatar: log.employee?.userId?.avatar || log.employee?.profilePhoto }}
+                        className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-white shadow-sm"
+                        imgClassName="w-full h-full rounded-full object-cover object-top"
+                      />
+                    )}
+                    <div>
+                      <h3 className="font-bold text-primary">{isAdmin ? log.employee?.userId?.name : 'My Work Log'}</h3>
+                      <p className="text-xs text-slate-500">
+                        {new Date(log.date).toLocaleDateString()} · {log.totalHours} hrs
+                        {isAdmin && log.employeeRole && <span className="ml-2 capitalize badge badge-gray text-[10px]">{log.employeeRole}</span>}
+                      </p>
                     </div>
                   </div>
-                )}
-
-                {log.screenshots?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Screenshots</p>
-                    <div className="flex flex-wrap gap-2.5">
-                      {log.screenshots.map((s, i) => {
-                        const sUrl = s ? mediaUrl(normalizeUploadPath(s) || s) : ''
-                        return (
-                          <a key={i} href={sUrl} target="_blank" rel="noreferrer" className="block relative group overflow-hidden rounded-xl border border-slate-200 shadow-sm hover:border-secondary transition-all">
-                            <img
-                              src={sUrl}
-                              alt={`Screenshot ${i + 1}`}
-                              className="w-20 h-20 object-cover object-top rounded-xl group-hover:scale-105 transition-transform bg-slate-100"
-                              onError={(e) => {
-                                e.currentTarget.onerror = null
-                                e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
-                              }}
-                            />
-                          </a>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {log.attachments?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Attachments</p>
-                    <div className="flex flex-wrap gap-2">
-                      {log.attachments.map((att, i) => {
-                        const attUrl = att ? mediaUrl(normalizeUploadPath(att) || att) : ''
-                        const fileName = att?.split('/')?.pop() || `Attachment ${i + 1}`
-                        return (
-                          <a key={i} href={attUrl} target="_blank" rel="noreferrer"
-                            className="flex items-center gap-1.5 text-xs text-secondary hover:underline bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl border border-slate-200 font-medium">
-                            <FiUpload size={12} /> {fileName}
-                          </a>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {log.blockers && (
-                  <div className="bg-red-50 p-3 rounded-xl border border-red-100">
-                    <p className="text-xs font-bold text-red-700 mb-1">Blockers</p>
-                    <p className="text-sm text-red-700">{log.blockers}</p>
-                  </div>
-                )}
-
-                {log.approvalNote && (
-                  <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                    <p className="text-xs font-bold text-blue-700 mb-1">Reviewer Note</p>
-                    <p className="text-sm text-blue-700">{log.approvalNote}</p>
-                  </div>
-                )}
-
-                {log.comments?.length > 0 && (
-                  <div className="pt-3 border-t border-slate-100 space-y-2">
-                    <p className="text-xs font-bold text-slate-500 uppercase">Comments</p>
-                    {log.comments.map((c, i) => (
-                      <div key={i} className="bg-slate-50 p-2.5 rounded-xl text-sm border border-slate-100">
-                        <span className="font-bold text-slate-700 mr-2">{c.name}:</span>
-                        <span className="text-slate-600">{c.comment}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {isAdmin && (
-                  <div className="pt-2">
-                    {commentTarget === log._id ? (
-                      <div className="flex gap-2">
-                        <input className="form-input flex-1 py-1.5 text-sm" placeholder="Add a comment..." autoFocus
-                          value={commentText} onChange={e => setCommentText(e.target.value)} />
-                        <button onClick={() => commentMut.mutate({ id: log._id, comment: commentText })} disabled={!commentText} className="btn-primary btn-sm">Send</button>
-                        <button onClick={() => { setCommentTarget(null); setCommentText('') }} className="btn-ghost btn-sm"><FiX /></button>
-                      </div>
-                    ) : (
-                      <button onClick={() => setCommentTarget(log._id)} className="text-xs text-secondary hover:underline flex items-center gap-1 font-medium">
-                        <FiMessageSquare size={12} /> Add Comment
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold capitalize ${statusBadge(log.status, log.approvalStatus)}`}>
+                      {log.approvalStatus === 'approved' ? '✅ Approved' : log.approvalStatus === 'rejected' ? '❌ Rejected' : log.status}
+                    </span>
+                    {isAdmin && log.approvalStatus === 'pending' && (
+                      <button onClick={() => setApproveTarget(log._id)} className="btn-primary btn-sm text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                        <FiCheck size={12} /> Review / Approve
+                      </button>
+                    )}
+                    {isAdmin && log.status !== 'flagged' && (
+                      <button onClick={() => statusMut.mutate({ id: log._id, status: 'flagged' })}
+                        className="btn-outline btn-sm text-red-500 border-red-200 hover:bg-red-50 text-xs gap-1">
+                        <FiFlag size={12} /> Flag
                       </button>
                     )}
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+                </div>
+
+                <div className="p-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase mb-2">Tasks</p>
+                    <ul className="space-y-1.5">
+                      {log.tasks.map((t, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                          <FiCheck size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                          <span className="font-medium">{t.taskName}</span>
+                          <span className="text-slate-400">({t.hours}h)</span>
+                          {t.project && <span className="badge badge-gray text-[10px]">{t.project.title}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {log.projectLinks?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-1">Project Links</p>
+                      <div className="flex flex-wrap gap-2">
+                        {log.projectLinks.map((l, i) => (
+                          <a key={i} href={l.url} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1 text-xs text-secondary hover:underline bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                            <FiLink size={10} /> {l.label || l.url}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {log.screenshots?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-2">Screenshots</p>
+                      <div className="flex flex-wrap gap-2.5">
+                        {log.screenshots.map((s, i) => {
+                          const sUrl = s ? mediaUrl(normalizeUploadPath(s) || s) : ''
+                          return (
+                            <a key={i} href={sUrl} target="_blank" rel="noreferrer" className="block relative group overflow-hidden rounded-xl border border-slate-200 shadow-sm hover:border-secondary transition-all">
+                              <img
+                                src={sUrl}
+                                alt={`Screenshot ${i + 1}`}
+                                className="w-20 h-20 object-cover object-top rounded-xl group-hover:scale-105 transition-transform bg-slate-100"
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null
+                                  e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+                                }}
+                              />
+                            </a>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {log.attachments?.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-500 uppercase mb-2">Attachments</p>
+                      <div className="flex flex-wrap gap-2">
+                        {log.attachments.map((att, i) => {
+                          const attUrl = att ? mediaUrl(normalizeUploadPath(att) || att) : ''
+                          const fileName = att?.split('/')?.pop() || `Attachment ${i + 1}`
+                          return (
+                            <a key={i} href={attUrl} target="_blank" rel="noreferrer"
+                              className="flex items-center gap-1.5 text-xs text-secondary hover:underline bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl border border-slate-200 font-medium">
+                              <FiUpload size={12} /> {fileName}
+                            </a>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {log.blockers && (
+                    <div className="bg-red-50 p-3 rounded-xl border border-red-100">
+                      <p className="text-xs font-bold text-red-700 mb-1">Blockers</p>
+                      <p className="text-sm text-red-700">{log.blockers}</p>
+                    </div>
+                  )}
+
+                  {log.approvalNote && (
+                    <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                      <p className="text-xs font-bold text-blue-700 mb-1">Reviewer Note</p>
+                      <p className="text-sm text-blue-700">{log.approvalNote}</p>
+                    </div>
+                  )}
+
+                  {log.comments?.length > 0 && (
+                    <div className="pt-3 border-t border-slate-100 space-y-2">
+                      <p className="text-xs font-bold text-slate-500 uppercase">Comments</p>
+                      {log.comments.map((c, i) => (
+                        <div key={i} className="bg-slate-50 p-2.5 rounded-xl text-sm border border-slate-100">
+                          <span className="font-bold text-slate-700 mr-2">{c.name}:</span>
+                          <span className="text-slate-600">{c.comment}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {isAdmin && (
+                    <div className="pt-2">
+                      {commentTarget === log._id ? (
+                        <div className="flex gap-2">
+                          <input className="form-input flex-1 py-1.5 text-sm" placeholder="Add a comment..." autoFocus
+                            value={commentText} onChange={e => setCommentText(e.target.value)} />
+                          <button onClick={() => commentMut.mutate({ id: log._id, comment: commentText })} disabled={!commentText} className="btn-primary btn-sm">Send</button>
+                          <button onClick={() => { setCommentTarget(null); setCommentText('') }} className="btn-ghost btn-sm"><FiX /></button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setCommentTarget(log._id)} className="text-xs text-secondary hover:underline flex items-center gap-1 font-medium">
+                          <FiMessageSquare size={12} /> Add Comment
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )
+          })}
 
           {logs.length === 0 && (
             <div className="text-center py-16 text-slate-400 bg-white rounded-2xl border border-slate-200">
@@ -383,7 +548,132 @@ export default function WorkLogs() {
         </div>
       )}
 
-      {/* Approve/Reject Modal */}
+      {/* Floating Bulk Action Bar */}
+      <AnimatePresence>
+        {isAdmin && selectedLogs.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-slate-700 backdrop-blur-md"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="text-sm font-bold text-slate-100">
+                {selectedLogs.length} Work Log{selectedLogs.length > 1 ? 's' : ''} Selected
+              </span>
+            </div>
+            <div className="h-5 w-px bg-slate-700" />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkAction('approved')
+                  setBulkModal(true)
+                }}
+                disabled={bulkApproveMut.isPending}
+                className="btn-primary btn-sm bg-emerald-600 hover:bg-emerald-500 border-none text-white font-bold gap-1.5 px-3.5 py-1.5 shadow-lg shadow-emerald-900/30"
+              >
+                <FiCheckCircle size={15} /> Approve All ({selectedLogs.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBulkAction('rejected')
+                  setBulkModal(true)
+                }}
+                disabled={bulkApproveMut.isPending}
+                className="btn-danger btn-sm bg-rose-600 hover:bg-rose-500 text-white font-bold gap-1.5 px-3 py-1.5 shadow-lg shadow-rose-900/30"
+              >
+                <FiAlertCircle size={15} /> Reject All
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLogs([])}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+                title="Clear Selection"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Approve/Reject Modal */}
+      <AnimatePresence>
+        {bulkModal && (
+          <div className="fixed inset-0 bg-black/60 z-[100000] flex items-center justify-center p-4 backdrop-blur-xs">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4 border border-slate-100"
+            >
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${bulkAction === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {bulkAction === 'approved' ? <FiCheckCircle size={18} /> : <FiAlertCircle size={18} />}
+                  </div>
+                  <h2 className="font-bold text-slate-800 text-base">
+                    Bulk {bulkAction === 'approved' ? 'Approve' : 'Reject'} Work Logs
+                  </h2>
+                </div>
+                <button type="button" onClick={() => { setBulkModal(false); setBulkNote('') }} className="text-slate-400 hover:text-slate-600 p-1">
+                  <FiX size={18} />
+                </button>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed">
+                You are about to <span className={`font-bold ${bulkAction === 'approved' ? 'text-emerald-700' : 'text-rose-700'}`}>{bulkAction}</span>{' '}
+                <span className="font-bold text-slate-800">{selectedLogs.length}</span> selected daily work log{selectedLogs.length > 1 ? 's' : ''}.
+              </p>
+
+              <div>
+                <label className="form-label text-xs font-semibold text-slate-600">Reviewer Feedback Note (Optional)</label>
+                <textarea
+                  className="form-input w-full text-sm"
+                  rows="3"
+                  placeholder="e.g. Great work, tasks verified."
+                  value={bulkNote}
+                  onChange={e => setBulkNote(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    bulkApproveMut.mutate({
+                      logIds: selectedLogs,
+                      approvalStatus: bulkAction,
+                      approvalNote: bulkNote
+                    })
+                  }
+                  disabled={bulkApproveMut.isPending}
+                  className={`flex-1 btn-primary justify-center gap-2 font-bold py-2 ${
+                    bulkAction === 'approved'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-rose-600 hover:bg-rose-700 text-white'
+                  }`}
+                >
+                  {bulkApproveMut.isPending ? 'Processing...' : `Confirm ${bulkAction === 'approved' ? 'Approve' : 'Reject'} (${selectedLogs.length})`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setBulkModal(false); setBulkNote('') }}
+                  className="btn-ghost px-4"
+                  disabled={bulkApproveMut.isPending}
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Individual Approve/Reject Modal */}
       <AnimatePresence>
         {approveTarget && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

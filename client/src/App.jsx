@@ -328,6 +328,7 @@ export default function App() {
       <Route path="/developer" element={<ProtectedRoute roles={['developer']}><DashboardLayout role="developer" /></ProtectedRoute>}>
         <Route index element={<DeveloperDashboard />} />
         <Route path="projects" element={<DeveloperProjects />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
         <Route path="profile" element={<DeveloperProfile />} />
         <Route path="tasks" element={<DeveloperTasks />} />
         <Route path="leaves" element={<DeveloperLeaves />} />
@@ -351,6 +352,7 @@ export default function App() {
       <Route path="/designer" element={<ProtectedRoute roles={['designer']}><DashboardLayout role="designer" /></ProtectedRoute>}>
         <Route index element={<DeveloperDashboard />} />
         <Route path="projects" element={<DeveloperProjects />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
         <Route path="profile" element={<DeveloperProfile />} />
         <Route path="tasks" element={<DeveloperTasks />} />
         <Route path="leaves" element={<DeveloperLeaves />} />
@@ -374,6 +376,7 @@ export default function App() {
       <Route path="/marketing" element={<ProtectedRoute roles={['marketing']}><DashboardLayout role="marketing" /></ProtectedRoute>}>
         <Route index element={<DeveloperDashboard />} />
         <Route path="projects" element={<DeveloperProjects />} />
+        <Route path="projects/:id" element={<ProjectDetail />} />
         <Route path="profile" element={<DeveloperProfile />} />
         <Route path="tasks" element={<DeveloperTasks />} />
         <Route path="leaves" element={<DeveloperLeaves />} />

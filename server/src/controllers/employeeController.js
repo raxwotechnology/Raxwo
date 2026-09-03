@@ -98,13 +98,12 @@ exports.getEmployees = async (req, res, next) => {
     }
 
     let employees = await Employee.find(query)
-      .select('_id userId employeeNo department designation branch manager employmentType status basicSalary allowances joinedDate phone mobile')
+      .select('_id userId employeeNo department designation branch manager employmentType status basicSalary allowances joinedDate phone mobile internship contract profilePhoto')
       .populate('userId', 'name email phone avatar role')
       .populate('manager', 'name email avatar role')
       .sort({ createdAt: -1 })
       .maxTimeMS(8000)
       .lean();
-
 
     if (search) {
       const s = search.toLowerCase();
@@ -123,6 +122,26 @@ exports.getEmployees = async (req, res, next) => {
       if (seenUsers.has(uid)) return false;
       seenUsers.add(uid);
       return true;
+    });
+
+    const now = new Date();
+    employees.forEach((emp) => {
+      if (!emp.profilePhoto && emp.userId?.avatar) {
+        emp.profilePhoto = emp.userId.avatar;
+      }
+      if (emp.userId && !emp.userId.avatar && emp.profilePhoto) {
+        emp.userId.avatar = emp.profilePhoto;
+      }
+      if (emp.employmentType === 'intern' || emp.status === 'internship') {
+        if (emp.internship?.endDate) {
+          const diff = new Date(emp.internship.endDate) - now;
+          emp.internshipDaysRemaining = Math.max(0, Math.ceil(diff / 86400000));
+        } else {
+          emp.internshipDaysRemaining = null;
+        }
+      } else {
+        emp.internshipDaysRemaining = null;
+      }
     });
 
     res.json({ success: true, count: employees.length, employees });
@@ -273,7 +292,7 @@ exports.createEmployee = async (req, res, next) => {
       accountHolder,
       accountType,
       skills: skills ? skills.split(',').map(s => s.trim()) : [],
-      manager,
+      manager: (req.user && !isTopManagerOrAdmin(req.user)) ? req.user._id : (manager || (req.user?.role === 'manager' ? req.user._id : undefined)),
       // uploaded file URLs
       ...(profilePhoto   && { profilePhoto }),
       ...(nicPhotoUrl    && { nicPhotoUrl }),
@@ -390,10 +409,15 @@ exports.updateEmployee = async (req, res, next) => {
       delete payload.role;
     }
 
-    if ('profilePhoto' in payload) {
-      const photo = String(payload.profilePhoto || '').trim();
+    if (payload.profilePhoto && typeof payload.profilePhoto === 'string' && payload.profilePhoto.trim()) {
+      const photo = payload.profilePhoto.trim();
       payload.profilePhoto = photo;
       await User.findByIdAndUpdate(employeeBefore.userId, { avatar: photo });
+    } else if (payload.removeProfilePhoto) {
+      payload.profilePhoto = '';
+      await User.findByIdAndUpdate(employeeBefore.userId, { avatar: '' });
+    } else {
+      delete payload.profilePhoto;
     }
     const employee = await Employee.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       .populate('userId', 'name email phone avatar role');
