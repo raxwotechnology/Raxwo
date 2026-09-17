@@ -207,8 +207,8 @@ export default function PublicLayout() {
               </div>
             </div>
 
-            <NavLink to="/careers" className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
             <NavLink to="/our-team" className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Our Team</NavLink>
+            <NavLink to="/careers" className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Careers</NavLink>
             <NavLink to="/contact" className={({ isActive }) => `px-2.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 whitespace-nowrap ${isActive ? 'text-white bg-white/15' : 'text-white/75 hover:text-white hover:bg-white/10'}`}>Let's Talk</NavLink>
           </nav>
 
@@ -394,6 +394,10 @@ export default function PublicLayout() {
                     )}
                   </AnimatePresence>
                 </div>
+                <NavLink to="/our-team" className={({ isActive }) => `flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all ${isActive ? 'bg-[#20b2f5]/15 text-[#20b2f5] border border-[#20b2f5]/20' : 'bg-white/5 border border-white/5 text-white/80 hover:bg-white/10 hover:text-white'}`} onClick={() => setMenuOpen(false)}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname === '/our-team' ? 'bg-[#20b2f5]/20 text-[#20b2f5]' : 'bg-white/5 text-white/60'}`}><FiUsers size={18} /></div>
+                  Our Team
+                </NavLink>
                 <NavLink to="/careers" className={({ isActive }) => `flex items-center gap-4 px-4 py-3.5 rounded-2xl text-[15px] font-semibold transition-all ${isActive ? 'bg-purple-500/15 text-purple-400 border border-purple-500/20' : 'bg-white/5 border border-white/5 text-white/80 hover:bg-white/10 hover:text-white'}`} onClick={() => setMenuOpen(false)}>
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${location.pathname === '/careers' ? 'bg-purple-500/20 text-purple-400' : 'bg-white/5 text-white/60'}`}><FiBriefcase size={18} /></div>
                   Careers
@@ -487,8 +491,7 @@ export default function PublicLayout() {
       <footer className="bg-black text-white relative overflow-hidden border-t border-white/5">
         {/* Subtle World Map / Abstract Pattern */}
         <div 
-          className="absolute inset-0 opacity-[0.04] pointer-events-none bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-no-repeat bg-center bg-cover md:bg-[length:80%_auto]"
-          style={{ filter: 'invert(1)' }}
+          className="absolute inset-0 opacity-[0.08] pointer-events-none bg-[url('/world-map.svg')] bg-no-repeat bg-center bg-cover md:bg-[length:85%_auto]"
         />
 
         <div className="container-max py-16 relative z-10">
