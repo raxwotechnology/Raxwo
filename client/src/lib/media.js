@@ -28,6 +28,9 @@ export function getUploadsOrigin() {
 
   const apiBase = getApiBaseUrl()
   if (apiBase.startsWith('http')) {
+    if (typeof window !== 'undefined' && apiBase.includes('localhost:5000') && !window.location.hostname.includes('localhost')) {
+      return ''
+    }
     return apiBase.replace(/\/api\/?$/i, '') || apiBase
   }
   return ''

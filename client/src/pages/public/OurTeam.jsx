@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   FiArrowRight, FiX, FiCheckCircle, FiSearch,
-  FiShield, FiBriefcase, FiAward, FiUsers, FiGlobe
+  FiShield, FiBriefcase, FiAward, FiUsers, FiGlobe,
+  FiGrid, FiLayers, FiZap, FiHeart, FiTrendingUp
 } from 'react-icons/fi'
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
@@ -12,36 +13,71 @@ import { mediaUrl } from '../../lib/media'
 /* ─────────── Tier Configurations (Light Theme) ─────────── */
 const TIER = {
   director: {
-    badge: 'Executive Leadership',
-    cardBorder: 'border-indigo-100 hover:border-indigo-300',
-    badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    badge: 'Executive Board',
+    levelName: 'Executive Leadership',
+    cardBorder: 'border-indigo-100/90 hover:border-indigo-400',
+    badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
     avatarBorder: 'border-indigo-500/20 bg-indigo-50/50',
+    accentGradient: 'from-indigo-600 via-[#20b2f5] to-indigo-600',
     iconBg: 'bg-indigo-600 text-white',
     accentColor: '#4f46e5',
     icon: FiShield,
   },
   manager: {
     badge: 'Department Lead',
-    cardBorder: 'border-blue-100 hover:border-blue-300',
-    badgeBg: 'bg-blue-50 text-blue-700 border-blue-200',
-    avatarBorder: 'border-blue-500/20 bg-blue-50/50',
+    levelName: 'Department Manager',
+    cardBorder: 'border-sky-100/90 hover:border-sky-400',
+    badgeBg: 'bg-sky-50 text-sky-700 border-sky-200/80',
+    avatarBorder: 'border-[#20b2f5]/20 bg-sky-50/50',
+    accentGradient: 'from-[#20b2f5] via-blue-500 to-[#20b2f5]',
     iconBg: 'bg-[#20b2f5] text-white',
     accentColor: '#20b2f5',
     icon: FiAward,
   },
   employee: {
     badge: 'Specialist',
-    cardBorder: 'border-slate-200 hover:border-[#20b2f5]/40',
-    badgeBg: 'bg-slate-100 text-slate-700 border-slate-200',
+    levelName: 'Engineering Specialist',
+    cardBorder: 'border-slate-200/80 hover:border-[#20b2f5]/50',
+    badgeBg: 'bg-slate-100 text-slate-700 border-slate-200/80',
     avatarBorder: 'border-slate-200 bg-slate-50',
+    accentGradient: 'from-slate-700 via-slate-500 to-slate-700',
     iconBg: 'bg-slate-700 text-white',
     accentColor: '#64748b',
     icon: FiBriefcase,
   },
 }
 
+/* ─────────── Core Values ─────────── */
+const TEAM_PILLARS = [
+  {
+    icon: FiZap,
+    title: 'Innovation First',
+    desc: 'Crafting forward-thinking digital products using modern tech stacks.',
+    color: 'text-amber-500 bg-amber-50 border-amber-100',
+  },
+  {
+    icon: FiHeart,
+    title: 'Collaborative Spirit',
+    desc: 'Cross-functional synergy between engineers, designers, and managers.',
+    color: 'text-rose-500 bg-rose-50 border-rose-100',
+  },
+  {
+    icon: FiTrendingUp,
+    title: 'Continuous Growth',
+    desc: 'Mentorship and training programs accelerating developer careers.',
+    color: 'text-emerald-500 bg-emerald-50 border-emerald-100',
+  },
+  {
+    icon: FiShield,
+    title: 'Quality & Trust',
+    desc: 'ISO-standard clean code, enterprise scalability, and robust security.',
+    color: 'text-indigo-500 bg-indigo-50 border-indigo-100',
+  },
+]
+
 /* ─────────── Member Card (Light UI Theme) ─────────── */
 function MemberCard({ emp, level, index, onClick }) {
+  const [imgError, setImgError] = useState(false)
   const t = TIER[level] || TIER.employee
   const photo = emp.profilePhoto || emp.userId?.avatar
   const name = emp.userId?.name || 'Team Member'
@@ -56,25 +92,34 @@ function MemberCard({ emp, level, index, onClick }) {
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-20px' }}
-      transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.3) }}
+      transition={{ duration: 0.4, delay: Math.min(index * 0.04, 0.25) }}
       whileHover={{ y: -6 }}
       onClick={() => onClick(emp)}
       className={`relative cursor-pointer overflow-hidden rounded-2xl bg-white border ${t.cardBorder} p-6 shadow-xs hover:shadow-xl transition-all duration-300 group flex flex-col justify-between`}
     >
+      {/* Top Accent Gradient Line on Hover */}
+      <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${t.accentGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+
       <div>
         <div className="flex items-start gap-4 mb-4">
-          {/* Avatar */}
+          {/* Avatar Squircle */}
           <div className="relative shrink-0">
             <div className={`w-16 h-16 rounded-2xl overflow-hidden border ${t.avatarBorder} flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform duration-300 bg-slate-100`}>
-              {photo ? (
-                <img src={mediaUrl(photo)} alt={name} className="w-full h-full object-cover" />
+              {photo && !imgError ? (
+                <img
+                  src={mediaUrl(photo)}
+                  alt={name}
+                  className="w-full h-full object-cover"
+                  onError={() => setImgError(true)}
+                  loading="lazy"
+                />
               ) : (
-                <span className="font-heading font-extrabold text-2xl text-slate-700">
-                  {name.charAt(0)}
+                <span className="font-heading font-extrabold text-2xl text-slate-700 select-none">
+                  {name ? name.charAt(0).toUpperCase() : 'T'}
                 </span>
               )}
             </div>
-            {/* Level Icon */}
+            {/* Level Icon Badge */}
             <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full ${t.iconBg} flex items-center justify-center shadow-md border-2 border-white`}>
               <Icon size={12} />
             </div>
@@ -134,6 +179,7 @@ function SectionHeader({ level, count }) {
 
 /* ─────────── Member Modal (Light Theme) ─────────── */
 function MemberModal({ member, onClose }) {
+  const [imgError, setImgError] = useState(false)
   if (!member) return null
   const photo = member.profilePhoto || member.userId?.avatar
   const name = member.userId?.name || 'Team Member'
@@ -174,11 +220,16 @@ function MemberModal({ member, onClose }) {
 
             <div className="flex items-center gap-4">
               <div className="w-18 h-18 w-16 h-16 rounded-2xl overflow-hidden border-2 border-white/30 bg-white/10 flex items-center justify-center shrink-0 shadow-lg">
-                {photo ? (
-                  <img src={mediaUrl(photo)} alt={name} className="w-full h-full object-cover" />
+                {photo && !imgError ? (
+                  <img
+                    src={mediaUrl(photo)}
+                    alt={name}
+                    className="w-full h-full object-cover"
+                    onError={() => setImgError(true)}
+                  />
                 ) : (
-                  <span className="text-2xl font-bold font-heading text-white">
-                    {name.charAt(0)}
+                  <span className="text-2xl font-bold font-heading text-white select-none">
+                    {name ? name.charAt(0).toUpperCase() : 'T'}
                   </span>
                 )}
               </div>
@@ -229,9 +280,12 @@ function MemberModal({ member, onClose }) {
   )
 }
 
-/* ─────────── Main Page ─────────── */
+/* ─────────── Main Public Our Team Page ─────────── */
 export default function OurTeam() {
   const [selectedMember, setSelectedMember] = useState(null)
+  const [search, setSearch] = useState('')
+  const [selectedDept, setSelectedDept] = useState('all')
+  const [viewMode, setViewMode] = useState('hierarchy') // 'hierarchy' | 'grid'
 
   const { data: empData, isLoading } = useQuery({
     queryKey: ['public-our-team'],
@@ -259,9 +313,6 @@ export default function OurTeam() {
     return [...new Set(employees.map(e => e.department).filter(Boolean))]
   }, [employees])
 
-  const [search, setSearch] = useState('')
-  const [dept, setDept] = useState('')
-
   const filteredEmployees = useMemo(() => {
     return employees.filter(e => {
       const name = (e.userId?.name || '').toLowerCase()
@@ -269,10 +320,14 @@ export default function OurTeam() {
       const department = (e.department || '').toLowerCase()
       const term = search.toLowerCase().trim()
       const matchesSearch = !term || name.includes(term) || desig.includes(term) || department.includes(term)
-      const matchesDept = !dept || e.department === dept
+      
+      let matchesDept = true
+      if (selectedDept !== 'all') {
+        matchesDept = e.department === selectedDept
+      }
       return matchesSearch && matchesDept
     })
-  }, [employees, search, dept])
+  }, [employees, search, selectedDept])
 
   const { directors, managers, staff } = useMemo(() => {
     const directors = [], managers = [], staff = []
@@ -293,13 +348,17 @@ export default function OurTeam() {
   const totalFiltered = filteredEmployees.length
 
   return (
-    <div className="overflow-x-hidden bg-gray-50 min-h-screen">
+    <div className="overflow-x-hidden bg-[#fafbfc] min-h-screen">
       {/* ── HERO SECTION (Matching Site UI Theme) ── */}
       <section className="relative bg-[#0C0227] pt-32 pb-24 overflow-hidden">
+        {/* Subtle World Map / Ambient Background */}
+        <div 
+          className="absolute inset-0 opacity-[0.06] pointer-events-none bg-[url('/world-map.svg')] bg-no-repeat bg-center bg-cover md:bg-[length:85%_auto]"
+        />
         {/* Ambient Glows */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-10 right-20 w-72 h-72 bg-[#20b2f5]/15 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-10 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl" />
+          <div className="absolute top-10 right-20 w-80 h-80 bg-[#20b2f5]/15 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-10 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl" />
         </div>
 
         <div className="container-max relative z-10 text-center">
@@ -309,7 +368,7 @@ export default function OurTeam() {
             transition={{ duration: 0.5 }}
           >
             <span className="badge bg-white/10 text-[#20b2f5] border border-white/20 mb-6 shadow-xl px-4 py-2 inline-flex items-center gap-2">
-              <FiUsers size={14} /> Corporate Organization
+              <FiUsers size={14} /> Corporate Organization & Leadership
             </span>
             <h1 className="text-3xl lg:text-5xl font-bold text-white font-heading leading-tight mb-4 tracking-tight">
               Meet Our <span className="text-[#20b2f5]">Team</span>
@@ -334,13 +393,13 @@ export default function OurTeam() {
       {!isLoading && employees.length > 0 && (
         <div className="bg-white border-b border-slate-200 py-6">
           <div className="container-max">
-            <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
+            <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
               {[
                 { label: 'Executive Leadership', count: employees.filter(e => (e.userId?.role === 'admin' || (e.designation || '').toLowerCase().includes('director') || (e.designation || '').toLowerCase().includes('ceo'))).length, color: 'text-indigo-600' },
                 { label: 'Department Leads', count: employees.filter(e => (e.userId?.role === 'manager' || (e.designation || '').toLowerCase().includes('manager') || (e.designation || '').toLowerCase().includes('lead'))).length, color: 'text-[#20b2f5]' },
                 { label: 'Specialists & Staff', count: employees.filter(e => !['admin', 'manager'].includes(e.userId?.role) && !(e.designation || '').toLowerCase().includes('director') && !(e.designation || '').toLowerCase().includes('manager')).length, color: 'text-slate-700' },
               ].map(s => (
-                <div key={s.label} className="text-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div key={s.label} className="text-center p-3 rounded-2xl bg-slate-50/80 border border-slate-100 hover:border-slate-200 transition-colors">
                   <p className={`text-2xl md:text-3xl font-extrabold font-heading ${s.color}`}>{s.count}</p>
                   <p className="text-[11px] md:text-xs text-slate-500 font-semibold mt-0.5">{s.label}</p>
                 </div>
@@ -350,34 +409,76 @@ export default function OurTeam() {
         </div>
       )}
 
-      {/* ── SEARCH & FILTER CONTROLS ── */}
+      {/* ── MAIN CONTENT ── */}
       <section className="py-12">
         <div className="container-max">
-          <div className="flex flex-col md:flex-row gap-4 mb-10 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-            <div className="relative flex-1">
-              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search team members by name or role..."
-                className="form-input !pl-10 w-full"
-              />
+
+          {/* ── INTERACTIVE FILTER BAR ── */}
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs mb-10 space-y-4">
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+              {/* Search Box */}
+              <div className="relative flex-1 w-full">
+                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search team members by name, role or department..."
+                  className="form-input !pl-10 w-full"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                  >
+                    <FiX size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* View Switcher */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl self-end md:self-auto shrink-0">
+                <button
+                  onClick={() => setViewMode('hierarchy')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === 'hierarchy' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'}`}
+                >
+                  <FiLayers size={13} /> Hierarchy View
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewMode === 'grid' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'}`}
+                >
+                  <FiGrid size={13} /> Grid View
+                </button>
+              </div>
             </div>
+
+            {/* Department Filter Pills */}
             {departments.length > 0 && (
-              <select
-                value={dept}
-                onChange={e => setDept(e.target.value)}
-                className="form-select md:w-56"
-              >
-                <option value="">All Departments</option>
-                {departments.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 pt-1">
+                <button
+                  onClick={() => setSelectedDept('all')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${selectedDept === 'all' ? 'bg-[#0C0227] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  All Departments ({employees.length})
+                </button>
+                {departments.map(d => {
+                  const count = employees.filter(e => e.department === d).length
+                  const active = selectedDept === d
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => setSelectedDept(d)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${active ? 'bg-[#20b2f5] text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      {d} ({count})
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
 
-          {/* ── HIERARCHY CONTENT ── */}
+          {/* ── TEAM CONTENT ── */}
           {isLoading ? (
             <div className="py-24 text-center space-y-4">
               <div className="w-10 h-10 border-3 border-[#20b2f5]/30 border-t-[#20b2f5] rounded-full animate-spin mx-auto" />
@@ -390,16 +491,17 @@ export default function OurTeam() {
               </div>
               <h3 className="text-lg font-bold text-slate-800 font-heading">No team members found</h3>
               <p className="text-sm text-slate-500 mt-1">Try adjusting your search query or department filter.</p>
-              {(search || dept) && (
+              {(search || selectedDept !== 'all') && (
                 <button
-                  onClick={() => { setSearch(''); setDept(''); }}
-                  className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+                  onClick={() => { setSearch(''); setSelectedDept('all'); }}
+                  className="mt-4 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
                 >
-                  Clear Filters
+                  Clear All Filters
                 </button>
               )}
             </div>
-          ) : (
+          ) : viewMode === 'hierarchy' ? (
+            /* Hierarchy View */
             <div className="space-y-12">
               {/* TIER 1: EXECUTIVE LEADERSHIP */}
               {directors.length > 0 && (
@@ -437,9 +539,71 @@ export default function OurTeam() {
                 </div>
               )}
             </div>
+          ) : (
+            /* Grid View */
+            <div>
+              <div className="flex items-center justify-between mb-6 pb-3 border-b border-slate-200">
+                <h2 className="text-xl md:text-2xl font-bold text-slate-900 font-heading">
+                  All Team Members
+                </h2>
+                <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 shadow-xs">
+                  {totalFiltered} {totalFiltered === 1 ? 'member' : 'members'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {filteredEmployees.map((emp, i) => {
+                  const role = (emp.userId?.role || '').toLowerCase()
+                  const desig = (emp.designation || '').toLowerCase()
+                  const isDir = role === 'admin' || desig.includes('director') || desig.includes('ceo') || desig.includes('founder') || desig.includes('managing')
+                  const isMgr = role === 'manager' || desig.includes('manager') || desig.includes('lead') || desig.includes('head')
+                  const level = isDir ? 'director' : isMgr ? 'manager' : 'employee'
+                  return (
+                    <MemberCard key={emp._id} emp={emp} level={level} index={i} onClick={setSelectedMember} />
+                  )
+                })}
+              </div>
+            </div>
           )}
 
-          {/* ── CTA BANNER (Matching Site CTA) ── */}
+          {/* ── CORE VALUES SECTION ── */}
+          <div className="mt-24">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <span className="badge bg-primary/10 text-primary border border-primary/20 text-xs font-bold uppercase tracking-wider mb-3 inline-block">
+                Our Work Culture
+              </span>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 font-heading">
+                Driven by Passion & Innovation
+              </h2>
+              <p className="text-slate-600 text-sm md:text-base mt-2">
+                At Raxwo Technology, we foster a collaborative, growth-focused culture built on engineering excellence and client trust.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {TEAM_PILLARS.map((p, i) => (
+                <motion.div
+                  key={p.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs hover:shadow-lg transition-all"
+                >
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 border ${p.color}`}>
+                    <p.icon size={22} />
+                  </div>
+                  <h3 className="font-bold text-slate-900 font-heading text-lg mb-2">
+                    {p.title}
+                  </h3>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    {p.desc}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── RECRUITMENT CTA BANNER (Matching Site CTA) ── */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
