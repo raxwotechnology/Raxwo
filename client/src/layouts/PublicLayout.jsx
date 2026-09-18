@@ -6,6 +6,7 @@ import {
   FiBell,
   FiChevronDown,
   FiLogOut,
+  FiLogIn,
   FiMessageSquare,
   FiCreditCard,
   FiFolder,
@@ -324,7 +325,16 @@ export default function PublicLayout() {
                   </AnimatePresence>
                 </div>
               </>
-            ) : null}
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-[#20b2f5] hover:text-white border border-white/15 hover:border-[#20b2f5] transition-all shadow-sm"
+                >
+                  <FiLogIn size={15} /> Sign In
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Mobile menu toggle */}
@@ -488,8 +498,18 @@ export default function PublicLayout() {
                   </div>
                 </div>
               ) : (
-                <div className="pt-6 mt-4 border-t border-white/10">
-                  <a href="https://raxwo.net/lets-talk/" className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-[#20b2f5] text-white text-[16px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]">
+                <div className="pt-6 mt-4 border-t border-white/10 space-y-3">
+                  <Link
+                    to="/login"
+                    onClick={() => setMenuOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[15px] font-semibold border border-white/15 transition-all"
+                  >
+                    <FiLogIn size={18} /> Sign In
+                  </Link>
+                  <a
+                    href="https://raxwo.net/lets-talk/"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-[#20b2f5] text-white text-[15px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]"
+                  >
                     Let's Talk <FiMessageSquare size={18} />
                   </a>
                 </div>
