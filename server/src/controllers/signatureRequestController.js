@@ -9,6 +9,8 @@ const { createNotification } = require('../services/notificationService');
 const { sendMail } = require('../utils/mailer');
 const { sendLoggedMail } = require('../services/emailService');
 const { toRelativeUploadUrl, getUploadsRoot } = require('../utils/uploadsPath');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 const path = require('path');
 const fs = require('fs');
 
@@ -335,6 +337,14 @@ exports.getRequests = async (req, res, next) => {
           ...(emp ? [{ employeeId: emp._id }] : [])
         ];
       }
+    } else if (req.user.role === 'manager' && !isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      query.$or = [
+        { requester: { $in: scope.userIds } },
+        { employeeId: { $in: scope.employeeIds } },
+        { requester: req.user._id }
+      ];
+      query.recipientType = { $ne: 'client' };
     } else {
       if (employeeId) query.employeeId = employeeId;
       if (clientId) query.clientId = clientId;

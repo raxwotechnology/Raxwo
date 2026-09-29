@@ -97,6 +97,53 @@ export default function StaffHierarchy() {
 
   // Group employees into hierarchical tiers based on role and designation
   const hierarchyTiers = useMemo(() => {
+    if (!isAdmin) {
+      const pmLeader = []
+      const teamLeads = []
+      const engineers = []
+      const interns = []
+
+      let foundSelf = false
+      employees.forEach(emp => {
+        const uid = String(emp.userId?._id || emp.userId || '')
+        const isSelf = uid === String(currentUser?._id)
+        const isIntern = emp.employmentType === 'intern'
+        const desig = (emp.designation || '').toLowerCase()
+        const role = (emp.userId?.role || '').toLowerCase()
+
+        if (isSelf) {
+          foundSelf = true
+          pmLeader.push(emp)
+        } else if (isIntern) {
+          interns.push(emp)
+        } else if (role === 'manager' || desig.includes('lead') || desig.includes('leader') || desig.includes('manager')) {
+          teamLeads.push(emp)
+        } else {
+          engineers.push(emp)
+        }
+      })
+
+      // If PM's employee record is not in the list, synthesize a self entry for root display
+      if (!foundSelf && currentUser) {
+        pmLeader.push({
+          _id: currentUser._id,
+          userId: currentUser,
+          designation: 'Project Manager',
+          department: 'Project Management',
+          employmentType: 'permanent',
+        })
+      }
+
+      return {
+        isManagerScoped: true,
+        directors: pmLeader,
+        management: [],
+        projectManagers: teamLeads,
+        engineers,
+        interns,
+      }
+    }
+
     const directors = []
     const management = []
     const projectManagers = []
@@ -121,8 +168,8 @@ export default function StaffHierarchy() {
       }
     })
 
-    return { directors, management, projectManagers, engineers, interns }
-  }, [employees])
+    return { isManagerScoped: false, directors, management, projectManagers, engineers, interns }
+  }, [employees, isAdmin, currentUser])
 
   // Group employees by team leaders & their direct reports (Team Wise)
   const teamHierarchy = useMemo(() => {
@@ -135,6 +182,23 @@ export default function StaffHierarchy() {
       const uid = String(emp.userId?._id || emp.userId || '')
       if (uid) employeeByUserMap.set(uid, emp)
     })
+
+    // If manager, ensure current manager is present as root leader
+    if (!isAdmin && currentUser && !leaderMap.has(String(currentUser._id))) {
+      const selfEmp = employeeByUserMap.get(String(currentUser._id))
+      leaderMap.set(String(currentUser._id), {
+        id: String(currentUser._id),
+        user: currentUser,
+        employee: selfEmp || {
+          _id: currentUser._id,
+          userId: currentUser,
+          designation: 'Project Manager',
+          department: 'Project Management',
+          employmentType: 'permanent',
+        },
+        members: []
+      })
+    }
 
     // Find all distinct leaders from employees' manager field
     employees.forEach(emp => {
@@ -177,11 +241,16 @@ export default function StaffHierarchy() {
           leaderMap.get(mgrId).members.push(emp)
         }
       } else {
-        unassignedMembers.push(emp)
+        // If viewing as manager and employee is not assigned to a sub-team lead, they are direct under PM
+        if (!isAdmin && leaderMap.has(String(currentUser?._id)) && String(emp.userId?._id) !== String(currentUser?._id)) {
+          unassignedMembers.push(emp)
+        } else if (String(emp.userId?._id) !== String(currentUser?._id)) {
+          unassignedMembers.push(emp)
+        }
       }
     })
 
-    // Convert teams to array and sort by member count descending
+    // Convert teams to array and sort: if manager, put currentUser first, then by member count descending
     const teams = Array.from(leaderMap.values())
       .filter(team => {
         if (!search && deptFilter === 'all') return true
@@ -189,10 +258,16 @@ export default function StaffHierarchy() {
                             (team.employee?.designation || '').toLowerCase().includes(search.toLowerCase())
         return matchLeader || team.members.length > 0
       })
-      .sort((a, b) => b.members.length - a.members.length)
+      .sort((a, b) => {
+        if (!isAdmin) {
+          if (String(a.id) === String(currentUser?._id)) return -1
+          if (String(b.id) === String(currentUser?._id)) return 1
+        }
+        return b.members.length - a.members.length
+      })
 
     return { teams, unassignedMembers }
-  }, [employees, filteredEmployees, search, deptFilter])
+  }, [employees, filteredEmployees, search, deptFilter, isAdmin, currentUser])
 
   // Calculate direct reports count for any given user ID
   const directReportsMap = useMemo(() => {
@@ -313,11 +388,15 @@ export default function StaffHierarchy() {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-secondary uppercase tracking-wider mb-1">
             <FiLayers size={13} />
-            <span>Organization Chart & Staff Directory</span>
+            <span>{!isAdmin ? 'My Team Reporting Structure' : 'Organization Chart & Staff Directory'}</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Company Hierarchy</h1>
+          <h1 className="text-2xl font-bold text-slate-800">
+            {!isAdmin ? 'Project Team Hierarchy' : 'Company Hierarchy'}
+          </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Explore corporate leadership, reporting structures, project managers, developers, and interns.
+            {!isAdmin
+              ? 'Explore your assigned team hierarchy, technical team leads, developers, and interns.'
+              : 'Explore corporate leadership, reporting structures, project managers, developers, and interns.'}
           </p>
         </div>
 
@@ -337,7 +416,7 @@ export default function StaffHierarchy() {
               viewMode === 'tree' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <FiLayers size={14} /> Corporate Tiers
+            <FiLayers size={14} /> {!isAdmin ? 'Team Tiers' : 'Corporate Tiers'}
           </button>
           <button
             onClick={() => setViewMode('grid')}
@@ -357,7 +436,7 @@ export default function StaffHierarchy() {
             <FiUsers size={20} />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase">Total Personnel</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase">{!isAdmin ? 'Assigned Team' : 'Total Personnel'}</p>
             <h3 className="text-xl font-bold text-slate-800 mt-0.5">{totalCount}</h3>
           </div>
         </div>
@@ -367,7 +446,7 @@ export default function StaffHierarchy() {
             <FiShield size={20} />
           </div>
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase">Leadership & PMs</p>
+            <p className="text-xs font-semibold text-slate-400 uppercase">{!isAdmin ? 'Team Leads' : 'Leadership & PMs'}</p>
             <h3 className="text-xl font-bold text-purple-600 mt-0.5">{leaderCount}</h3>
           </div>
         </div>
@@ -549,13 +628,13 @@ export default function StaffHierarchy() {
       {/* ── VIEW MODE 2: HIERARCHY TREE VIEW ── */}
       {viewMode === 'tree' && (
         <div className="space-y-8">
-          {/* Level 1: Board & Executive Directors */}
+          {/* Level 1: Project Manager (Manager view) OR Executive & Managing Directors (Admin view) */}
           {hierarchyTiers.directors.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tier 1: Executive & Managing Directors ({hierarchyTiers.directors.length})
+                  {!isAdmin ? `Tier 1: Project Manager (${hierarchyTiers.directors.length})` : `Tier 1: Executive & Managing Directors (${hierarchyTiers.directors.length})`}
                 </h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -564,8 +643,8 @@ export default function StaffHierarchy() {
             </div>
           )}
 
-          {/* Level 2: Operations & Secretary */}
-          {hierarchyTiers.management.length > 0 && (
+          {/* Level 2: Operations & Secretary (Admin only) */}
+          {isAdmin && hierarchyTiers.management.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
@@ -579,13 +658,13 @@ export default function StaffHierarchy() {
             </div>
           )}
 
-          {/* Level 3: Project Managers & Team Leaders */}
+          {/* Level 2/3: Team Leads (Manager view) OR PMs & Technical Leads (Admin view) */}
           {hierarchyTiers.projectManagers.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tier 3: Project Managers & Technical Team Leads ({hierarchyTiers.projectManagers.length})
+                  {!isAdmin ? `Tier 2: Technical Team Leads (${hierarchyTiers.projectManagers.length})` : `Tier 3: Project Managers & Technical Team Leads (${hierarchyTiers.projectManagers.length})`}
                 </h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -594,13 +673,13 @@ export default function StaffHierarchy() {
             </div>
           )}
 
-          {/* Level 4: Core Engineers */}
+          {/* Level 3/4: Core Engineers */}
           {hierarchyTiers.engineers.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tier 4: Software Engineers & Specialists ({hierarchyTiers.engineers.length})
+                  {!isAdmin ? `Tier 3: Software Engineers & Developers (${hierarchyTiers.engineers.length})` : `Tier 4: Software Engineers & Specialists (${hierarchyTiers.engineers.length})`}
                 </h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -609,13 +688,13 @@ export default function StaffHierarchy() {
             </div>
           )}
 
-          {/* Level 5: Interns */}
+          {/* Level 4/5: Interns */}
           {hierarchyTiers.interns.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                 <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tier 5: Engineering & Associate Interns ({hierarchyTiers.interns.length})
+                  {!isAdmin ? `Tier 4: Engineering & Associate Interns (${hierarchyTiers.interns.length})` : `Tier 5: Engineering & Associate Interns (${hierarchyTiers.interns.length})`}
                 </h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

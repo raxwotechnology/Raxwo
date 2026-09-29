@@ -14,6 +14,7 @@ const { sendLoggedMail } = require('../services/emailService');
 const { sendSms } = require('../services/smsService');
 const { ASSIGNED_STATUSES, INACTIVE_STATUSES } = require('../utils/employeeFilters');
 const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 function syncEmploymentTypeFromStatus(body) {
   const status = body.status;
@@ -89,12 +90,10 @@ exports.getEmployees = async (req, res, next) => {
       query.status = { $nin: INACTIVE_STATUSES };
     }
 
-    // If logged-in user is a PM or Team Leader (not Top Executive / Admin), strictly restrict to employees assigned to them (or their own employee record)
+    // If logged-in user is a PM or Team Leader (not Top Executive / Admin), strictly restrict to their scope (reports, team leads, and project employees)
     if (req.user && !isTopManagerOrAdmin(req.user)) {
-      query.$or = [
-        { manager: req.user._id },
-        { userId: req.user._id }
-      ];
+      const scope = await getManagerScope(req.user);
+      query._id = { $in: scope.employeeIds };
     }
 
     let employees = await Employee.find(query)
@@ -739,10 +738,18 @@ exports.adminSendPasswordResetEmail = async (req, res, next) => {
 // @route   GET /api/employees/leaders/summary
 exports.getLeadersSummary = async (req, res, next) => {
   try {
-    // 1. Fetch all active/internship employees with users
-    const allEmployeesRaw = await Employee.find({
+    const isTopMgr = isTopManagerOrAdmin(req.user);
+    const scope = !isTopMgr ? await getManagerScope(req.user) : null;
+
+    // 1. Fetch active/internship employees with users (scoped for non-top managers)
+    const empFindQuery = {
       status: { $in: ['active', 'internship', 'contract', 'on_leave'] }
-    })
+    };
+    if (!isTopMgr && scope) {
+      empFindQuery._id = { $in: scope.employeeIds };
+    }
+
+    const allEmployeesRaw = await Employee.find(empFindQuery)
       .populate('userId', 'name email phone avatar role isActive')
       .populate('manager', 'name email avatar role isActive')
       .populate('branch', 'name')
@@ -753,18 +760,27 @@ exports.getLeadersSummary = async (req, res, next) => {
     const activeUserIds = new Set(allEmployees.map(e => String(e.userId._id)));
 
     // 2. Find all users who are active managers/admins OR are assigned as manager on any active employee
-    const assignedManagerIds = await Employee.distinct('manager', {
-      manager: { $ne: null },
-      status: { $in: ['active', 'internship', 'contract', 'on_leave'] }
-    });
-    
-    const leaderUsers = await User.find({
-      $or: [
-        { role: { $in: ['manager', 'admin'] } },
-        { _id: { $in: assignedManagerIds } }
-      ],
-      isActive: true,
-    }).select('name email avatar role phone isActive').sort({ name: 1 });
+    let leaderUsers = [];
+    if (!isTopMgr) {
+      const leaderUserIds = [req.user._id, ...(scope?.teamLeadUserIds || [])];
+      leaderUsers = await User.find({
+        _id: { $in: leaderUserIds },
+        isActive: true,
+      }).select('name email avatar role phone isActive').sort({ name: 1 });
+    } else {
+      const assignedManagerIds = await Employee.distinct('manager', {
+        manager: { $ne: null },
+        status: { $in: ['active', 'internship', 'contract', 'on_leave'] }
+      });
+      
+      leaderUsers = await User.find({
+        $or: [
+          { role: { $in: ['manager', 'admin'] } },
+          { _id: { $in: assignedManagerIds } }
+        ],
+        isActive: true,
+      }).select('name email avatar role phone isActive').sort({ name: 1 });
+    }
 
     // Group employees by manager id
     const managerMap = {};
@@ -814,11 +830,13 @@ exports.getLeadersSummary = async (req, res, next) => {
     // 3. Build comprehensive list of all potential leaders (Active Managers + All Active Employees)
     const potentialLeadersMap = new Map();
 
-    // Add admin / manager accounts first
-    const adminManagers = await User.find({
-      role: { $in: ['admin', 'manager'] },
-      isActive: true
-    }).select('name email role avatar').sort({ name: 1 });
+    // Add admin / manager accounts (scoped if PM)
+    const adminManagersQuery = !isTopMgr
+      ? { _id: { $in: [req.user._id, ...(scope?.teamLeadUserIds || [])] }, isActive: true }
+      : { role: { $in: ['admin', 'manager'] }, isActive: true };
+
+    const adminManagers = await User.find(adminManagersQuery)
+      .select('name email role avatar').sort({ name: 1 });
 
     adminManagers.forEach(u => {
       potentialLeadersMap.set(String(u._id), {

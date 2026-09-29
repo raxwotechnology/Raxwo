@@ -91,6 +91,17 @@ const excludedManagerPaths = [
   '/admin/loans',
   '/admin/epf',
   '/admin/branches',
+  '/admin/clients',
+  '/admin/subscriptions',
+  '/admin/bookings',
+  '/admin/log-centre',
+  '/admin/services',
+  '/admin/rewards',
+  '/admin/feedback',
+  '/admin/leaders',
+  '/admin/recruitment',
+  '/admin/tool-assignments',
+  '/admin/exports',
 ]
 
 const managerNav = adminNav.map(group => ({

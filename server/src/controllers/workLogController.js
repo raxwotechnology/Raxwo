@@ -7,6 +7,7 @@ const emailService = require('../services/emailService');
 const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { sanitizeWorkLogTasks } = require('../utils/workLogSanitize');
 const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 const path = require('path');
 
 exports.submitWorkLog = async (req, res, next) => {
@@ -126,16 +127,15 @@ exports.getAllWorkLogs = async (req, res, next) => {
     if (role && role !== 'all') query.employeeRole = role;
 
     if (req.user && !isTopManagerOrAdmin(req.user)) {
-      const myReports = await Employee.find({ $or: [{ manager: req.user._id }, { userId: req.user._id }] }).select('_id');
-      const myReportIds = myReports.map(e => e._id);
+      const scope = await getManagerScope(req.user);
       if (employee) {
-        if (myReportIds.some(id => String(id) === String(employee))) {
+        if (scope.employeeIds.some(id => String(id) === String(employee))) {
           query.employee = employee;
         } else {
           query.employee = { $in: [] }; // Not authorized
         }
       } else {
-        query.employee = { $in: myReportIds };
+        query.employee = { $in: scope.employeeIds };
       }
     } else {
       if (employee) {
@@ -216,6 +216,17 @@ exports.approveWorkLog = async (req, res, next) => {
     const { approvalStatus, approvalNote } = req.body;
     if (!['approved', 'rejected'].includes(approvalStatus)) {
       return res.status(400).json({ success: false, message: 'Invalid approval status' });
+    }
+
+    const existingLog = await WorkLog.findById(req.params.id);
+    if (!existingLog) return res.status(404).json({ success: false, message: 'WorkLog not found' });
+
+    if (!isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      const isAllowed = scope.employeeIds.some(id => String(id) === String(existingLog.employee));
+      if (!isAllowed) {
+        return res.status(403).json({ success: false, message: 'You can only review work logs for employees assigned to you or your projects.' });
+      }
     }
 
     const workLog = await WorkLog.findByIdAndUpdate(

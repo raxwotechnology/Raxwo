@@ -23,9 +23,9 @@ router.get('/balance/:employeeId', protect, authorize('admin', 'manager'), getEm
 router.get('/policy-for/:employeeId', protect, authorize('admin', 'manager'), getPolicyForEmployee);
 
 // Leave Policies
-router.get('/policies', protect, authorize('admin'), getPolicies);
-router.post('/policies', protect, authorize('admin'), createPolicy);
-router.put('/policies/:id', protect, authorize('admin'), updatePolicy);
-router.delete('/policies/:id', protect, authorize('admin'), deletePolicy);
+router.get('/policies', protect, authorize('admin', 'manager'), getPolicies);
+router.post('/policies', protect, authorize('admin', 'manager'), createPolicy);
+router.put('/policies/:id', protect, authorize('admin', 'manager'), updatePolicy);
+router.delete('/policies/:id', protect, authorize('admin', 'manager'), deletePolicy);
 
 module.exports = router;

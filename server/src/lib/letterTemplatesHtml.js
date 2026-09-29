@@ -41,21 +41,35 @@ function signatureBlock(issuedByName, titleLine) {
 const LETTER_HTML = {
   offer: (emp, data, co) => {
     const d = new Date().toLocaleDateString('en-LK', { year: 'numeric', month: 'long', day: 'numeric' });
+    const candidateName = emp?.userId?.name || data?.candidateName || data?.recipientName || 'Candidate';
+    const designation = emp?.designation || data?.position || data?.designation || 'Specialist';
+    const department = emp?.department || data?.department || '—';
+    const branchName = emp?.branch?.name || data?.branch || 'Headquarters';
+    const basicSalary = Number(emp?.basicSalary || data?.basicSalary || data?.offeredSalary || 0);
+    const allowances = Number(emp?.allowances || data?.allowances || 0);
+    const gross = basicSalary + allowances;
+
+    const salaryTable = infoTable([
+      ['Basic salary (LKR / month)', basicSalary.toLocaleString('en-LK')],
+      ['Allowances (LKR / month)', allowances.toLocaleString('en-LK')],
+      ['Gross remuneration (LKR / month)', gross.toLocaleString('en-LK')],
+    ]);
+
     return `
 <h1 class="letter-h1">Offer of Employment</h1>
 <p class="letter-ref-line"><span class="letter-ref-label">Date:</span> ${esc(d)}</p>
-<p class="letter-salutation">Dear <strong>${esc(emp.userId?.name)}</strong>,</p>
-<p class="letter-p">We are pleased to offer you the position of <strong>${esc(emp.designation)}</strong> in the <strong>${esc(emp.department || '—')}</strong> department at <strong>${esc(co.name)}</strong>, subject to the terms set out below.</p>
+<p class="letter-salutation">Dear <strong>${esc(candidateName)}</strong>,</p>
+<p class="letter-p">We are pleased to offer you the position of <strong>${esc(designation)}</strong> in the <strong>${esc(department)}</strong> department at <strong>${esc(co.name)}</strong>, subject to the terms set out below.</p>
 <h2 class="letter-h2">Position &amp; commencement</h2>
 ${infoTable([
-      ['Position offered', emp.designation || '—'],
-      ['Department', emp.department || '—'],
-      ['Branch', emp.branch?.name || '—'],
-      ['Proposed start date', data.startDate || 'To be confirmed'],
-      ['Employment type', 'Full-time (permanent offer)'],
+      ['Position offered', designation],
+      ['Department', department],
+      ['Branch', branchName],
+      ['Proposed start date', data?.startDate || 'To be confirmed'],
+      ['Employment type', data?.employmentType || 'Full-time (permanent offer)'],
     ])}
 <h2 class="letter-h2">Remuneration &amp; benefits</h2>
-${salaryRows(emp)}
+${salaryTable}
 <p class="letter-p letter-small">Benefits shall be as per company policy applicable to your grade, including statutory contributions (EPF/ETF) where required.</p>
 <h2 class="letter-h2">Joining instructions</h2>
 <ol class="letter-ol">
@@ -65,7 +79,7 @@ ${salaryRows(emp)}
 </ol>
 <h2 class="letter-h2">Terms &amp; conditions</h2>
 <p class="letter-p">This offer is subject to satisfactory background verification, valid work authorisation (if applicable), and execution of the company’s standard employment undertakings. Detailed terms of employment will be set out in your appointment documentation.</p>
-${signatureBlock(data.issuedByName, 'Human Resources')}
+${signatureBlock(data?.issuedByName, 'Human Resources')}
 `;
   },
 

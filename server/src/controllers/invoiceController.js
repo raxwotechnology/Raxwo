@@ -15,6 +15,8 @@ const { createAuditLog } = require('./auditController');
 const { allocateInvoiceNoFromQuotationNo, generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
 const { syncProjectsForInvoice } = require('../utils/projectInvoiceSync');
 const { logInvoicePaymentIncome, deleteInvoiceFinanceEntries } = require('../utils/financeInvoiceIncome');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 const POPULATE_INVOICE = [
   { path: 'client',       select: 'name email phone' },
@@ -65,6 +67,10 @@ exports.getInvoices = async (req, res, next) => {
   try {
     let query = {};
     if (req.user.role === 'client') query.client = req.user._id;
+    if (req.user.role === 'manager' && !isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      query.project = { $in: scope.projectIds };
+    }
     if (req.query.status)   query.status  = req.query.status;
     if (req.query.branch)   query.branch  = req.query.branch;
     if (req.query.client)   query.client  = req.query.client;

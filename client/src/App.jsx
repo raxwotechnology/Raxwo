@@ -277,7 +277,7 @@ export default function App() {
 
       {/* Manager */}
       <Route path="/manager" element={<ProtectedRoute roles={['manager']}><DashboardLayout role="manager" /></ProtectedRoute>}>
-        <Route index element={<AdminDashboard />} />
+        <Route index element={<ManagerDashboard />} />
         <Route path="employees" element={<AdminEmployees />} />
         <Route path="leaves" element={<AdminLeaves />} />
         <Route path="epf" element={<AdminEPF />} />

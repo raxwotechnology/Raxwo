@@ -152,6 +152,11 @@ export default function AdminLetters() {
     queryKey: ['employees-list'],
     queryFn: () => api.get(assignableEmployeesUrl()).then((r) => r.data),
   })
+  const { data: appsData } = useQuery({
+    queryKey: ['recruitment-applications-picker'],
+    queryFn: () => api.get('/recruitment/applications').then((r) => r.data).catch(() => ({ applications: [] })),
+    enabled: Boolean(showModal && (selectedType === 'offer' || watch('candidateMode') === 'recruitment')),
+  })
   const { settings: siteSettings } = useSiteBranding()
 
   const company = useMemo(() => {
@@ -248,16 +253,20 @@ export default function AdminLetters() {
   })
 
   const onSubmit = (d) => {
+    const isOffer = d.type === 'offer'
+    const isCandidate = isOffer && (d.candidateMode === 'recruitment' || d.candidateMode === 'custom' || !d.candidateMode)
+    const empId = isCandidate ? undefined : (d.recipientType === 'employee' && d.employeeId !== 'custom' ? d.employeeId : undefined)
+
     if (d.type === 'custom') {
       let builderData = {
          dbLetterType: 'custom',
-         dbEmployeeId: d.recipientType === 'employee' ? d.employeeId : undefined,
-         dbClientId: d.recipientType === 'client' ? d.clientId : undefined,
+         dbEmployeeId: empId,
+         dbClientId: d.recipientType === 'client' && d.clientId !== 'custom' ? d.clientId : undefined,
          recipientType: d.recipientType || 'employee'
       }
       
-      if (d.recipientType === 'employee') {
-         const emp = (empData?.employees || []).find(e => e._id === d.employeeId)
+      if (d.recipientType === 'employee' && empId) {
+         const emp = (empData?.employees || []).find(e => e._id === empId)
          setBuilderEmployee(emp)
       } else {
          setBuilderEmployee(null) // Or fetch client data if needed, but the builder will handle it
@@ -283,12 +292,20 @@ export default function AdminLetters() {
     }
 
     generateMut.mutate({
-      recipientType: d.recipientType || 'employee',
-      employeeId: d.recipientType === 'employee' ? d.employeeId : undefined,
-      clientId: d.recipientType === 'client' ? d.clientId : undefined,
+      recipientType: d.recipientType === 'client' ? 'client' : 'employee',
+      employeeId: empId,
+      clientId: d.recipientType === 'client' && d.clientId !== 'custom' ? d.clientId : undefined,
       type: d.type,
       approvalStatus: d.approvalStatus || 'none',
       data: {
+        candidateName: d.candidateName,
+        recipientName: d.candidateName,
+        candidateEmail: d.candidateEmail,
+        position: d.position || d.designation,
+        designation: d.position || d.designation,
+        department: d.department,
+        basicSalary: d.basicSalary ? Number(d.basicSalary) : undefined,
+        offeredSalary: d.basicSalary ? Number(d.basicSalary) : undefined,
         startDate: d.startDate,
         endDate: d.endDate,
         confirmationDate: d.confirmationDate,
@@ -311,7 +328,17 @@ export default function AdminLetters() {
     setPrefilledType(type)
     const tDef = TYPE_MAP[type]
     const defaultRecipient = tDef?.category === 'client' ? 'client' : 'employee'
-    reset({ type: type || '', approvalStatus: 'none', recipientType: defaultRecipient })
+    reset({
+      type: type || '',
+      approvalStatus: 'none',
+      recipientType: defaultRecipient,
+      candidateMode: type === 'offer' ? 'recruitment' : 'employee',
+      candidateName: '',
+      candidateEmail: '',
+      position: '',
+      department: '',
+      basicSalary: '',
+    })
     setSignatures(normalizeLetterSignatures({}, siteSettings))
     setSelectedTplId('')
     setShowLetterTemplates(false)
@@ -752,65 +779,22 @@ export default function AdminLetters() {
                     ) : null}
                   </div>
                 )}
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                    <input type="radio" value="employee" {...register('recipientType')} className="form-radio" defaultChecked />
-                    Employee
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                    <input type="radio" value="client" {...register('recipientType')} className="form-radio" />
-                    Customer
-                  </label>
-                </div>
-                {watch('recipientType') === 'client' ? (
-                  <div>
-                    <label className="form-label">Customer *</label>
-                    <SearchableSelect
-                      value={watch('clientId')}
-                      onChange={(v) => setValue('clientId', v, { shouldValidate: true })}
-                      loadOptions={async (params) => {
-                        const res = await lookupLoaders.clients()(params)
-                        if (params.page === 1) {
-                          const customOpt = { value: 'custom', label: '-- External / Custom (No Customer) --' }
-                          if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
-                            res.options.unshift(customOpt)
-                          }
-                        }
-                        return res
-                      }}
-                      placeholder="Search customer…"
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="form-label">Employee *</label>
-                    <SearchableSelect
-                      value={watch('employeeId')}
-                      onChange={(v) => setValue('employeeId', v, { shouldValidate: true })}
-                      loadOptions={async (params) => {
-                        const res = await lookupLoaders.employees()(params)
-                        if (params.page === 1) {
-                          const customOpt = { value: 'custom', label: '-- External / Custom (No Employee) --' }
-                          if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
-                            res.options.unshift(customOpt)
-                          }
-                        }
-                        return res
-                      }}
-                      placeholder="Search employee…"
-                    />
-                  </div>
-                )}
                 <div>
                   <label className="form-label">Letter type *</label>
                   <SearchableSelect
                     value={selectedType}
-                    onChange={(v) => setValue('type', v, { shouldValidate: true })}
+                    onChange={(v) => {
+                      setValue('type', v, { shouldValidate: true })
+                      if (v === 'offer') {
+                        setValue('candidateMode', 'recruitment')
+                        setValue('recipientType', 'employee')
+                      }
+                    }}
                     loadOptions={async ({ search }) => {
                       const q = (search || '').toLowerCase()
                       const currentRecip = watch('recipientType')
                       const options = LETTER_TYPES
-                        .filter(lt => !lt.category || lt.category === 'both' || lt.category === currentRecip)
+                        .filter(lt => !lt.category || lt.category === 'both' || lt.category === currentRecip || selectedType === 'offer')
                         .filter(lt => lt.label.toLowerCase().includes(q) || lt.value.includes(q))
                         .map(lt => ({ value: lt.value, label: lt.label }))
                       return { options, hasMore: false }
@@ -818,6 +802,206 @@ export default function AdminLetters() {
                     placeholder="Search type…"
                   />
                 </div>
+
+                {/* Offer Letter Specific Recipient Selector */}
+                {selectedType === 'offer' ? (
+                  <div className="space-y-3 p-4 rounded-xl border border-blue-200/80 bg-blue-50/40">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">Candidate / Recipient Selection *</span>
+                      <span className="text-[11px] font-medium text-blue-600">New Recruit Offer</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setValue('candidateMode', 'recruitment')}
+                        className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          (watch('candidateMode') || 'recruitment') === 'recruitment'
+                            ? 'bg-secondary text-white border-secondary shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        🎓 Recruitment Candidate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setValue('candidateMode', 'custom')}
+                        className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          watch('candidateMode') === 'custom'
+                            ? 'bg-secondary text-white border-secondary shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        ✏️ Custom Candidate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setValue('candidateMode', 'employee')}
+                        className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                          watch('candidateMode') === 'employee'
+                            ? 'bg-secondary text-white border-secondary shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        💼 Existing Staff
+                      </button>
+                    </div>
+
+                    {(watch('candidateMode') || 'recruitment') === 'recruitment' && (
+                      <div className="space-y-3 pt-1">
+                        <div>
+                          <label className="text-xs font-semibold text-slate-700">Pick from Job Applications</label>
+                          <select
+                            className="form-select text-xs mt-1"
+                            onChange={(e) => {
+                              const app = (appsData?.applications || []).find(a => a._id === e.target.value)
+                              if (app) {
+                                setValue('candidateName', app.name)
+                                setValue('candidateEmail', app.email)
+                                setValue('position', app.job?.title || '')
+                                setValue('department', app.job?.department || '')
+                              }
+                            }}
+                          >
+                            <option value="">-- Choose recruitment candidate ({appsData?.applications?.length || 0} applicants) --</option>
+                            {(appsData?.applications || []).map(app => (
+                              <option key={app._id} value={app._id}>
+                                {app.name} — {app.job?.title || 'Applicant'} ({app.email})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Candidate Full Name *</label>
+                            <input {...register('candidateName', { required: true })} className="form-input text-xs" placeholder="e.g. Nimal Perera" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Candidate Email</label>
+                            <input {...register('candidateEmail')} className="form-input text-xs" placeholder="e.g. nimal@example.com" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Designation / Role *</label>
+                            <input {...register('position')} className="form-input text-xs" placeholder="e.g. Associate Software Engineer" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Department</label>
+                            <input {...register('department')} className="form-input text-xs" placeholder="e.g. Engineering" />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-xs font-semibold text-slate-700">Offered Basic Salary (LKR / month)</label>
+                            <input {...register('basicSalary')} type="number" className="form-input text-xs" placeholder="e.g. 120000" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {watch('candidateMode') === 'custom' && (
+                      <div className="space-y-2.5 pt-1">
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Candidate Full Name *</label>
+                            <input {...register('candidateName', { required: true })} className="form-input text-xs" placeholder="e.g. Kasun Fernando" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Candidate Email</label>
+                            <input {...register('candidateEmail')} className="form-input text-xs" placeholder="e.g. kasun@example.com" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Designation / Role *</label>
+                            <input {...register('position')} className="form-input text-xs" placeholder="e.g. QA Engineer" />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-slate-700">Department</label>
+                            <input {...register('department')} className="form-input text-xs" placeholder="e.g. Quality Assurance" />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-xs font-semibold text-slate-700">Offered Basic Salary (LKR / month)</label>
+                            <input {...register('basicSalary')} type="number" className="form-input text-xs" placeholder="e.g. 100000" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {watch('candidateMode') === 'employee' && (
+                      <div className="pt-1">
+                        <label className="text-xs font-semibold text-slate-700 mb-1 block">Select Existing Employee</label>
+                        <SearchableSelect
+                          value={watch('employeeId')}
+                          onChange={(v) => setValue('employeeId', v, { shouldValidate: true })}
+                          loadOptions={async (params) => {
+                            const res = await lookupLoaders.employees()(params)
+                            return res
+                          }}
+                          placeholder="Search employee…"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input type="radio" value="employee" {...register('recipientType')} className="form-radio" defaultChecked />
+                        Employee
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                        <input type="radio" value="client" {...register('recipientType')} className="form-radio" />
+                        Customer
+                      </label>
+                    </div>
+                    {watch('recipientType') === 'client' ? (
+                      <div>
+                        <label className="form-label">Customer *</label>
+                        <SearchableSelect
+                          value={watch('clientId')}
+                          onChange={(v) => setValue('clientId', v, { shouldValidate: true })}
+                          loadOptions={async (params) => {
+                            const res = await lookupLoaders.clients()(params)
+                            if (params.page === 1) {
+                              const customOpt = { value: 'custom', label: '-- External / Custom (No Customer) --' }
+                              if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
+                                res.options.unshift(customOpt)
+                              }
+                            }
+                            return res
+                          }}
+                          placeholder="Search customer…"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="form-label">Employee *</label>
+                        <SearchableSelect
+                          value={watch('employeeId')}
+                          onChange={(v) => setValue('employeeId', v, { shouldValidate: true })}
+                          loadOptions={async (params) => {
+                            const res = await lookupLoaders.employees()(params)
+                            if (params.page === 1) {
+                              const customOpt = { value: 'custom', label: '-- External / Custom (No Employee) --' }
+                              if (!params.search || customOpt.label.toLowerCase().includes(params.search.toLowerCase()) || 'custom'.includes(params.search.toLowerCase())) {
+                                res.options.unshift(customOpt)
+                              }
+                            }
+                            return res
+                          }}
+                          placeholder="Search employee…"
+                        />
+                      </div>
+                    )}
+
+                    {(watch('employeeId') === 'custom' || watch('clientId') === 'custom') && (
+                      <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80 space-y-2">
+                        <label className="text-xs font-bold text-amber-800">External Recipient Name *</label>
+                        <input
+                          {...register('candidateName', { required: true })}
+                          className="form-input text-xs"
+                          placeholder="Enter recipient full name..."
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
                 <div>
                   <label className="form-label">Approval before issue (optional)</label>
                   <select {...register('approvalStatus')} className="form-select">
@@ -970,7 +1154,18 @@ export default function AdminLetters() {
                         Include company seal
                       </label>
                     </div>
-                    <p className="text-[11px] text-slate-500">You can show both, only a signature, only the seal, or neither. Adjust images after generating in the letter preview.</p>
+
+                    {signatures.includeSeal !== false && (
+                      <div className="pt-2 border-t border-slate-200/80">
+                        <DocumentAssetPicker
+                          label="Company Seal (Choose preset or upload seal image)"
+                          assetType="seal"
+                          value={{ data: signatures.seal?.data || '' }}
+                          onChange={(v) => setSignatures((s) => ({ ...s, seal: { data: v.data } }))}
+                        />
+                      </div>
+                    )}
+                    <p className="text-[11px] text-slate-500">You can show both, only a signature, only the seal, or change the seal image here before generating.</p>
                   </div>
                 )}
 
@@ -1270,7 +1465,7 @@ export default function AdminLetters() {
                       onClick={() => updateMut.mutate({ id: preview._id, payload: { signatures: letterSignaturesToPayload(signatures) } })}
                       disabled={updateMut.isPending}
                     >
-                      {updateMut.isPending ? <span className="spinner" /> : 'Save signature'}
+                      {updateMut.isPending ? <span className="spinner" /> : 'Save signature & seal'}
                     </button>
                   </div>
                 </div>

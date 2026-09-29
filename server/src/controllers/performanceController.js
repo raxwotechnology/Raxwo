@@ -1,8 +1,17 @@
 const Performance = require('../models/Performance');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 exports.upsertPerformance = async (req, res, next) => {
   try {
     const { developer, month, year, tasksCompleted = 0, commits = 0, codeQuality = 0, collaboration = 0, project, notes = '' } = req.body;
+    if (!isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      const isAllowed = scope.userIds.some(id => String(id) === String(developer));
+      if (!isAllowed) {
+        return res.status(403).json({ success: false, message: 'You can only review performance for your team members.' });
+      }
+    }
     const score = Math.round((Number(tasksCompleted) * 0.35) + (Number(commits) * 0.2) + (Number(codeQuality) * 0.3) + (Number(collaboration) * 0.15));
     const record = await Performance.findOneAndUpdate(
       { developer, month, year },
@@ -16,7 +25,21 @@ exports.upsertPerformance = async (req, res, next) => {
 exports.getPerformance = async (req, res, next) => {
   try {
     const query = {};
-    if (req.query.developer) query.developer = req.query.developer;
+    if (!isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      if (req.query.developer) {
+        if (scope.userIds.some(id => String(id) === String(req.query.developer))) {
+          query.developer = req.query.developer;
+        } else {
+          query.developer = { $in: [] };
+        }
+      } else {
+        query.developer = { $in: scope.userIds };
+      }
+    } else if (req.query.developer) {
+      query.developer = req.query.developer;
+    }
+
     if (req.query.month) query.month = Number(req.query.month);
     if (req.query.year) query.year = Number(req.query.year);
     const records = await Performance.find(query)

@@ -96,11 +96,11 @@ export default function TeamHub({ isManagerView = false }) {
   const [attMonth, setAttMonth] = useState(currentMonth)
   const [attYear, setAttYear] = useState(currentYear)
 
-  // 1. Fetch Leaders Summary (Admin only)
+  // 1. Fetch Leaders Summary (Admin and Managers)
   const { data: leadersSummaryData } = useQuery({
-    queryKey: ['leaders-summary'],
+    queryKey: ['leaders-summary', isManagerView ? user?._id : 'all'],
     queryFn: () => api.get('/employees/leaders/summary').then(r => r.data),
-    enabled: Boolean(isAdmin),
+    enabled: Boolean(isAdmin || isManagerView || user?.role === 'manager'),
   })
 
   const leaders = useMemo(() => {
@@ -119,31 +119,26 @@ export default function TeamHub({ isManagerView = false }) {
     })
   }, [leadersSummaryData])
 
-  // If in manager view and not yet selected, match current logged-in user
-  const effectiveLeaderId = isManagerView ? (user?._id || '') : selectedLeaderId
+  // In manager view, default to 'all' so all team members and team leads under this PM are visible
+  const effectiveLeaderId = selectedLeaderId
 
-  // 2. Fetch Employees (scoped to manager if in manager view)
+  // 2. Fetch Employees (scoped automatically by backend managerScope)
   const { data: employeesData } = useQuery({
     queryKey: ['employees', 'team-hub', isManagerView ? user?._id : 'all'],
-    queryFn: () => {
-      const qs = isManagerView && user?._id ? `&manager=${user._id}` : ''
-      return api.get(`/employees?assignable=1${qs}`).then(r => r.data)
-    },
+    queryFn: () => api.get('/employees?assignable=1').then(r => r.data),
   })
 
   const isTopManager = user?.role === 'admin' || user?.email === 'manager@raxwo.com' || (user?.name || '').toLowerCase().includes('rashin')
 
-  // Filter out any inactive/suspended/terminated members, and scope to assigned interns if PM/TL
+  // Filter out any inactive/suspended/terminated members
   const allEmployees = useMemo(() => {
     const list = employeesData?.employees || []
     return list.filter(e => {
       const isInactive = ['inactive', 'suspended', 'former', 'terminated', 'resigned', 'intern_ended'].includes(e.status)
       const isUserInactive = e.userId?.isActive === false
-      const mgrId = String(e.manager?._id || e.manager || '')
-      const matchPM = isTopManager || (e.employmentType === 'intern' && mgrId === String(user?._id))
-      return !isInactive && !isUserInactive && matchPM
+      return !isInactive && !isUserInactive
     })
-  }, [employeesData, isTopManager, user?._id])
+  }, [employeesData])
 
   // Filter employees belonging to the selected leader
   const leaderTeamEmployees = useMemo(() => {

@@ -11,6 +11,8 @@ const { createNotification } = require('../services/notificationService');
 const { generateAutoInvoiceNo } = require('../utils/allocateInvoiceNoFromQuotation');
 const { verifyActionPassword } = require('../utils/actionPassword');
 const { calcItems } = require('./invoiceController');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 function calcQuotationTotals(validItems, taxRate = 0, transportCharge = 0, globalDiscountValue = 0, globalDiscountType = 'fixed') {
   const { subtotal, discountTotal, tax, total: baseTotal, items } = calcItems(
@@ -59,6 +61,11 @@ exports.getQuotations = async (req, res, next) => {
       query.client = { $in: clientIds };
     } else if (client) {
       query.client = client;
+    }
+
+    if (req.user.role === 'manager' && !isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      query.project = { $in: scope.projectIds };
     }
     if (startDate || endDate) {
       query.createdAt = {};

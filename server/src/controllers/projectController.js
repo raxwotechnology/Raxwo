@@ -13,6 +13,8 @@ const {
   loadInvoicesForProject,
   applyPaymentStatusToProject,
 } = require('../utils/projectInvoiceSync');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 const POPULATE = [
   { path: 'client', select: 'name email avatar phone' },
@@ -37,6 +39,14 @@ exports.getProjects = async (req, res, next) => {
     if (req.user.role === 'client') query.client = req.user._id;
     else if (client) query.client = client;
     if (['developer', 'designer', 'marketing'].includes(req.user.role)) query.assignedEmployees = req.user._id;
+    if (req.user.role === 'manager' && !isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      query.$or = [
+        { projectManager: req.user._id },
+        { assignedEmployees: req.user._id },
+        { _id: { $in: scope.projectIds } }
+      ];
+    }
 
     // Auto-mark overdue
     const now = new Date();

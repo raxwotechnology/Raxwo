@@ -15,8 +15,10 @@ const BankAccount = require('../models/BankAccount');
 const PettyCash = require('../models/PettyCash');
 const Request = require('../models/Request');
 const WorkLog = require('../models/WorkLog');
+const SignatureRequest = require('../models/SignatureRequest');
 const { createNotification } = require('../services/notificationService');
 const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 const axios = require('axios');
 
 const dateRange = (start, end) => ({
@@ -837,6 +839,202 @@ exports.auditWebsite = async (req, res, next) => {
     });
   } catch (err) {
     console.error('[auditWebsite Error]:', err.message);
+    next(err);
+  }
+};
+
+// @desc    Project Manager specific dashboard analytics & metrics
+// @route   GET /api/analytics/manager-dashboard
+exports.getManagerDashboard = async (req, res, next) => {
+  try {
+    const scope = await getManagerScope(req.user);
+    const isTopMgr = scope.isAll;
+
+    // 1. Projects for Manager
+    let projQuery = {};
+    if (!isTopMgr) {
+      projQuery = {
+        $or: [
+          { projectManager: req.user._id },
+          { assignedEmployees: req.user._id },
+          { _id: { $in: scope.projectIds } }
+        ]
+      };
+    }
+
+    const projects = await Project.find(projQuery)
+      .populate('client', 'name email phone companyName')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const projectIds = projects.map(p => p._id);
+
+    // 2. Financials from linked Invoices for these projects
+    const invoices = await Invoice.find({ project: { $in: projectIds } })
+      .select('invoiceNo total totalPaid remainingBalance status currency project')
+      .lean();
+
+    const invoiceByProj = {};
+    let totalInvoiced = 0;
+    let totalPaid = 0;
+    let pendingPayments = 0;
+
+    invoices.forEach(inv => {
+      const pId = String(inv.project);
+      if (!invoiceByProj[pId]) invoiceByProj[pId] = [];
+      invoiceByProj[pId].push(inv);
+      totalInvoiced += Number(inv.total || 0);
+      totalPaid += Number(inv.totalPaid || 0);
+      pendingPayments += Number(inv.remainingBalance || 0);
+    });
+
+    const totalProjectBudget = projects.reduce((sum, p) => sum + (Number(p.budget) || 0), 0);
+    const activeProjects = projects.filter(p => p.status === 'active').length;
+    const completedProjects = projects.filter(p => ['completed', 'paid_completed'].includes(p.status)).length;
+    const overdueProjects = projects.filter(p => p.status === 'overdue').length;
+
+    // Attach invoice stats to projects for frontend table
+    const projectsWithFinance = projects.map(p => {
+      const projInvs = invoiceByProj[String(p._id)] || [];
+      const projPaid = projInvs.reduce((acc, i) => acc + (Number(i.totalPaid) || 0), 0);
+      const projDue = projInvs.reduce((acc, i) => acc + (Number(i.remainingBalance) || 0), 0);
+      return {
+        _id: p._id,
+        title: p.title,
+        status: p.status,
+        progress: p.progress || 0,
+        budget: p.budget || 0,
+        deadline: p.deadline,
+        serviceType: p.serviceType,
+        totalPaid: projPaid,
+        remainingBalance: projDue,
+        clientName: p.client?.name || 'Internal',
+      };
+    });
+
+    // 3. Manager's Personal Advances
+    let managerAdvances = [];
+    if (scope.ownEmployeeId) {
+      managerAdvances = await Advance.find({ employee: scope.ownEmployeeId }).lean();
+    }
+    const managerAdvanceTotal = managerAdvances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+    const managerAdvanceRecovered = managerAdvances.reduce((sum, a) => sum + (Number(a.totalRecovered) || 0), 0);
+    const managerAdvanceBalance = managerAdvances.reduce((sum, a) => sum + (Number(a.outstandingBalance) || 0), 0);
+
+    // 4. Team Members & Today's Attendance
+    const empQuery = isTopMgr ? {} : { _id: { $in: scope.employeeIds } };
+    const teamEmployees = await Employee.find({
+      ...empQuery,
+      status: { $in: ['active', 'internship', 'contract', 'on_leave'] }
+    })
+      .populate('userId', 'name email avatar role isActive')
+      .populate('manager', 'name')
+      .select('userId employeeNo designation department employmentType status manager profilePhoto')
+      .lean();
+
+    const validTeamEmployees = teamEmployees.filter(e => e.userId && e.userId.isActive !== false);
+
+    // Today's attendance range (local today)
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const attendances = await Attendance.find({
+      employee: { $in: validTeamEmployees.map(e => e._id) },
+      date: { $gte: todayStart, $lte: todayEnd }
+    }).lean();
+
+    const attMap = new Map(attendances.map(a => [String(a.employee), a]));
+
+    let presentCount = 0;
+    let lateCount = 0;
+    let halfDayCount = 0;
+    let shortLeaveCount = 0;
+    let absentCount = 0;
+    let onLeaveCount = 0;
+
+    const teamAttendanceList = validTeamEmployees.map(emp => {
+      const att = attMap.get(String(emp._id));
+      const status = att ? att.status : 'not_marked';
+      if (status === 'present') presentCount++;
+      else if (status === 'late') lateCount++;
+      else if (status === 'half_day') halfDayCount++;
+      else if (status === 'short_leave') shortLeaveCount++;
+      else if (status === 'absent') absentCount++;
+      else if (status === 'leave') onLeaveCount++;
+
+      return {
+        employeeId: emp._id,
+        name: emp.userId?.name || 'Employee',
+        avatar: emp.profilePhoto || emp.userId?.avatar,
+        designation: emp.designation || 'Staff',
+        department: emp.department || 'General',
+        employmentType: emp.employmentType,
+        status,
+        checkIn: att?.checkIn || null,
+        checkOut: att?.checkOut || null,
+        totalWorkedHours: att?.totalWorkedHours || 0,
+      };
+    });
+
+    // 5. Pending Actions (scoped to PM's subordinates)
+    const pendingScopeIds = validTeamEmployees.map(e => e._id);
+
+    const [pendingLeaves, pendingWorkLogs, pendingRequests] = await Promise.all([
+      Leave.find({ employee: { $in: pendingScopeIds }, status: 'pending' })
+        .populate({ path: 'employee', populate: { path: 'userId', select: 'name avatar' } })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean(),
+      WorkLog.find({ employee: { $in: pendingScopeIds }, approvalStatus: 'pending' })
+        .populate({ path: 'employee', populate: { path: 'userId', select: 'name avatar' } })
+        .sort({ date: -1 })
+        .limit(10)
+        .lean(),
+      SignatureRequest.find({ employeeId: { $in: pendingScopeIds }, status: 'pending' })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean(),
+    ]);
+
+    res.json({
+      success: true,
+      kpis: {
+        totalProjects: projects.length,
+        activeProjects,
+        completedProjects,
+        overdueProjects,
+        totalBudget: totalProjectBudget,
+        totalInvoiced,
+        totalPaid,
+        pendingPayments,
+        managerAdvanceTotal,
+        managerAdvanceRecovered,
+        managerAdvanceBalance,
+        totalTeamMembers: validTeamEmployees.length,
+        pendingLeavesCount: pendingLeaves.length,
+        pendingWorkLogsCount: pendingWorkLogs.length,
+        pendingRequestsCount: pendingRequests.length,
+      },
+      attendance: {
+        presentCount,
+        lateCount,
+        halfDayCount,
+        shortLeaveCount,
+        absentCount,
+        onLeaveCount,
+        totalMarked: attendances.length,
+        teamList: teamAttendanceList,
+      },
+      projects: projectsWithFinance,
+      pendingActions: {
+        leaves: pendingLeaves,
+        workLogs: pendingWorkLogs,
+        signatureRequests: pendingRequests,
+      },
+    });
+  } catch (err) {
     next(err);
   }
 };

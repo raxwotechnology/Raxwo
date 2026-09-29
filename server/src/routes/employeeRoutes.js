@@ -13,8 +13,8 @@ const ALL_STAFF = ['admin', 'owner', 'manager', 'developer', 'marketing', 'desig
 router.get('/public-team', getPublicOurTeam);
 router.get('/stats', protect, authorize(...ALL_STAFF), getStats);
 router.get('/leaders/summary', protect, authorize(...ALL_STAFF), getLeadersSummary);
-router.post('/assign-leader', protect, authorize('admin'), assignLeader);
-router.post('/designate-leader', protect, authorize('admin'), designateLeader);
+router.post('/assign-leader', protect, authorize('admin', 'manager'), assignLeader);
+router.post('/designate-leader', protect, authorize('admin', 'manager'), designateLeader);
 router.get('/me', protect, getMyProfile);
 router.get('/', protect, authorize(...ALL_STAFF), getEmployees);
 router.get('/:id/activity', protect, authorize('admin', 'manager'), getEmployeeActivity);

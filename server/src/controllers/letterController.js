@@ -8,6 +8,8 @@ const { createNotification } = require('../services/notificationService');
 const { verifyActionPassword } = require('../utils/actionPassword');
 const { toRelativeUploadUrl } = require('../utils/uploadsPath');
 const { resolveEmployeeForUser } = require('../utils/employeeResolver');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 function letterAuditSnapshot(doc) {
   if (!doc) return null;
@@ -173,7 +175,8 @@ exports.generateLetter = async (req, res, next) => {
       service_agreement: 'Service Agreement',
       custom: data.title || data.letterTitle || 'Custom',
     };
-    const title = data.title || `${typeLabels[type] || type}${employee ? ` — ${employee.userId.name}` : client ? ` — ${client.name}` : ''}`;
+    const recName = data.candidateName || data.recipientName || '';
+    const title = data.title || `${typeLabels[type] || type}${employee ? ` — ${employee.userId.name}` : client ? ` — ${client.name}` : recName ? ` — ${recName}` : ''}`;
 
     // Pre-generate letterRef if not explicitly provided so content and structuredData get the actual ref
     let letterRef = data.letterRef;
@@ -185,10 +188,19 @@ exports.generateLetter = async (req, res, next) => {
 
     let structuredData = data.structuredData || null;
     if (structuredData && typeof structuredData === 'object') {
-      structuredData = { ...structuredData, letterRef };
+      structuredData = { ...structuredData, letterRef, recipientName: recName || structuredData.recipientName };
+    } else if (recName) {
+      structuredData = { letterRef, recipientName: recName };
     }
 
-    let content = data.content ? data.content : buildLetterBodyHtml(type, employee || client || {}, data, company);
+    const fallbackRecipient = {
+      userId: { name: recName || 'Recipient', email: data.candidateEmail || data.recipientEmail || '' },
+      designation: data.position || data.designation || '',
+      address: data.candidateAddress || data.recipientAddress || '',
+      basicSalary: data.basicSalary || data.offeredSalary || 0,
+    };
+
+    let content = data.content ? data.content : buildLetterBodyHtml(type, employee || client || fallbackRecipient, data, company);
     if (content && typeof content === 'string') {
       content = content.replace(/LTR-\d{4}-XXXX/g, letterRef).replace(/LTR-XXXX/g, letterRef);
     }
@@ -249,6 +261,14 @@ exports.getLetters = async (req, res, next) => {
     if (employeeId) query.employee = employeeId;
     if (clientId) query.client = clientId;
     if (type) query.type = type;
+
+    if (req.user.role === 'manager' && !isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      query.$or = [
+        { employee: { $in: scope.employeeIds } },
+        { issuedBy: req.user._id }
+      ];
+    }
     const letters = await Letter.find(query)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
       .populate('client', 'name email')

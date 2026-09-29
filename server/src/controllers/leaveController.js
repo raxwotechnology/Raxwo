@@ -6,6 +6,7 @@ const Notification = require('../models/Notification');
 const { createNotification } = require('../services/notificationService');
 const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
 const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 // ─── BALANCE TYPES that consume quota ─────────────────────────────────────────
 const BALANCE_TYPES = ['annual', 'medical', 'casual', 'half_day', 'short_leave', 'maternity', 'paternity'];
@@ -225,6 +226,13 @@ exports.getEmployeeLeaveBalance = async (req, res, next) => {
 exports.assignLeave = async (req, res, next) => {
   try {
     const { employeeId, leaveType, startDate, endDate, reason, remarks } = req.body;
+    if (!isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      const isAllowed = scope.employeeIds.some(id => String(id) === String(employeeId));
+      if (!isAllowed) {
+        return res.status(403).json({ success: false, message: 'You can only assign leave to employees in your team or projects.' });
+      }
+    }
     const employee = await Employee.findById(employeeId).populate('userId', 'name _id');
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found' });
 
@@ -259,16 +267,15 @@ exports.getLeaves = async (req, res, next) => {
     if (status) query.status = status;
 
     if (req.user && !isTopManagerOrAdmin(req.user)) {
-      const myReports = await Employee.find({ $or: [{ manager: req.user._id }, { userId: req.user._id }] }).select('_id');
-      const myReportIds = myReports.map(e => e._id);
+      const scope = await getManagerScope(req.user);
       if (employee) {
-        if (myReportIds.some(id => String(id) === String(employee))) {
+        if (scope.employeeIds.some(id => String(id) === String(employee))) {
           query.employee = employee;
         } else {
           query.employee = { $in: [] };
         }
       } else {
-        query.employee = { $in: myReportIds };
+        query.employee = { $in: scope.employeeIds };
       }
     } else {
       if (employee) {
@@ -368,6 +375,15 @@ exports.updateLeaveStatus = async (req, res, next) => {
     const leave = await Leave.findById(req.params.id)
       .populate({ path: 'employee', populate: { path: 'userId', select: 'name _id' } });
     if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
+
+    if (!isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      const targetEmpId = String(leave.employee?._id || leave.employee);
+      const isAllowed = scope.employeeIds.some(id => String(id) === targetEmpId);
+      if (!isAllowed) {
+        return res.status(403).json({ success: false, message: 'You can only review leaves for employees assigned to you or your projects.' });
+      }
+    }
 
     leave.status = status;
     leave.remarks = remarks || '';

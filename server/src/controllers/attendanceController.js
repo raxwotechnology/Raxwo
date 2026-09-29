@@ -5,6 +5,7 @@ const { resolveEmployeeForUser } = require('../utils/employeeResolver');
 const { computeAttendanceHours } = require('../utils/attendanceHours');
 const { triggerPayrollSync, monthYearFromDate } = require('../utils/payrollSyncHook');
 const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 // Helper: get start of today as a Date
 const todayStart = () => {
@@ -30,10 +31,15 @@ const getEmpIds = async (branchId) => {
 exports.markAttendance = async (req, res, next) => {
   try {
     if (!isTopManagerOrAdmin(req.user)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Project Managers and Team Leaders cannot mark attendance. Attendance can only be marked by Admin or Top Manager (Rashin Sheran).'
-      });
+      const scope = await getManagerScope(req.user);
+      const targetEmpId = String(req.body.employeeId || '');
+      const isAllowed = scope.employeeIds.some(id => String(id) === targetEmpId);
+      if (!isAllowed) {
+        return res.status(403).json({
+          success: false,
+          message: 'You can only mark attendance for employees assigned to your team or projects.'
+        });
+      }
     }
 
     const {
@@ -320,12 +326,8 @@ exports.getAttendance = async (req, res, next) => {
 
     if (!isTopMgr) {
       delete empFilter.manager;
-      const ownEmp = await Employee.findOne({ userId: req.user._id });
-      const ownEmpId = ownEmp ? ownEmp._id : null;
-      empFilter.$or = [
-        { manager: req.user._id },
-        ...(ownEmpId ? [{ _id: ownEmpId }] : [{ userId: req.user._id }])
-      ];
+      const scope = await getManagerScope(req.user);
+      empFilter._id = { $in: scope.employeeIds };
     }
 
     const activeEmps = await Employee.find(empFilter)

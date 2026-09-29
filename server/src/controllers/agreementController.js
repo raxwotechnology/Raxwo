@@ -7,6 +7,8 @@ const Employee = require('../models/Employee');
 const Branch = require('../models/Branch');
 const Subscription = require('../models/Subscription');
 const { createNotification } = require('../services/notificationService');
+const { isTopManagerOrAdmin } = require('../utils/userPermissions');
+const { getManagerScope } = require('../utils/managerScope');
 
 const POPULATE = [
   { path: 'client', select: 'name email phone' },
@@ -101,6 +103,14 @@ exports.getAgreements = async (req, res, next) => {
     if (type) query.agreementType = type;
     if (partyType) query.partyType = partyType;
     if (approvalStatus) query.approvalStatus = approvalStatus;
+
+    if (req.user.role === 'manager' && !isTopManagerOrAdmin(req.user)) {
+      const scope = await getManagerScope(req.user);
+      query.$or = [
+        { project: { $in: scope.projectIds } },
+        { employee: { $in: scope.employeeIds } }
+      ];
+    }
 
     const agreements = await Agreement.find(query)
       .populate(POPULATE)
