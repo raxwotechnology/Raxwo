@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi'
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
+import SEO from '../../components/common/SEO'
 
 /* ─────────── Tier Configurations (Light Theme) ─────────── */
 const TIER = {
@@ -349,6 +350,11 @@ export default function OurTeam() {
 
   return (
     <div className="overflow-x-hidden bg-[#fafbfc] min-h-screen">
+      <SEO
+        title="Meet Our Engineering & Leadership Team | Raxwo Technology"
+        description="Meet the passionate software engineers, designers, project managers, and directors driving digital innovation at Raxwo Technology in Sri Lanka."
+        keywords="Raxwo Team, Software Engineers Sri Lanka, Tech Leadership Colombo, Developers Raxwo, IT Specialists"
+      />
       {/* ── HERO SECTION (Matching Site UI Theme) ── */}
       <section className="relative bg-[#0C0227] pt-32 pb-24 overflow-hidden">
         {/* Subtle World Map / Ambient Background */}

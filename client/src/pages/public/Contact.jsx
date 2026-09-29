@@ -4,6 +4,7 @@ import { FiMapPin, FiPhone, FiMail } from 'react-icons/fi'
 import api from '../../lib/api'
 import GoogleReviews from '../../components/public/GoogleReviews'
 import ContactForm from '../../components/public/ContactForm'
+import SEO from '../../components/common/SEO'
 
 export default function Contact() {
   const { data: siteData } = useQuery({
@@ -14,6 +15,28 @@ export default function Contact() {
 
   return (
     <div>
+      <SEO
+        title="Contact Us & Get a Free Quote | Raxwo Technology"
+        description="Ready to scale your business with custom software? Contact Raxwo Technology for software development, ERP consulting, and cloud services in Sri Lanka."
+        keywords="Contact Raxwo, Software Development Quote, Hire Developers Sri Lanka, IT Consultation Colombo"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'ContactPage',
+          name: 'Contact Raxwo Technology',
+          description: 'Get in touch with Raxwo Technology for enterprise software engineering, consultations, and digital solutions.',
+          mainEntity: {
+            '@type': 'LocalBusiness',
+            name: 'Raxwo Technology',
+            telephone: settings?.contactPhone || '+94 77 000 0000',
+            email: settings?.contactEmail || 'contact@raxwo.net',
+            address: {
+              '@type': 'PostalAddress',
+              streetAddress: settings?.contactAddress || 'Weliweriya',
+              addressCountry: 'LK'
+            }
+          }
+        }}
+      />
       <section className="bg-gradient-hero section-padding pt-32 relative overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute top-10 right-20 w-64 h-64 bg-secondary/15 rounded-full blur-3xl" />

@@ -64,6 +64,8 @@ const smsRoutes = require('./routes/smsRoutes');
 const emailLogRoutes = require('./routes/emailLogRoutes');
 const meetingRoutes = require('./routes/meetingRoutes');
 const { ensureDefaultRules } = require('./services/rewardService');
+const seoController = require('./controllers/seoController');
+const { createSeoPrerenderMiddleware } = require('./middleware/seoPrerender');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -224,6 +226,10 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'Raxwo API is running', timestamp: new Date().toISOString() });
 });
 
+// Dynamic SEO endpoints (Search engine indexing & sitemaps)
+app.get('/sitemap.xml', seoController.getSitemap);
+app.get('/robots.txt', seoController.getRobots);
+
 // Serve client build if available (for single-domain or proxy deployments)
 const possibleDistPaths = [
   process.env.DIST_PATH,
@@ -253,12 +259,13 @@ let distDir = possibleDistPaths.find(p => fs.existsSync(path.join(p, 'index.html
 
 if (distDir) {
   console.log(`🎨 Serving React Frontend static build from: ${distDir}`);
+  const seoPrerender = createSeoPrerenderMiddleware(distDir);
   app.use(express.static(distDir));
   app.get('*', (req, res, next) => {
     if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
       return next();
     }
-    res.sendFile(path.join(distDir, 'index.html'));
+    return seoPrerender(req, res, next);
   });
 } else {
   console.log(`⚠️ React Frontend dist directory not found in: ${possibleDistPaths.join(', ')}`);

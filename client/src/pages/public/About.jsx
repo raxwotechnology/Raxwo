@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import api from '../../lib/api'
 
 import { mediaUrl } from '../../lib/media'
+import SEO from '../../components/common/SEO'
 
 const values = [
   { icon: FiZap, title: 'Innovation First', desc: 'We embrace new technologies and creative approaches to solve complex problems.', color: 'bg-yellow-50 text-yellow-600' },
@@ -44,6 +45,22 @@ export default function About() {
 
   return (
     <div className="overflow-x-hidden">
+      <SEO
+        title="About Raxwo Technology | Our Story, Vision & Engineering Leadership"
+        description="Learn about Raxwo Technology, Sri Lanka's leading digital engineering firm. Discover our mission, values, milestones, and leadership delivering global software solutions."
+        keywords="About Raxwo, Raxwo Technology Story, Software Company Colombo, IT Leadership Sri Lanka, Enterprise Technology Partner"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: 'About Raxwo Technology',
+          description: 'Raxwo Technology is a leading software engineering and enterprise solutions firm in Sri Lanka.',
+          publisher: {
+            '@type': 'Organization',
+            name: 'Raxwo Technology',
+            url: 'https://manage.raxwo.net'
+          }
+        }}
+      />
       {/* Hero */}
       <section className="relative bg-[#0C0227] pt-32 pb-24 overflow-hidden">
         <div className="container-max relative z-10 text-center">

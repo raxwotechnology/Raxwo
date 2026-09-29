@@ -6,6 +6,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiLock, FiEye, FiEyeOff, FiArrowRight, FiMail } from 'react-icons/fi'
 import SiteLogo from '../../components/branding/SiteLogo'
+import SEO from '../../components/common/SEO'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -45,6 +46,7 @@ export default function ResetPassword() {
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-6">
+      <SEO title="Set New Password" noindex={true} />
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

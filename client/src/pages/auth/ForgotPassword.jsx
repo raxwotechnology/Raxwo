@@ -6,6 +6,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiMail, FiLock, FiArrowLeft, FiArrowRight } from 'react-icons/fi'
 import { validateStrongPassword, passwordStrengthHints } from '../../lib/passwordValidation'
+import SEO from '../../components/common/SEO'
 
 const STEPS = { EMAIL: 1, OTP: 2, RESET: 3 }
 
@@ -73,6 +74,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-6">
+      <SEO title="Reset Password" noindex={true} />
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}

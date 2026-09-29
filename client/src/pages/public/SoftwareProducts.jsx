@@ -8,6 +8,7 @@ import ProductServiceCard from '../../components/showcase/ProductServiceCard'
 import AllFeaturesModal from '../../components/showcase/AllFeaturesModal'
 import QuoteModal from '../../components/showcase/QuoteModal'
 import FeedbackModal from '../../components/showcase/FeedbackModal'
+import SEO from '../../components/common/SEO'
 
 // ... static products ...
 
@@ -140,6 +141,23 @@ export default function SoftwareProducts() {
 
   return (
     <div className="bg-slate-50 text-slate-900 min-h-screen">
+      <SEO
+        title="Software Products & SaaS ERP Solutions | Raxwo Technology"
+        description="Discover Raxwo's enterprise software products: Mobile Shop ERP, Gym Management, POS systems, Hotel & Restaurant ERP, and custom business platforms in Sri Lanka."
+        keywords="Software Products Sri Lanka, SaaS ERP, Mobile Shop Management Software, POS System Sri Lanka, Gym Management Software, Enterprise Software Platforms"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'Raxwo Software Products & Enterprise Platforms',
+          itemListElement: baseProducts.map((p, idx) => ({
+            '@type': 'ListItem',
+            position: idx + 1,
+            name: p.title,
+            description: p.description || p.tagline,
+            url: `https://manage.raxwo.net/software-products/${p._id || p.id}`
+          }))
+        }}
+      />
       {/* Hero Header */}
       <section className="bg-[#0C0227] section-padding pt-32 text-center relative overflow-hidden text-white">
         <div className="absolute inset-0">

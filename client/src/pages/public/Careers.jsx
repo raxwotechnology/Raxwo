@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { FiBriefcase, FiMapPin, FiClock, FiArrowRight, FiSearch } from 'react-icons/fi'
 import { useState } from 'react'
+import SEO from '../../components/common/SEO'
 
 export default function Careers() {
   const [search, setSearch] = useState('')
@@ -24,6 +25,23 @@ export default function Careers() {
 
   return (
     <div>
+      <SEO
+        title="Careers & Job Openings in Sri Lanka | Raxwo Technology"
+        description="Join Raxwo Technology's engineering and leadership team. Explore open software engineering, QA, DevOps, and design roles in Sri Lanka with competitive salaries and remote flexibility."
+        keywords="Careers Raxwo, Software Engineer Jobs Sri Lanka, IT Jobs Colombo, React Developer Vacancies, Remote Developer Jobs Sri Lanka"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: 'Open Job Vacancies at Raxwo Technology',
+          itemListElement: jobs.map((j, idx) => ({
+            '@type': 'ListItem',
+            position: idx + 1,
+            name: j.title,
+            description: `${j.department} · ${j.type} · ${j.location}`,
+            url: `https://manage.raxwo.net/careers/${j._id}`
+          }))
+        }}
+      />
       {/* Hero */}
       <section className="bg-gradient-hero section-padding pt-32 relative overflow-hidden">
         <div className="absolute inset-0">

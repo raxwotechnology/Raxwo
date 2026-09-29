@@ -6,6 +6,7 @@ import { FiExternalLink, FiArrowRight, FiFilter, FiSearch, FiGrid, FiList } from
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import TiltCard from '../../components/ui/TiltCard'
+import SEO from '../../components/common/SEO'
 
 const STATIC_PROJECTS = [
   { title: 'TechCorp ERP System', category: 'Enterprise', tech: ['React', 'Node.js', 'MongoDB'], desc: 'Full ERP system with HR, payroll, inventory, and client management for a Colombo-based tech firm.', color: 'from-blue-500 to-blue-700', result: '40% ops efficiency gain' },
@@ -58,6 +59,22 @@ export default function Portfolio() {
 
   return (
     <div>
+      <SEO
+        title="Client Portfolio & Case Studies | Raxwo Technology"
+        description="Explore enterprise software projects, web apps, and digital systems successfully delivered by Raxwo Technology across industries in Sri Lanka and worldwide."
+        keywords="Raxwo Portfolio, Software Projects Sri Lanka, Web Application Case Studies, ERP Implementations, Enterprise Software Work"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'CollectionPage',
+          name: 'Raxwo Technology Portfolio & Case Studies',
+          description: 'Showcase of digital transformation and enterprise software solutions delivered by Raxwo Technology.',
+          publisher: {
+            '@type': 'Organization',
+            name: 'Raxwo Technology',
+            url: 'https://manage.raxwo.net'
+          }
+        }}
+      />
       {/* Hero */}
       <section className="bg-gradient-hero section-padding pt-32 text-center relative overflow-hidden">
         <div className="absolute inset-0">

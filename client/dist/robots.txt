@@ -3,23 +3,42 @@
 
 User-agent: *
 Allow: /
+Allow: /services
+Allow: /software-products
+Allow: /portfolio
+Allow: /careers
+Allow: /about
+Allow: /team
+Allow: /contact
+Allow: /login
+
+# Disallow internal dashboards & private APIs
 Disallow: /api/
 Disallow: /admin/
-Disallow: /dashboard/
-Disallow: /_next/
+Disallow: /manager/
+Disallow: /developer/
+Disallow: /designer/
+Disallow: /marketing/
+Disallow: /my-dashboard/
+Disallow: /client/
+Disallow: /apply/
 Disallow: /uploads/private/
 
-# Allow Google to crawl all public content
+# Allow Googlebot
 User-agent: Googlebot
 Allow: /
 Disallow: /api/
+Disallow: /admin/
+Disallow: /manager/
 
-# Allow Bing
+# Allow Bingbot
 User-agent: Bingbot
 Allow: /
 Disallow: /api/
+Disallow: /admin/
+Disallow: /manager/
 
-# Block bad bots
+# Block aggressive scrapers
 User-agent: AhrefsBot
 Disallow: /
 User-agent: SemrushBot
@@ -29,5 +48,5 @@ Disallow: /
 User-agent: DotBot
 Disallow: /
 
-# Sitemaps
+# Dynamic Sitemap
 Sitemap: https://manage.raxwo.net/sitemap.xml

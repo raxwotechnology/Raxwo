@@ -8,6 +8,7 @@ import ProductServiceCard from '../../components/showcase/ProductServiceCard'
 import AllFeaturesModal from '../../components/showcase/AllFeaturesModal'
 import QuoteModal from '../../components/showcase/QuoteModal'
 import FeedbackModal from '../../components/showcase/FeedbackModal'
+import SEO from '../../components/common/SEO'
 
 
 const STATIC_SERVICES = [
@@ -110,6 +111,35 @@ export default function Services() {
 
   return (
     <div className="bg-slate-50 text-slate-900 min-h-screen">
+      <SEO
+        title="Software Engineering & Custom IT Services | Raxwo Technology"
+        description="Explore Raxwo's engineering services: custom enterprise software, web development (React/Node.js), mobile apps (iOS/Android), cloud infrastructure, and IT consultancy."
+        keywords="Software Engineering Services, Custom Web Development, Mobile Apps Sri Lanka, Cloud Infrastructure AWS, Enterprise Software Development, IT Consulting Colombo"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'Service',
+          serviceType: 'Software Development & IT Consultancy',
+          provider: {
+            '@type': 'Organization',
+            name: 'Raxwo Technology',
+            url: 'https://manage.raxwo.net'
+          },
+          areaServed: 'Sri Lanka & Global',
+          hasOfferCatalog: {
+            '@type': 'OfferCatalog',
+            name: 'Software Engineering Services',
+            itemListElement: baseServices.map((s, idx) => ({
+              '@type': 'Offer',
+              itemOffered: {
+                '@type': 'Service',
+                name: s.title,
+                description: s.description || s.tagline
+              },
+              position: idx + 1
+            }))
+          }
+        }}
+      />
       {/* Hero Header */}
       <section className="bg-[#0C0227] section-padding pt-32 text-center relative overflow-hidden text-white">
         <div className="absolute inset-0">

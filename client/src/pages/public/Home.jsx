@@ -22,6 +22,7 @@ import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { mediaUrl } from '../../lib/media'
 import ContactForm from '../../components/public/ContactForm'
+import SEO from '../../components/common/SEO'
 
 const ICON_MAP = { FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp, FiUsers, FiLayers, FiPackage }
 
@@ -418,6 +419,34 @@ export default function Home() {
 
   return (
     <div className="overflow-x-hidden">
+      <SEO
+        title="Raxwo Technology | Enterprise Software, Cloud & AI Solutions in Sri Lanka"
+        description="Raxwo Technology is a leading software engineering & digital transformation firm in Sri Lanka. We build custom enterprise applications, cloud infrastructure, SaaS ERP products, and modern AI platforms."
+        keywords="Raxwo, Raxwo Technology, Software Development Sri Lanka, Enterprise ERP Sri Lanka, Web Application Development Colombo, Mobile App Development, Cloud Architecture, IT Consulting, Software Company Sri Lanka"
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: 'Raxwo Technology',
+          url: 'https://manage.raxwo.net/',
+          logo: 'https://manage.raxwo.net/raxwo-logo-final.png',
+          sameAs: [
+            'https://raxwo.net',
+            'https://www.linkedin.com/company/raxwotechnology',
+            'https://manage.raxwo.net'
+          ],
+          contactPoint: {
+            '@type': 'ContactPoint',
+            telephone: '+94 77 000 0000',
+            contactType: 'customer service',
+            areaServed: 'LK',
+            availableLanguage: ['English', 'Sinhala']
+          },
+          address: {
+            '@type': 'PostalAddress',
+            addressCountry: 'Sri Lanka'
+          }
+        }}
+      />
 
       {/* ── Hero ─────────────────────────────────────────────── */}
       <section className="relative min-h-screen bg-gradient-hero flex items-center overflow-hidden">

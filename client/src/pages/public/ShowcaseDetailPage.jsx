@@ -13,6 +13,7 @@ import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
 import QuoteModal from '../../components/showcase/QuoteModal'
 import FeedbackModal from '../../components/showcase/FeedbackModal'
+import SEO from '../../components/common/SEO'
 
 const ICON_MAP = {
   FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp,
@@ -205,6 +206,30 @@ export default function ShowcaseDetailPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/20 text-slate-900 pt-20 pb-24">
+      <SEO
+        title={`${item.title} — Features, Pricing & Live Demo`}
+        description={item.tagline || cleanDescription || `Explore ${item.title} by Raxwo Technology. Real-time operations, demo access, and enterprise features.`}
+        keywords={`${item.title}, ${item.category || 'ERP'}, Raxwo Technology, Software Sri Lanka, ${item.badge || ''}`}
+        image={item.imageUrl ? mediaUrl(item.imageUrl) : undefined}
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: item.title,
+          description: item.tagline || cleanDescription,
+          image: item.imageUrl ? mediaUrl(item.imageUrl) : 'https://manage.raxwo.net/raxwo-logo-final.png',
+          brand: {
+            '@type': 'Brand',
+            name: 'Raxwo Technology'
+          },
+          offers: {
+            '@type': 'Offer',
+            price: item.price || 0,
+            priceCurrency: item.currency || 'LKR',
+            availability: 'https://schema.org/InStock',
+            url: window.location.href
+          }
+        }}
+      />
 
       {/* ═══════════════════════════════════════════
           HERO SECTION — Bold & Premium

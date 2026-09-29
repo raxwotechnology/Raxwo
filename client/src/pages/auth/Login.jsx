@@ -6,6 +6,7 @@ import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
 import SiteLogo from '../../components/branding/SiteLogo'
+import SEO from '../../components/common/SEO'
 
 export default function Login() {
   const { login } = useAuthStore()
@@ -42,6 +43,11 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gradient-hero flex">
+      <SEO 
+        title="Client & Staff Portal Login"
+        description="Sign in to your Raxwo account to manage projects, support tickets, and enterprise services."
+        noindex={true}
+      />
       {/* Left panel */}
       <div className="hidden lg:flex flex-1 flex-col justify-between p-16">
         <SiteLogo to="/" variant="dark" />

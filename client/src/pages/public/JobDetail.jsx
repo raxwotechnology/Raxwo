@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import { FiBriefcase, FiMapPin, FiClock, FiArrowRight, FiArrowLeft, FiCheck, FiCalendar } from 'react-icons/fi'
+import SEO from '../../components/common/SEO'
 
 export default function JobDetail() {
   const { id } = useParams()
@@ -27,6 +28,43 @@ export default function JobDetail() {
 
   return (
     <div>
+      <SEO
+        title={`${job.title} (${job.department}) — Careers at Raxwo Technology`}
+        description={`Apply for ${job.title} position in ${job.department} at Raxwo Technology. Location: ${job.location}. Employment: ${job.type}. Apply online now.`}
+        keywords={`${job.title}, ${job.department} Jobs, IT Jobs Sri Lanka, Raxwo Careers, ${job.skills?.join(', ') || ''}`}
+        schema={{
+          '@context': 'https://schema.org',
+          '@type': 'JobPosting',
+          title: job.title,
+          description: job.description,
+          datePosted: job.createdAt || new Date().toISOString(),
+          validThrough: job.deadline ? new Date(job.deadline).toISOString() : undefined,
+          employmentType: job.type === 'full-time' ? 'FULL_TIME' : job.type === 'part-time' ? 'PART_TIME' : job.type === 'contract' ? 'CONTRACTOR' : 'INTERN',
+          hiringOrganization: {
+            '@type': 'Organization',
+            name: 'Raxwo Technology',
+            sameAs: 'https://manage.raxwo.net'
+          },
+          jobLocation: {
+            '@type': 'Place',
+            address: {
+              '@type': 'PostalAddress',
+              addressCountry: 'LK',
+              addressLocality: job.location || 'Colombo'
+            }
+          },
+          baseSalary: job.salaryRange?.min ? {
+            '@type': 'MonetaryAmount',
+            currency: job.salaryRange.currency || 'LKR',
+            value: {
+              '@type': 'QuantitativeValue',
+              minValue: job.salaryRange.min,
+              maxValue: job.salaryRange.max || job.salaryRange.min,
+              unitText: 'MONTH'
+            }
+          } : undefined
+        }}
+      />
       <section className="bg-gradient-hero pt-32 pb-16">
         <div className="container-max">
           <Link to="/careers" className="flex items-center gap-2 text-white/70 hover:text-white text-sm mb-6 transition-colors">

@@ -6,6 +6,7 @@ import useAuthStore from '../../store/authStore'
 import toast from 'react-hot-toast'
 import { FiUser, FiMail, FiLock, FiEye, FiEyeOff, FiArrowRight } from 'react-icons/fi'
 import SiteLogo from '../../components/branding/SiteLogo'
+import SEO from '../../components/common/SEO'
 
 export default function Register() {
   const { register: registerUser } = useAuthStore()
@@ -35,6 +36,11 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-6">
+      <SEO 
+        title="Create a Client Account"
+        description="Join Raxwo's enterprise platform to access client portal tools, project tracking, and dedicated support."
+        noindex={true}
+      />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { FiUpload, FiArrowLeft, FiArrowRight, FiFile } from 'react-icons/fi'
+import SEO from '../../components/common/SEO'
 
 export default function Apply() {
   const { id } = useParams()
@@ -43,6 +44,11 @@ export default function Apply() {
 
   return (
     <div>
+      <SEO
+        title={job ? `Apply for ${job.title} | Careers at Raxwo Technology` : 'Job Application | Careers at Raxwo'}
+        description="Submit your application to join Raxwo Technology's engineering and leadership team."
+        noindex={true}
+      />
       <section className="bg-gradient-hero pt-32 pb-12">
         <div className="container-max">
           <Link to={`/careers/${id}`} className="flex items-center gap-2 text-white/70 hover:text-white text-sm mb-4 transition-colors">
