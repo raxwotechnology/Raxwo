@@ -182,10 +182,12 @@ export default function StaffHierarchy() {
 
       if (isIntern) {
         interns.push(emp)
-      } else if (role === 'admin' || desig.includes('director') || desig.includes('ceo') || desig.includes('founder') || desig.includes('managing')) {
+      } else if (desig.includes('director') || desig.includes('ceo') || desig.includes('founder') || desig.includes('managing') || desig.includes('chief')) {
         directors.push(emp)
-      } else if (desig.includes('secretary') || desig.includes('operations') || desig.includes('hr lead') || desig.includes('general manager')) {
+      } else if (desig.includes('system') || desig.includes('administrator') || desig.includes('secretary') || desig.includes('operations') || desig.includes('hr') || desig.includes('general manager')) {
         management.push(emp)
+      } else if (role === 'admin') {
+        directors.push(emp)
       } else if (role === 'manager' || desig.includes('manager') || desig.includes('team lead') || desig.includes('tech lead') || desig.includes('lead')) {
         projectManagers.push(emp)
       } else {
@@ -335,8 +337,8 @@ export default function StaffHierarchy() {
 
         <div className="flex items-start gap-3.5">
           {/* Avatar with Status Ring */}
-          <div className="relative shrink-0">
-            <div className={`w-13 h-13 rounded-2xl p-0.5 shadow-sm transition-transform duration-300 group-hover:scale-105 ${
+          <div className="relative shrink-0 w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px]">
+            <div className={`w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-2xl p-0.5 shadow-xs transition-transform duration-300 group-hover:scale-105 ${
               isExecutive
                 ? 'bg-gradient-to-tr from-indigo-600 to-purple-500'
                 : isLead
@@ -345,10 +347,10 @@ export default function StaffHierarchy() {
                 ? 'bg-gradient-to-tr from-amber-400 to-orange-500'
                 : 'bg-gradient-to-tr from-slate-200 to-slate-300'
             }`}>
-              <div className="w-full h-full rounded-[14px] overflow-hidden bg-white">
+              <div className="w-full h-full rounded-[14px] overflow-hidden bg-white flex items-center justify-center">
                 <UserAvatar
                   user={{ name: emp.userId?.name, avatar: photo }}
-                  className="w-full h-full rounded-[14px]"
+                  className="w-full h-full"
                   imgClassName="w-full h-full object-cover object-top"
                 />
               </div>
@@ -770,11 +772,11 @@ export default function StaffHierarchy() {
 
                     <div className="relative z-10 flex items-center gap-4">
                       {/* Avatar */}
-                      <div className="w-16 h-16 rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-md shrink-0">
-                        <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-900">
+                      <div className="w-16 h-16 min-w-[64px] min-h-[64px] max-w-[64px] max-h-[64px] rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-md shrink-0">
+                        <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-900 flex items-center justify-center">
                           <UserAvatar
                             user={{ name: team.user?.name, avatar: leaderPhoto }}
-                            className="w-full h-full rounded-[14px]"
+                            className="w-full h-full"
                             imgClassName="w-full h-full object-cover object-top"
                           />
                         </div>
@@ -930,14 +932,14 @@ export default function StaffHierarchy() {
                 </button>
 
                 <div className="flex items-center gap-4.5">
-                  <div className="w-18 h-18 rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-xl shrink-0">
-                    <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-800">
+                  <div className="w-20 h-20 min-w-[80px] min-h-[80px] max-w-[80px] max-h-[80px] rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-xl shrink-0">
+                    <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-800 flex items-center justify-center">
                       <UserAvatar
                         user={{
                           name: selectedMember.userId?.name,
                           avatar: selectedMember.profilePhoto || selectedMember.userId?.avatar
                         }}
-                        className="w-full h-full rounded-[14px]"
+                        className="w-full h-full"
                         imgClassName="w-full h-full object-cover object-top"
                       />
                     </div>

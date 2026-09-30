@@ -53,20 +53,24 @@ export default function UserAvatar({ user, className = '', imgClassName = '' }) 
 
   const src = getSrc()
 
+  // If no size is supplied in className, apply safe default w-10 h-10
+  const hasWidth = /(?:^|\s)(?:w-|min-w-|max-w-|size-)/.test(className)
+  const sizeClasses = hasWidth ? '' : 'w-10 h-10'
+
   if (!src || broken) {
     return (
-      <div className={`flex items-center justify-center bg-gradient-to-br ${gradient} text-white font-bold select-none shrink-0 aspect-square shadow-inner ${className}`}>
-        <span className="text-[0.85em] tracking-tight font-heading">{initials}</span>
+      <div className={`flex items-center justify-center bg-gradient-to-br ${gradient} text-white font-bold select-none shrink-0 aspect-square shadow-inner overflow-hidden ${sizeClasses} ${className}`}>
+        <span className="text-[0.85em] tracking-tight font-heading leading-none">{initials}</span>
       </div>
     )
   }
 
   return (
-    <div className={`overflow-hidden flex items-center justify-center shrink-0 aspect-square bg-slate-100 ${className}`}>
+    <div className={`overflow-hidden flex items-center justify-center shrink-0 aspect-square bg-slate-100 ${sizeClasses} ${className}`}>
       <img
         src={src}
         alt={name || 'User'}
-        className={`w-full h-full object-cover object-top shrink-0 aspect-square ${imgClassName}`}
+        className={`w-full h-full max-w-full max-h-full object-cover object-top shrink-0 aspect-square block ${imgClassName}`}
         onError={() => setBroken(true)}
         loading="lazy"
       />

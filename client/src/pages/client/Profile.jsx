@@ -11,6 +11,8 @@ import { useState } from 'react'
 import { validateStrongPassword, passwordStrengthHints } from '../../lib/passwordValidation'
 import { formatMoney } from '../../lib/currencies'
 import ClientPageHeader from '../../components/ui/ClientPageHeader'
+import { compressImageFile } from '../../lib/imageOptimizer'
+import UserAvatar from '../../components/ui/UserAvatar'
 
 export default function ClientProfile() {
   const [, setSearchParams] = useSearchParams()
@@ -49,16 +51,21 @@ export default function ClientProfile() {
 
   const profileMut = useMutation({
     mutationFn: d => api.put('/auth/profile', d).then(r => r.data),
-    onSuccess: r => { updateUser(r.user); toast.success('Profile updated') },
+    onSuccess: r => { updateUser(r.user); toast.success('Profile updated'); setAvatarFile(null) },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
 
   const uploadAvatar = async () => {
     if (!avatarFile) return user?.avatar || ''
-    const fd = new FormData()
-    fd.append('image', avatarFile)
-    const { data } = await api.post('/uploads/image', fd)
-    return data.imageUrl
+    try {
+      return await compressImageFile(avatarFile, { maxWidth: 480, maxHeight: 480, quality: 0.85 })
+    } catch {
+      return new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = ev => resolve(ev.target.result)
+        reader.readAsDataURL(avatarFile)
+      })
+    }
   }
 
   const handlePasswordChange = async (e) => {
@@ -92,13 +99,11 @@ export default function ClientProfile() {
         subtitle="Manage your profile settings"
         rightContent={
           <div className="flex items-center gap-5 bg-white/10 backdrop-blur-md p-2 rounded-2xl border border-white/20">
-            <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center text-white text-2xl font-bold border border-white/30 overflow-hidden">
+            <div className="w-16 h-16 rounded-xl bg-white/20 flex items-center justify-center text-white text-2xl font-bold border border-white/30 overflow-hidden shrink-0">
               {avatarFile ? (
                 <img src={URL.createObjectURL(avatarFile)} alt="" className="w-full h-full object-cover" />
-              ) : user?.avatar ? (
-                <img src={user.avatar} alt="" className="w-full h-full object-cover" />
               ) : (
-                user?.name?.charAt(0).toUpperCase()
+                <UserAvatar user={user} className="w-full h-full rounded-xl" />
               )}
             </div>
             <div className="pr-4">

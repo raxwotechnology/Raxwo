@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { FiSave, FiUser, FiMail, FiPhone, FiCamera, FiBriefcase, FiCalendar, FiShield, FiKey, FiEye, FiEyeOff } from 'react-icons/fi'
 import { useForm } from 'react-hook-form'
 import { mediaUrl } from '../../lib/media'
+import { compressImageFile } from '../../lib/imageOptimizer'
 
 export default function ManagerProfile() {
   const { user, updateUser } = useAuthStore()
@@ -30,11 +31,11 @@ export default function ManagerProfile() {
   const emp = empData?.employee
 
   const uploadAvatar = async () => {
-    if (!avatarFile) return user?.avatar || ''
-    const fd = new FormData()
-    fd.append('image', avatarFile)
-    const { data } = await api.post('/uploads/image', fd)
-    return data.imageUrl
+    if (avatarPreview && avatarPreview.startsWith('data:')) return avatarPreview
+    if (avatarFile) {
+      return await compressImageFile(avatarFile, { maxWidth: 480, maxHeight: 480, quality: 0.85 })
+    }
+    return user?.avatar || ''
   }
 
   const profileMut = useMutation({
@@ -52,13 +53,18 @@ export default function ManagerProfile() {
     onError: e => toast.error(e.response?.data?.message || 'Failed to change password'),
   })
 
-  const handleAvatarChange = e => {
+  const handleAvatarChange = async e => {
     const file = e.target.files?.[0]
     if (!file) return
     setAvatarFile(file)
-    const reader = new FileReader()
-    reader.onload = ev => setAvatarPreview(ev.target.result)
-    reader.readAsDataURL(file)
+    try {
+      const compressed = await compressImageFile(file, { maxWidth: 480, maxHeight: 480, quality: 0.85 })
+      setAvatarPreview(compressed)
+    } catch {
+      const reader = new FileReader()
+      reader.onload = ev => setAvatarPreview(ev.target.result)
+      reader.readAsDataURL(file)
+    }
   }
 
   const avatarSrc = avatarPreview || (user?.avatar ? mediaUrl(user.avatar) : null)
