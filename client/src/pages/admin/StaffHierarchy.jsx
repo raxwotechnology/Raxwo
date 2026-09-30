@@ -358,18 +358,18 @@ export default function StaffHierarchy() {
             
             {/* Crown / Shield Badge */}
             {isExecutive && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-md border-2 border-white" title="Executive Board">
-                👑
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-indigo-600 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white" title="Executive Board">
+                <FiShield size={10} />
               </span>
             )}
             {isLead && !isExecutive && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-sky-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-md border-2 border-white" title="Team Lead">
-                ⚡
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-sky-600 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white" title="Team Lead">
+                <FiAward size={10} />
               </span>
             )}
             {isIntern && (
-              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full flex items-center justify-center text-[9px] shadow-md border-2 border-white" title="Intern">
-                🎓
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white" title="Intern">
+                <FiBookOpen size={9} />
               </span>
             )}
           </div>
@@ -404,7 +404,7 @@ export default function StaffHierarchy() {
 
         {/* Card Footer: Tier Pill & Reports */}
         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-          <span className={`font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+          <span className={`font-bold px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1.5 ${
             isExecutive
               ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
               : isLead
@@ -413,7 +413,15 @@ export default function StaffHierarchy() {
               ? 'bg-amber-50 text-amber-700 border-amber-200'
               : 'bg-slate-50 text-slate-600 border-slate-200'
           }`}>
-            {isExecutive ? '👑 Executive' : isLead ? '⚡ Team Lead' : isIntern ? '🎓 Intern' : '💼 Specialist'}
+            {isExecutive ? (
+              <><FiShield size={11} className="text-indigo-600" /> Executive</>
+            ) : isLead ? (
+              <><FiAward size={11} className="text-sky-600" /> Team Lead</>
+            ) : isIntern ? (
+              <><FiBookOpen size={11} className="text-amber-600" /> Intern</>
+            ) : (
+              <><FiBriefcase size={11} className="text-slate-500" /> Specialist</>
+            )}
           </span>
 
           <div className="flex items-center gap-2">
@@ -433,21 +441,21 @@ export default function StaffHierarchy() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-16">
-      {/* ── Executive Hero Header ── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800/80">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+      {/* ── Executive Hero Header (Clean Light Theme) ── */}
+      <div className="relative overflow-hidden bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200/90">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-sky-100/50 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-indigo-50/60 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sky-300 text-xs font-bold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider">
               <FiLayers size={13} className="text-secondary" />
               <span>{!isAdmin ? 'Team Reporting Tree' : 'Corporate Organizational Architecture'}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight font-heading">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight font-heading">
               {!isAdmin ? 'Project Team Hierarchy' : 'Company Hierarchy & Directory'}
             </h1>
-            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-sm text-slate-500 max-w-2xl leading-relaxed">
               {!isAdmin
                 ? 'Interactive reporting structure for assigned project teams, technical team leads, senior engineers, and associate interns.'
                 : 'Explore corporate governance, executive leadership, technical reporting lines, project teams, and personnel directory.'}
@@ -455,13 +463,13 @@ export default function StaffHierarchy() {
           </div>
 
           {/* Segmented View Mode Toggle */}
-          <div className="flex items-center p-1.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shrink-0 self-start md:self-center shadow-lg">
+          <div className="flex items-center p-1.5 rounded-2xl bg-slate-100 border border-slate-200/80 shrink-0 self-start md:self-center shadow-xs">
             <button
               onClick={() => setViewMode('tree')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 viewMode === 'tree'
-                  ? 'bg-white text-slate-900 shadow-md font-extrabold'
-                  : 'text-slate-300 hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-sm font-extrabold border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <FiLayers size={14} className={viewMode === 'tree' ? 'text-indigo-600' : ''} />
@@ -471,8 +479,8 @@ export default function StaffHierarchy() {
               onClick={() => setViewMode('team')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 viewMode === 'team'
-                  ? 'bg-white text-slate-900 shadow-md font-extrabold'
-                  : 'text-slate-300 hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-sm font-extrabold border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <FiUsers size={14} className={viewMode === 'team' ? 'text-secondary' : ''} />
@@ -482,8 +490,8 @@ export default function StaffHierarchy() {
               onClick={() => setViewMode('grid')}
               className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
                 viewMode === 'grid'
-                  ? 'bg-white text-slate-900 shadow-md font-extrabold'
-                  : 'text-slate-300 hover:text-white'
+                  ? 'bg-white text-slate-900 shadow-sm font-extrabold border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <FiGrid size={14} className={viewMode === 'grid' ? 'text-emerald-600' : ''} />
@@ -492,45 +500,45 @@ export default function StaffHierarchy() {
           </div>
         </div>
 
-        {/* Live Headcount KPI Chips */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+        {/* Live Headcount KPI Chips (Light Theme) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-slate-100">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
               <FiUsers size={18} />
             </div>
             <div>
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Total Personnel</p>
-              <p className="text-xl font-bold text-white font-heading">{totalCount}</p>
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Total Personnel</p>
+              <p className="text-xl font-bold text-slate-900 font-heading">{totalCount}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
               <FiShield size={18} />
             </div>
             <div>
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">{!isAdmin ? 'Team Leads' : 'Leadership & PMs'}</p>
-              <p className="text-xl font-bold text-purple-300 font-heading">{leaderCount}</p>
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">{!isAdmin ? 'Team Leads' : 'Leadership & PMs'}</p>
+              <p className="text-xl font-bold text-slate-900 font-heading">{leaderCount}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
               <FiBriefcase size={18} />
             </div>
             <div>
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Core Specialists</p>
-              <p className="text-xl font-bold text-emerald-300 font-heading">{devCount}</p>
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Core Specialists</p>
+              <p className="text-xl font-bold text-slate-900 font-heading">{devCount}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
               <FiBookOpen size={18} />
             </div>
             <div>
-              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Active Interns</p>
-              <p className="text-xl font-bold text-amber-300 font-heading">{internCount}</p>
+              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Active Interns</p>
+              <p className="text-xl font-bold text-slate-900 font-heading">{internCount}</p>
             </div>
           </div>
         </div>
@@ -609,8 +617,8 @@ export default function StaffHierarchy() {
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                    👑
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 flex items-center justify-center font-bold text-sm shadow-xs">
+                    <FiShield size={16} />
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
@@ -640,8 +648,8 @@ export default function StaffHierarchy() {
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                    🏛️
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-sm shadow-xs">
+                    <FiBriefcase size={16} />
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
@@ -670,8 +678,8 @@ export default function StaffHierarchy() {
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                    ⚡
+                  <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center font-bold text-sm shadow-xs">
+                    <FiAward size={16} />
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
@@ -700,8 +708,8 @@ export default function StaffHierarchy() {
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                    💻
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold text-sm shadow-xs">
+                    <FiUsers size={16} />
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
@@ -730,8 +738,8 @@ export default function StaffHierarchy() {
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
-                    🎓
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold text-sm shadow-xs">
+                    <FiBookOpen size={16} />
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
@@ -766,14 +774,14 @@ export default function StaffHierarchy() {
                   key={team.id}
                   className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-7 space-y-6 shadow-sm hover:shadow-md transition-shadow"
                 >
-                  {/* Executive Team Leader Command Banner */}
-                  <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+                  {/* Clean Light Executive Team Leader Banner */}
+                  <div className="bg-gradient-to-r from-slate-50 via-sky-50/30 to-indigo-50/20 border border-slate-200/90 rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-sky-200/20 rounded-full blur-2xl pointer-events-none" />
 
                     <div className="relative z-10 flex items-center gap-4">
                       {/* Avatar */}
-                      <div className="w-16 h-16 min-w-[64px] min-h-[64px] max-w-[64px] max-h-[64px] rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-md shrink-0">
-                        <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-900 flex items-center justify-center">
+                      <div className="w-16 h-16 min-w-[64px] min-h-[64px] max-w-[64px] max-h-[64px] rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-sm shrink-0">
+                        <div className="w-full h-full rounded-[14px] overflow-hidden bg-white flex items-center justify-center">
                           <UserAvatar
                             user={{ name: team.user?.name, avatar: leaderPhoto }}
                             className="w-full h-full"
@@ -784,24 +792,24 @@ export default function StaffHierarchy() {
 
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg sm:text-xl font-bold text-white font-heading tracking-wide">
+                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 font-heading tracking-tight">
                             {team.user?.name || 'Team Leader'}
                           </h3>
-                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-secondary text-white shadow-xs">
-                            👑 TEAM LEADER
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-secondary text-white shadow-2xs flex items-center gap-1">
+                            <FiAward size={11} /> TEAM LEADER
                           </span>
                         </div>
-                        <p className="text-xs text-sky-200 font-medium mt-0.5">
+                        <p className="text-xs text-slate-600 font-medium mt-0.5">
                           {team.employee?.designation || team.user?.role || 'Leader'} · {team.employee?.department || 'Engineering'}
                         </p>
-                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-300">
+                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
                           {team.user?.email && (
-                            <a href={`mailto:${team.user.email}`} className="hover:text-white flex items-center gap-1 transition-colors">
+                            <a href={`mailto:${team.user.email}`} className="hover:text-secondary flex items-center gap-1 transition-colors">
                               <FiMail size={12} /> {team.user.email}
                             </a>
                           )}
                           {team.employee?.primaryPhone && (
-                            <a href={`tel:${team.employee.primaryPhone}`} className="hover:text-white flex items-center gap-1 transition-colors">
+                            <a href={`tel:${team.employee.primaryPhone}`} className="hover:text-secondary flex items-center gap-1 transition-colors">
                               <FiPhone size={12} /> {team.employee.primaryPhone}
                             </a>
                           )}
@@ -811,24 +819,24 @@ export default function StaffHierarchy() {
 
                     {/* Team Metrics & View Profile */}
                     <div className="relative z-10 flex items-center gap-2.5 flex-wrap">
-                      <span className="px-3.5 py-2 rounded-xl bg-white/10 text-white text-xs font-bold flex items-center gap-1.5 border border-white/10 shadow-xs">
+                      <span className="px-3.5 py-2 rounded-xl bg-white text-slate-700 text-xs font-bold flex items-center gap-1.5 border border-slate-200/90 shadow-2xs">
                         <FiUsers size={13} className="text-secondary" /> {team.members.length} Member{team.members.length !== 1 ? 's' : ''}
                       </span>
                       {staffCount > 0 && (
-                        <span className="px-3 py-2 rounded-xl bg-blue-500/25 text-blue-200 text-xs font-semibold border border-blue-400/30">
-                          💼 {staffCount} Core
+                        <span className="px-3 py-2 rounded-xl bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200/80 flex items-center gap-1">
+                          <FiBriefcase size={12} /> {staffCount} Core
                         </span>
                       )}
                       {internCount > 0 && (
-                        <span className="px-3 py-2 rounded-xl bg-amber-500/25 text-amber-200 text-xs font-semibold border border-amber-400/30">
-                          🎓 {internCount} Intern{internCount !== 1 ? 's' : ''}
+                        <span className="px-3 py-2 rounded-xl bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200/80 flex items-center gap-1">
+                          <FiBookOpen size={12} /> {internCount} Intern{internCount !== 1 ? 's' : ''}
                         </span>
                       )}
                       {team.employee && (
                         <button
                           type="button"
                           onClick={() => setSelectedMember(team.employee)}
-                          className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white text-white hover:text-slate-900 text-xs font-bold transition-all cursor-pointer shadow-sm"
+                          className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold border border-slate-200/90 transition-all cursor-pointer shadow-2xs hover:border-slate-300"
                         >
                           View Leader
                         </button>
@@ -922,18 +930,18 @@ export default function StaffHierarchy() {
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100"
             >
-              {/* Header Hero Banner */}
-              <div className="relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white overflow-hidden">
+              {/* Clean Light Header Hero Banner */}
+              <div className="relative bg-gradient-to-r from-slate-50 via-indigo-50/30 to-white p-6 border-b border-slate-200/80 text-slate-900 overflow-hidden">
                 <button
                   onClick={() => setSelectedMember(null)}
-                  className="absolute top-4 right-4 p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                  className="absolute top-4 right-4 p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-400 hover:text-slate-700 border border-slate-200 transition-colors cursor-pointer shadow-2xs"
                 >
                   <FiX size={16} />
                 </button>
 
                 <div className="flex items-center gap-4.5">
-                  <div className="w-20 h-20 min-w-[80px] min-h-[80px] max-w-[80px] max-h-[80px] rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-xl shrink-0">
-                    <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-800 flex items-center justify-center">
+                  <div className="w-20 h-20 min-w-[80px] min-h-[80px] max-w-[80px] max-h-[80px] rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-sm shrink-0">
+                    <div className="w-full h-full rounded-[14px] overflow-hidden bg-white flex items-center justify-center">
                       <UserAvatar
                         user={{
                           name: selectedMember.userId?.name,
@@ -946,29 +954,33 @@ export default function StaffHierarchy() {
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-xl font-bold font-heading truncate">
+                    <h3 className="text-xl font-bold font-heading text-slate-900 truncate">
                       {selectedMember.userId?.name || 'Staff Member'}
                     </h3>
-                    <p className="text-xs text-sky-300 font-semibold truncate mt-0.5">
+                    <p className="text-xs text-secondary font-semibold truncate mt-0.5">
                       {selectedMember.designation || 'Specialist'}
                     </p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1 ${
                         selectedMember.employmentType === 'intern'
-                          ? 'bg-amber-400 text-slate-900 border-amber-300'
-                          : 'bg-sky-400 text-slate-900 border-sky-300'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-sky-50 text-sky-700 border-sky-200'
                       }`}>
-                        {selectedMember.employmentType === 'intern' ? '🎓 INTERN' : '💼 PERMANENT STAFF'}
+                        {selectedMember.employmentType === 'intern' ? (
+                          <><FiBookOpen size={11} className="text-amber-600" /> INTERN</>
+                        ) : (
+                          <><FiBriefcase size={11} className="text-sky-600" /> PERMANENT STAFF</>
+                        )}
                       </span>
                       {selectedMember.employeeNo && (
                         <button
                           type="button"
                           onClick={() => handleCopyEmployeeId(selectedMember.employeeNo)}
-                          className="text-[10px] font-mono font-bold bg-white/15 hover:bg-white/25 text-white px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors"
+                          className="text-[10px] font-mono font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors shadow-2xs"
                           title="Click to copy ID"
                         >
                           {selectedMember.employeeNo}
-                          {copiedId ? <FiCheck size={10} className="text-emerald-400" /> : <FiCopy size={10} />}
+                          {copiedId ? <FiCheck size={10} className="text-emerald-500" /> : <FiCopy size={10} />}
                         </button>
                       )}
                     </div>
