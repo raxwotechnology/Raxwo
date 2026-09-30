@@ -1,5 +1,34 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { mediaUrl, normalizeUploadPath } from '../../lib/media'
+
+const GRADIENTS = [
+  'from-blue-500 to-indigo-600',
+  'from-indigo-500 to-purple-600',
+  'from-violet-500 to-fuchsia-600',
+  'from-sky-500 to-blue-600',
+  'from-teal-500 to-emerald-600',
+  'from-emerald-500 to-green-600',
+  'from-rose-500 to-pink-600',
+  'from-amber-500 to-orange-600',
+]
+
+function getGradient(name) {
+  if (!name) return GRADIENTS[0]
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash << 5) - hash + name.charCodeAt(i)
+    hash |= 0
+  }
+  return GRADIENTS[Math.abs(hash) % GRADIENTS.length]
+}
+
+function getInitials(name) {
+  if (!name || typeof name !== 'string') return '?'
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
 
 export default function UserAvatar({ user, className = '', imgClassName = '' }) {
   const [broken, setBroken] = useState(false)
@@ -13,7 +42,8 @@ export default function UserAvatar({ user, className = '', imgClassName = '' }) 
   }, [avatarPath])
 
   const name = typeof user === 'string' ? '' : (user?.name || user?.userId?.name || '')
-  const initial = name ? name.charAt(0).toUpperCase() : '?'
+  const initials = useMemo(() => getInitials(name), [name])
+  const gradient = useMemo(() => getGradient(name), [name])
 
   const getSrc = () => {
     if (!avatarPath || broken) return ''
@@ -25,17 +55,17 @@ export default function UserAvatar({ user, className = '', imgClassName = '' }) 
 
   if (!src || broken) {
     return (
-      <div className={`flex items-center justify-center bg-secondary/10 text-secondary font-semibold select-none shrink-0 aspect-square ${className}`}>
-        {initial}
+      <div className={`flex items-center justify-center bg-gradient-to-br ${gradient} text-white font-bold select-none shrink-0 aspect-square shadow-inner ${className}`}>
+        <span className="text-[0.85em] tracking-tight font-heading">{initials}</span>
       </div>
     )
   }
 
   return (
-    <div className={`overflow-hidden flex items-center justify-center shrink-0 aspect-square ${className}`}>
+    <div className={`overflow-hidden flex items-center justify-center shrink-0 aspect-square bg-slate-100 ${className}`}>
       <img
         src={src}
-        alt={user?.name || 'User'}
+        alt={name || 'User'}
         className={`w-full h-full object-cover object-top shrink-0 aspect-square ${imgClassName}`}
         onError={() => setBroken(true)}
         loading="lazy"
@@ -43,3 +73,4 @@ export default function UserAvatar({ user, className = '', imgClassName = '' }) 
     </div>
   )
 }
+

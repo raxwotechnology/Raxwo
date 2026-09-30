@@ -580,22 +580,22 @@ export default function TeamHub({ isManagerView = false }) {
               <button
                 key={leader._id}
                 onClick={() => { setSelectedLeaderId(leader._id); setSelectedEmpId('all'); }}
-                className={`px-3.5 py-2 rounded-xl text-xs shrink-0 border transition-all flex items-center gap-2.5 ${
+                className={`px-3.5 py-2 rounded-2xl text-xs shrink-0 border transition-all flex items-center gap-2.5 cursor-pointer ${
                   String(selectedLeaderId) === String(leader._id)
-                    ? 'bg-secondary text-white border-secondary shadow-sm shadow-secondary/20 font-bold'
-                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    ? 'bg-secondary text-white border-secondary shadow-md shadow-secondary/25 font-bold'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                 }`}
               >
-                <div className="w-6 h-6 rounded-lg bg-slate-200 flex items-center justify-center overflow-hidden shrink-0 aspect-square">
+                <div className="w-8 h-8 rounded-xl bg-slate-200 shadow-2xs flex items-center justify-center overflow-hidden shrink-0 aspect-square">
                   <UserAvatar
                     user={{ name: leader.name, avatar: leader.avatar }}
-                    className="w-full h-full rounded-lg aspect-square"
+                    className="w-full h-full rounded-xl aspect-square"
                     imgClassName="w-full h-full object-cover object-top aspect-square"
                   />
                 </div>
                 <div className="text-left">
-                  <p className="leading-tight truncate max-w-[130px] font-medium">{leader.name}</p>
-                  <p className={`text-[10px] ${String(selectedLeaderId) === String(leader._id) ? 'text-white/80' : 'text-slate-400'}`}>
+                  <p className="leading-tight truncate max-w-[130px] font-semibold">{leader.name}</p>
+                  <p className={`text-[10px] ${String(selectedLeaderId) === String(leader._id) ? 'text-white/85' : 'text-slate-400'}`}>
                     {totalMembers} ({internsCount} Intern{internsCount !== 1 ? 's' : ''}, {regularCount} Staff)
                   </p>
                 </div>

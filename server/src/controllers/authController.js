@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 const Branch = require('../models/Branch');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -129,6 +130,22 @@ exports.updateProfile = async (req, res, next) => {
       updates,
       { new: true, runValidators: true },
     );
+
+    // Keep Employee document synchronized with User profile avatar and phone
+    const empUpdates = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'avatar')) {
+      empUpdates.profilePhoto = updates.avatar || '';
+    }
+    if (phone != null) {
+      empUpdates.primaryPhone = phone;
+    }
+    if (Object.keys(empUpdates).length > 0) {
+      await Employee.findOneAndUpdate(
+        { userId: req.user._id },
+        { $set: empUpdates }
+      ).catch(() => {});
+    }
+
     res.json({ success: true, user: serializeUser(user) });
   } catch (err) { next(err); }
 };

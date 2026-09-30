@@ -10,6 +10,7 @@ import UserAvatar from '../../components/ui/UserAvatar'
 import { applySiteFavicon } from '../../lib/siteFavicon'
 import { invalidateSiteBranding, SITE_SETTINGS_QUERY_KEY } from '../../hooks/useSiteBranding'
 import LetterheadPreview from '../../components/branding/LetterheadPreview'
+import { compressImageFile } from '../../lib/imageOptimizer'
 
 export default function AdminSettings() {
   const { user, updateUser, refreshSession } = useAuthStore()
@@ -38,13 +39,10 @@ export default function AdminSettings() {
     },
     onError: e => toast.error(e.response?.data?.message || 'Failed'),
   })
-  const uploadImage = (file) => new Promise((resolve, reject) => {
-    if (!file) return resolve('')
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = (e) => reject(new Error('Image conversion failed'))
-  })
+  const uploadImage = (file) => {
+    if (!file) return Promise.resolve('')
+    return compressImageFile(file, { maxWidth: 480, maxHeight: 480, quality: 0.85 })
+  }
   const passMut = useMutation({
     mutationFn: d => api.put('/auth/change-password', d),
     onSuccess: () => { reset2(); toast.success('Password changed') },

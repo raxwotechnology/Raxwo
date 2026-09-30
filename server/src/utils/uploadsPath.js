@@ -46,7 +46,6 @@ function toRelativeUploadUrl(urlOrPath, subdir = 'avatars') {
   if (!urlOrPath || typeof urlOrPath !== 'string') return '';
   let trimmed = urlOrPath.trim();
   if (!trimmed) return '';
-  if (trimmed.startsWith('data:image/')) return saveBase64ImageFile(trimmed, subdir);
   if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
 
   trimmed = trimmed.replace(/\\/g, '/');

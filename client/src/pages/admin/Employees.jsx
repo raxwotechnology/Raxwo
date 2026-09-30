@@ -14,6 +14,7 @@ import ExportBar from '../../components/ui/ExportBar'
 import { buildEmployeeSavePayload, resolveEmployeeDocUrls } from '../../lib/employeePayload'
 import { mediaUrl } from '../../lib/media'
 import UserAvatar from '../../components/ui/UserAvatar'
+import { compressImageFile } from '../../lib/imageOptimizer'
 
 function buildEmployeesQueryString(filters) {
   const params = new URLSearchParams()
@@ -286,13 +287,10 @@ export default function AdminEmployees() {
     return data?.fileUrl || data?.url || null
   }
 
-  const uploadImage = (file) => new Promise((resolve, reject) => {
-    if (!file) return resolve(null)
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = (e) => reject(new Error('Image conversion failed'))
-  })
+  const uploadImage = (file) => {
+    if (!file) return Promise.resolve(null)
+    return compressImageFile(file, { maxWidth: 480, maxHeight: 480, quality: 0.85 })
+  }
 
   const onInvalid = () => toast.error('Please complete all required fields (department, designation, join date, etc.)')
 

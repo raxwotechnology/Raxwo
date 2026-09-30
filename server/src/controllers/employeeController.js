@@ -125,11 +125,17 @@ exports.getEmployees = async (req, res, next) => {
 
     const now = new Date();
     employees.forEach((emp) => {
-      if (!emp.profilePhoto && emp.userId?.avatar) {
-        emp.profilePhoto = emp.userId.avatar;
+      const userAvatar = emp.userId?.avatar || '';
+      const empPhoto = emp.profilePhoto || '';
+      let bestPhoto = empPhoto;
+      if (userAvatar.startsWith('data:') && !empPhoto.startsWith('data:')) {
+        bestPhoto = userAvatar;
+      } else if (!bestPhoto) {
+        bestPhoto = userAvatar;
       }
-      if (emp.userId && !emp.userId.avatar && emp.profilePhoto) {
-        emp.userId.avatar = emp.profilePhoto;
+      emp.profilePhoto = bestPhoto;
+      if (emp.userId) {
+        emp.userId.avatar = bestPhoto || emp.userId.avatar || '';
       }
       if (emp.employmentType === 'intern' || emp.status === 'internship') {
         if (emp.internship?.endDate) {
@@ -786,9 +792,30 @@ exports.getLeadersSummary = async (req, res, next) => {
     const managerMap = {};
     const unassigned = [];
 
+    const empByUserId = new Map();
+    allEmployees.forEach(e => {
+      if (e.userId?._id) empByUserId.set(String(e.userId._id), e);
+      // Ensure employee record has clean avatar
+      const userAvatar = e.userId?.avatar || '';
+      const empPhoto = e.profilePhoto || '';
+      const bestPhoto = (userAvatar && userAvatar.startsWith('data:'))
+        ? userAvatar
+        : (empPhoto || userAvatar || '');
+      e.profilePhoto = bestPhoto;
+      if (e.userId) e.userId.avatar = bestPhoto;
+    });
+
     leaderUsers.forEach((u) => {
+      const linkedEmp = empByUserId.get(String(u._id));
+      const leaderAvatar = (u.avatar && u.avatar.startsWith('data:'))
+        ? u.avatar
+        : (linkedEmp?.profilePhoto || u.avatar || '');
+      const leaderObj = {
+        ...(typeof u.toObject === 'function' ? u.toObject() : u),
+        avatar: leaderAvatar,
+      };
       managerMap[String(u._id)] = {
-        leader: u,
+        leader: leaderObj,
         members: [],
         internsCount: 0,
         regularCount: 0,
@@ -802,8 +829,16 @@ exports.getLeadersSummary = async (req, res, next) => {
         if (!managerMap[mgrId]) {
           // If manager user is active
           if (emp.manager && emp.manager.isActive !== false) {
+            const linkedEmp = empByUserId.get(mgrId);
+            const leaderAvatar = (emp.manager.avatar && emp.manager.avatar.startsWith('data:'))
+              ? emp.manager.avatar
+              : (linkedEmp?.profilePhoto || emp.manager.avatar || '');
+            const leaderObj = {
+              ...(typeof emp.manager.toObject === 'function' ? emp.manager.toObject() : emp.manager),
+              avatar: leaderAvatar,
+            };
             managerMap[mgrId] = {
-              leader: emp.manager,
+              leader: leaderObj,
               members: [],
               internsCount: 0,
               regularCount: 0,

@@ -1,16 +1,17 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import api from '../../lib/api'
-import { mediaUrl } from '../../lib/media'
 import UserAvatar from '../../components/ui/UserAvatar'
 import useAuthStore from '../../store/authStore'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import {
   FiUsers, FiUser, FiBriefcase, FiSearch, FiPhone, FiMail,
   FiLayers, FiChevronDown, FiChevronRight, FiGrid, FiList,
-  FiShield, FiBookOpen, FiGlobe, FiFilter, FiExternalLink, FiX, FiTrash2, FiUserX
+  FiShield, FiBookOpen, FiGlobe, FiFilter, FiExternalLink,
+  FiX, FiTrash2, FiUserX, FiCheckCircle, FiAward, FiCopy,
+  FiCalendar, FiMapPin, FiActivity, FiArrowRight, FiCheck
 } from 'react-icons/fi'
 
 export default function StaffHierarchy() {
@@ -19,8 +20,10 @@ export default function StaffHierarchy() {
   const isAdmin = currentUser?.role === 'admin'
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('all')
-  const [viewMode, setViewMode] = useState('team') // 'team' | 'tree' | 'grid'
+  const [viewMode, setViewMode] = useState('tree') // 'tree' | 'team' | 'grid'
   const [selectedMember, setSelectedMember] = useState(null)
+  const [copiedId, setCopiedId] = useState(false)
+  const [sortBy, setSortBy] = useState('name') // 'name' | 'dept' | 'desig'
 
   // Permanently Delete Employee Mutation
   const deleteEmployeeMut = useMutation({
@@ -83,17 +86,40 @@ export default function StaffHierarchy() {
 
   // Filtered employees by search & department
   const filteredEmployees = useMemo(() => {
-    return employees.filter(e => {
+    let list = employees.filter(e => {
       const name = (e.userId?.name || '').toLowerCase()
       const desig = (e.designation || '').toLowerCase()
       const dept = (e.department || '').toLowerCase()
+      const empNo = (e.employeeNo || '').toLowerCase()
       const q = search.toLowerCase().trim()
 
-      const matchSearch = !q || name.includes(q) || desig.includes(q) || dept.includes(q)
+      const matchSearch = !q || name.includes(q) || desig.includes(q) || dept.includes(q) || empNo.includes(q)
       const matchDept = deptFilter === 'all' || e.department === deptFilter
       return matchSearch && matchDept
     })
-  }, [employees, search, deptFilter])
+
+    if (sortBy === 'name') {
+      list.sort((a, b) => (a.userId?.name || '').localeCompare(b.userId?.name || ''))
+    } else if (sortBy === 'dept') {
+      list.sort((a, b) => (a.department || '').localeCompare(b.department || ''))
+    } else if (sortBy === 'desig') {
+      list.sort((a, b) => (a.designation || '').localeCompare(b.designation || ''))
+    }
+
+    return list
+  }, [employees, search, deptFilter, sortBy])
+
+  // Direct reports map (key: userId or employeeId -> count)
+  const directReportsMap = useMemo(() => {
+    const map = {}
+    employees.forEach(emp => {
+      const mgrId = emp.manager?._id || emp.manager
+      if (mgrId) {
+        map[String(mgrId)] = (map[String(mgrId)] || 0) + 1
+      }
+    })
+    return map
+  }, [employees])
 
   // Group employees into hierarchical tiers based on role and designation
   const hierarchyTiers = useMemo(() => {
@@ -104,7 +130,7 @@ export default function StaffHierarchy() {
       const interns = []
 
       let foundSelf = false
-      employees.forEach(emp => {
+      filteredEmployees.forEach(emp => {
         const uid = String(emp.userId?._id || emp.userId || '')
         const isSelf = uid === String(currentUser?._id)
         const isIntern = emp.employmentType === 'intern'
@@ -123,8 +149,7 @@ export default function StaffHierarchy() {
         }
       })
 
-      // If PM's employee record is not in the list, synthesize a self entry for root display
-      if (!foundSelf && currentUser) {
+      if (!foundSelf && currentUser && (deptFilter === 'all' || currentUser.department === deptFilter)) {
         pmLeader.push({
           _id: currentUser._id,
           userId: currentUser,
@@ -150,7 +175,7 @@ export default function StaffHierarchy() {
     const engineers = []
     const interns = []
 
-    employees.forEach(emp => {
+    filteredEmployees.forEach(emp => {
       const role = (emp.userId?.role || '').toLowerCase()
       const desig = (emp.designation || '').toLowerCase()
       const isIntern = emp.employmentType === 'intern'
@@ -169,21 +194,19 @@ export default function StaffHierarchy() {
     })
 
     return { isManagerScoped: false, directors, management, projectManagers, engineers, interns }
-  }, [employees, isAdmin, currentUser])
+  }, [filteredEmployees, isAdmin, currentUser, deptFilter])
 
   // Group employees by team leaders & their direct reports (Team Wise)
   const teamHierarchy = useMemo(() => {
     const leaderMap = new Map()
     const unassignedMembers = []
 
-    // Build map of employees by userId
     const employeeByUserMap = new Map()
     employees.forEach(emp => {
       const uid = String(emp.userId?._id || emp.userId || '')
       if (uid) employeeByUserMap.set(uid, emp)
     })
 
-    // If manager, ensure current manager is present as root leader
     if (!isAdmin && currentUser && !leaderMap.has(String(currentUser._id))) {
       const selfEmp = employeeByUserMap.get(String(currentUser._id))
       leaderMap.set(String(currentUser._id), {
@@ -200,7 +223,6 @@ export default function StaffHierarchy() {
       })
     }
 
-    // Find all distinct leaders from employees' manager field
     employees.forEach(emp => {
       if (emp.manager?._id) {
         const mgrId = String(emp.manager._id)
@@ -216,7 +238,6 @@ export default function StaffHierarchy() {
       }
     })
 
-    // Also include directors / managers even if they currently have 0 assigned members
     employees.forEach(emp => {
       const role = (emp.userId?.role || '').toLowerCase()
       const desig = (emp.designation || '').toLowerCase()
@@ -233,7 +254,6 @@ export default function StaffHierarchy() {
       }
     })
 
-    // Distribute members into leader teams
     filteredEmployees.forEach(emp => {
       const mgrId = emp.manager?._id ? String(emp.manager._id) : null
       if (mgrId && leaderMap.has(mgrId)) {
@@ -241,16 +261,12 @@ export default function StaffHierarchy() {
           leaderMap.get(mgrId).members.push(emp)
         }
       } else {
-        // If viewing as manager and employee is not assigned to a sub-team lead, they are direct under PM
-        if (!isAdmin && leaderMap.has(String(currentUser?._id)) && String(emp.userId?._id) !== String(currentUser?._id)) {
-          unassignedMembers.push(emp)
-        } else if (String(emp.userId?._id) !== String(currentUser?._id)) {
+        if (String(emp.userId?._id) !== String(currentUser?._id)) {
           unassignedMembers.push(emp)
         }
       }
     })
 
-    // Convert teams to array and sort: if manager, put currentUser first, then by member count descending
     const teams = Array.from(leaderMap.values())
       .filter(team => {
         if (!search && deptFilter === 'all') return true
@@ -269,112 +285,144 @@ export default function StaffHierarchy() {
     return { teams, unassignedMembers }
   }, [employees, filteredEmployees, search, deptFilter, isAdmin, currentUser])
 
-  // Calculate direct reports count for any given user ID
-  const directReportsMap = useMemo(() => {
-    const map = {}
-    employees.forEach(emp => {
-      const mgrId = emp.manager?._id || emp.manager
-      if (mgrId) {
-        map[mgrId] = (map[mgrId] || 0) + 1
-      }
-    })
-    return map
-  }, [employees])
-
   const totalCount = employees.length
-  const leaderCount = hierarchyTiers.directors.length + hierarchyTiers.management.length + hierarchyTiers.projectManagers.length
+  const leaderCount = (hierarchyTiers.directors.length + hierarchyTiers.management.length + hierarchyTiers.projectManagers.length)
   const devCount = hierarchyTiers.engineers.length
   const internCount = hierarchyTiers.interns.length
 
-  const renderMemberCard = (emp, isRoot = false) => {
+  const handleCopyEmployeeId = (text) => {
+    if (!text) return
+    navigator.clipboard.writeText(text)
+    setCopiedId(true)
+    toast.success(`Copied "${text}" to clipboard`)
+    setTimeout(() => setCopiedId(false), 2000)
+  }
+
+  // ── Render Modern Member Card ──
+  const renderMemberCard = (emp, tierType = 'regular') => {
     const isIntern = emp.employmentType === 'intern'
-    const reportsCount = directReportsMap[emp.userId?._id] || directReportsMap[emp._id] || 0
+    const isExecutive = tierType === 'executive'
+    const isLead = tierType === 'lead'
+    const reportsCount = directReportsMap[String(emp.userId?._id)] || directReportsMap[String(emp._id)] || 0
     const photo = emp.profilePhoto || emp.userId?.avatar
 
     return (
       <motion.div
-        whileHover={{ y: -3, scale: 1.01 }}
+        whileHover={{ y: -4, scale: 1.01 }}
+        transition={{ duration: 0.2 }}
         onClick={() => setSelectedMember(emp)}
         key={emp._id}
-        className={`bg-white rounded-2xl p-4 border transition-all cursor-pointer shadow-sm hover:shadow-md flex flex-col justify-between space-y-3 relative overflow-hidden text-left ${
-          isRoot
-            ? 'border-purple-300 ring-2 ring-purple-500/20 bg-gradient-to-b from-purple-50/20 to-white'
+        className={`group relative bg-white rounded-2xl p-4 sm:p-5 border transition-all cursor-pointer shadow-xs hover:shadow-xl flex flex-col justify-between text-left overflow-hidden ${
+          isExecutive
+            ? 'border-indigo-200/90 ring-1 ring-indigo-500/20 bg-gradient-to-b from-indigo-50/30 via-white to-white'
+            : isLead
+            ? 'border-sky-200/90 ring-1 ring-sky-500/20 bg-gradient-to-b from-sky-50/25 via-white to-white'
             : isIntern
-            ? 'border-amber-200 hover:border-amber-400'
-            : 'border-slate-200 hover:border-secondary'
+            ? 'border-amber-200/80 hover:border-amber-400 bg-gradient-to-b from-amber-50/15 via-white to-white'
+            : 'border-slate-200/90 hover:border-[#20b2f5]/60 hover:shadow-sky-500/5'
         }`}
       >
-        <div className="flex items-start gap-3">
+        {/* Subtle Top Accent bar on hover */}
+        <div className={`absolute top-0 left-0 right-0 h-1 transition-opacity duration-300 ${
+          isExecutive
+            ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 opacity-90'
+            : isLead
+            ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-sky-500 opacity-80'
+            : isIntern
+            ? 'bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400 opacity-70'
+            : 'bg-gradient-to-r from-slate-400 to-[#20b2f5] opacity-0 group-hover:opacity-100'
+        }`} />
+
+        <div className="flex items-start gap-3.5">
+          {/* Avatar with Status Ring */}
           <div className="relative shrink-0">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200 shadow-inner shrink-0 aspect-square">
-              <UserAvatar
-                user={{ name: emp.userId?.name, avatar: photo }}
-                className="w-full h-full rounded-2xl aspect-square"
-                imgClassName="w-full h-full object-cover object-top aspect-square"
-              />
+            <div className={`w-13 h-13 rounded-2xl p-0.5 shadow-sm transition-transform duration-300 group-hover:scale-105 ${
+              isExecutive
+                ? 'bg-gradient-to-tr from-indigo-600 to-purple-500'
+                : isLead
+                ? 'bg-gradient-to-tr from-sky-500 to-blue-600'
+                : isIntern
+                ? 'bg-gradient-to-tr from-amber-400 to-orange-500'
+                : 'bg-gradient-to-tr from-slate-200 to-slate-300'
+            }`}>
+              <div className="w-full h-full rounded-[14px] overflow-hidden bg-white">
+                <UserAvatar
+                  user={{ name: emp.userId?.name, avatar: photo }}
+                  className="w-full h-full rounded-[14px]"
+                  imgClassName="w-full h-full object-cover object-top"
+                />
+              </div>
             </div>
-            {isIntern && (
-              <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-amber-500 rounded-full border-2 border-white" title="Intern" />
+            
+            {/* Crown / Shield Badge */}
+            {isExecutive && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-500 text-white rounded-full flex items-center justify-center text-[10px] shadow-md border-2 border-white" title="Executive Board">
+                👑
+              </span>
             )}
-            {isRoot && (
-              <span className="absolute -top-1 -right-1 text-xs" title="Executive">👑</span>
+            {isLead && !isExecutive && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-sky-600 text-white rounded-full flex items-center justify-center text-[10px] shadow-md border-2 border-white" title="Team Lead">
+                ⚡
+              </span>
+            )}
+            {isIntern && (
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-amber-500 text-white rounded-full flex items-center justify-center text-[9px] shadow-md border-2 border-white" title="Intern">
+                🎓
+              </span>
             )}
           </div>
 
+          {/* Details */}
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-slate-900 truncate leading-tight">{emp.userId?.name || 'Unnamed'}</p>
-            <p className="text-[11px] font-semibold text-secondary truncate mt-0.5">{emp.designation || 'Staff Member'}</p>
-            <p className="text-[10px] text-slate-400 truncate">{emp.department || 'General'}</p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <h4 className="text-sm font-bold text-slate-900 truncate group-hover:text-secondary transition-colors font-heading leading-tight">
+                {emp.userId?.name || 'Staff Member'}
+              </h4>
+            </div>
+
+            <p className="text-xs font-semibold text-secondary truncate mt-0.5">
+              {emp.designation || 'Specialist'}
+            </p>
+
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+              {emp.department && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-500 bg-slate-100/90 px-2 py-0.5 rounded-md truncate max-w-[120px]">
+                  <FiBriefcase size={10} className="shrink-0 text-slate-400" />
+                  <span className="truncate">{emp.department}</span>
+                </span>
+              )}
+              {emp.employeeNo && (
+                <span className="text-[10px] font-mono text-slate-400 font-semibold">
+                  {emp.employeeNo}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px]">
-          <span className={`font-semibold px-2 py-0.5 rounded-full border ${
-            isIntern
+        {/* Card Footer: Tier Pill & Reports */}
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+          <span className={`font-bold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+            isExecutive
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : isLead
+              ? 'bg-sky-50 text-sky-700 border-sky-200'
+              : isIntern
               ? 'bg-amber-50 text-amber-700 border-amber-200'
-              : isRoot
-              ? 'bg-purple-50 text-purple-700 border-purple-200'
-              : 'bg-blue-50 text-blue-700 border-blue-200'
+              : 'bg-slate-50 text-slate-600 border-slate-200'
           }`}>
-            {isIntern ? '🎓 Intern' : isRoot ? '⭐ Executive' : '💼 Staff'}
+            {isExecutive ? '👑 Executive' : isLead ? '⚡ Team Lead' : isIntern ? '🎓 Intern' : '💼 Specialist'}
           </span>
 
-          <div className="flex items-center gap-1.5">
-            {emp.manager && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (window.confirm(`Remove assigned leader for ${emp.userId?.name || 'this employee'}?`)) {
-                    unassignLeaderMut.mutate(emp._id)
-                  }
-                }}
-                className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors shrink-0"
-                title="Remove assigned leader"
-              >
-                <FiUserX size={13} />
-              </button>
-            )}
-
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  requestDeleteEmployee(emp._id)
-                }}
-                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors shrink-0"
-                title="Permanently Delete Employee"
-              >
-                <FiTrash2 size={13} />
-              </button>
-            )}
-
+          <div className="flex items-center gap-2">
             {reportsCount > 0 && (
-              <span className="font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-purple-100">
-                <FiUsers size={10} /> {reportsCount} report{reportsCount !== 1 ? 's' : ''}
+              <span className="font-bold text-indigo-700 bg-indigo-50/80 px-2 py-0.5 rounded-full flex items-center gap-1 border border-indigo-100/80 text-[10px]" title="Direct Reports">
+                <FiUsers size={11} /> {reportsCount} report{reportsCount !== 1 ? 's' : ''}
               </span>
             )}
+            <span className="text-slate-300 group-hover:text-secondary group-hover:translate-x-0.5 transition-all">
+              <FiArrowRight size={13} />
+            </span>
           </div>
         </div>
       </motion.div>
@@ -382,135 +430,328 @@ export default function StaffHierarchy() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
-      {/* ── Page Header ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-secondary uppercase tracking-wider mb-1">
-            <FiLayers size={13} />
-            <span>{!isAdmin ? 'My Team Reporting Structure' : 'Organization Chart & Staff Directory'}</span>
+    <div className="space-y-6 animate-fade-in pb-16">
+      {/* ── Executive Hero Header ── */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-800/80">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-sky-300 text-xs font-bold uppercase tracking-wider">
+              <FiLayers size={13} className="text-secondary" />
+              <span>{!isAdmin ? 'Team Reporting Tree' : 'Corporate Organizational Architecture'}</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight font-heading">
+              {!isAdmin ? 'Project Team Hierarchy' : 'Company Hierarchy & Directory'}
+            </h1>
+            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+              {!isAdmin
+                ? 'Interactive reporting structure for assigned project teams, technical team leads, senior engineers, and associate interns.'
+                : 'Explore corporate governance, executive leadership, technical reporting lines, project teams, and personnel directory.'}
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">
-            {!isAdmin ? 'Project Team Hierarchy' : 'Company Hierarchy'}
-          </h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {!isAdmin
-              ? 'Explore your assigned team hierarchy, technical team leads, developers, and interns.'
-              : 'Explore corporate leadership, reporting structures, project managers, developers, and interns.'}
-          </p>
+
+          {/* Segmented View Mode Toggle */}
+          <div className="flex items-center p-1.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 shrink-0 self-start md:self-center shadow-lg">
+            <button
+              onClick={() => setViewMode('tree')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                viewMode === 'tree'
+                  ? 'bg-white text-slate-900 shadow-md font-extrabold'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <FiLayers size={14} className={viewMode === 'tree' ? 'text-indigo-600' : ''} />
+              <span>Org Tree</span>
+            </button>
+            <button
+              onClick={() => setViewMode('team')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                viewMode === 'team'
+                  ? 'bg-white text-slate-900 shadow-md font-extrabold'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <FiUsers size={14} className={viewMode === 'team' ? 'text-secondary' : ''} />
+              <span>Team Pods</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                viewMode === 'grid'
+                  ? 'bg-white text-slate-900 shadow-md font-extrabold'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <FiGrid size={14} className={viewMode === 'grid' ? 'text-emerald-600' : ''} />
+              <span>Staff Grid</span>
+            </button>
+          </div>
         </div>
 
-        {/* View mode toggle */}
-        <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl self-start md:self-auto overflow-x-auto">
-          <button
-            onClick={() => setViewMode('team')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'team' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FiUsers size={14} /> Team Wise
-          </button>
-          <button
-            onClick={() => setViewMode('tree')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'tree' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FiLayers size={14} /> {!isAdmin ? 'Team Tiers' : 'Corporate Tiers'}
-          </button>
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-              viewMode === 'grid' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <FiGrid size={14} /> All Staff Grid
-          </button>
+        {/* Live Headcount KPI Chips */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+              <FiUsers size={18} />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Total Personnel</p>
+              <p className="text-xl font-bold text-white font-heading">{totalCount}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300">
+              <FiShield size={18} />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">{!isAdmin ? 'Team Leads' : 'Leadership & PMs'}</p>
+              <p className="text-xl font-bold text-purple-300 font-heading">{leaderCount}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+              <FiBriefcase size={18} />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Core Specialists</p>
+              <p className="text-xl font-bold text-emerald-300 font-heading">{devCount}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+              <FiBookOpen size={18} />
+            </div>
+            <div>
+              <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Active Interns</p>
+              <p className="text-xl font-bold text-amber-300 font-heading">{internCount}</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* ── KPI Summary Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-            <FiUsers size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase">{!isAdmin ? 'Assigned Team' : 'Total Personnel'}</p>
-            <h3 className="text-xl font-bold text-slate-800 mt-0.5">{totalCount}</h3>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <FiShield size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase">{!isAdmin ? 'Team Leads' : 'Leadership & PMs'}</p>
-            <h3 className="text-xl font-bold text-purple-600 mt-0.5">{leaderCount}</h3>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <FiBriefcase size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase">Core Engineers</p>
-            <h3 className="text-xl font-bold text-emerald-600 mt-0.5">{devCount}</h3>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-            <FiBookOpen size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase">Active Interns</p>
-            <h3 className="text-xl font-bold text-amber-600 mt-0.5">{internCount}</h3>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Filter Bar ── */}
-      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Search */}
+      {/* ── Search & Filter Control Bar ── */}
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        {/* Search Input */}
         <div className="relative flex-1 max-w-md">
-          <FiSearch size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <FiSearch size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search staff by name, title, department..."
+            placeholder="Search by name, role, department, employee ID..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="form-input !pl-9 !py-2 !text-xs w-full rounded-xl"
+            className="form-input !pl-10 !py-2.5 !text-xs w-full rounded-2xl border-slate-200 bg-slate-50/50 focus:bg-white focus:border-secondary transition-all"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <FiX size={12} />
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+            >
+              <FiX size={13} />
             </button>
           )}
         </div>
 
-        {/* Department Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-          {departments.map(dept => (
-            <button
-              key={dept}
-              onClick={() => setDeptFilter(dept)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize whitespace-nowrap transition-all shrink-0 ${
-                deptFilter === dept
-                  ? 'bg-secondary text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
+        {/* Right side: Department Pills & Sort */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-thin">
+          <div className="flex items-center gap-1.5 shrink-0">
+            {departments.map(dept => (
+              <button
+                key={dept}
+                onClick={() => setDeptFilter(dept)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize whitespace-nowrap transition-all cursor-pointer ${
+                  deptFilter === dept
+                    ? 'bg-secondary text-white shadow-sm shadow-secondary/30'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {dept === 'all' ? 'All Departments' : dept}
+              </button>
+            ))}
+          </div>
+
+          {/* Sort By Dropdown */}
+          <div className="shrink-0 flex items-center gap-1.5 border-l border-slate-200 pl-3">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase">Sort:</span>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value)}
+              className="form-select !py-1 !px-2.5 !text-xs rounded-xl border-slate-200 bg-slate-50 text-slate-700 font-semibold"
             >
-              {dept === 'all' ? 'All Departments' : dept}
-            </button>
-          ))}
+              <option value="name">Name (A-Z)</option>
+              <option value="dept">Department</option>
+              <option value="desig">Designation</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* ── VIEW MODE 1: TEAM WISE VIEW (LEADERS & THEIR MEMBERS) ── */}
-      {viewMode === 'team' && (
+      {isLoading && (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-200">
+          <div className="w-10 h-10 border-4 border-secondary/20 border-t-secondary rounded-full animate-spin mb-3" />
+          <p className="text-xs font-semibold text-slate-400">Loading hierarchy structure...</p>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODE 1: INTERACTIVE HIERARCHY ORG TREE (REAL TREE CONNECTIONS)
+      ───────────────────────────────────────────────────────────── */}
+      {!isLoading && viewMode === 'tree' && (
+        <div className="space-y-12">
+          {/* Tier 1: Board of Directors & Managing Directors */}
+          {hierarchyTiers.directors.length > 0 && (
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    👑
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
+                      {!isAdmin ? `Tier 1: Project Management Leadership (${hierarchyTiers.directors.length})` : `Tier 1: Executive Board & Managing Directors (${hierarchyTiers.directors.length})`}
+                    </h2>
+                    <p className="text-xs text-slate-400">Highest authority & corporate strategic oversight</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {hierarchyTiers.directors.map(emp => renderMemberCard(emp, 'executive'))}
+              </div>
+
+              {/* Connecting Tree Stem to Next Tier */}
+              <div className="flex justify-center my-6">
+                <div className="flex flex-col items-center">
+                  <div className="w-0.5 h-8 bg-gradient-to-b from-indigo-500 to-sky-500 rounded-full" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-sky-500 ring-4 ring-sky-100" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tier 2: Management / Operations (Admin View Only) */}
+          {isAdmin && hierarchyTiers.management.length > 0 && (
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    🏛️
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
+                      Tier 2: Operations, HR & General Management ({hierarchyTiers.management.length})
+                    </h2>
+                    <p className="text-xs text-slate-400">Company secretarial, HR leadership, and operations</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {hierarchyTiers.management.map(emp => renderMemberCard(emp, 'lead'))}
+              </div>
+
+              <div className="flex justify-center my-6">
+                <div className="flex flex-col items-center">
+                  <div className="w-0.5 h-8 bg-gradient-to-b from-blue-500 to-sky-500 rounded-full" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-sky-500 ring-4 ring-sky-100" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tier 2/3: Project Managers & Technical Team Leads */}
+          {hierarchyTiers.projectManagers.length > 0 && (
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    ⚡
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
+                      {!isAdmin ? `Tier 2: Technical Team Leads (${hierarchyTiers.projectManagers.length})` : `Tier 3: Project Managers & Technical Team Leads (${hierarchyTiers.projectManagers.length})`}
+                    </h2>
+                    <p className="text-xs text-slate-400">Direct technical leaders managing sprint execution & staff</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {hierarchyTiers.projectManagers.map(emp => renderMemberCard(emp, 'lead'))}
+              </div>
+
+              <div className="flex justify-center my-6">
+                <div className="flex flex-col items-center">
+                  <div className="w-0.5 h-8 bg-gradient-to-b from-sky-500 to-emerald-500 rounded-full" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tier 3/4: Core Software Engineers, Designers & Specialists */}
+          {hierarchyTiers.engineers.length > 0 && (
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    💻
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
+                      {!isAdmin ? `Tier 3: Software Engineers & Specialists (${hierarchyTiers.engineers.length})` : `Tier 4: Software Engineers & Core Specialists (${hierarchyTiers.engineers.length})`}
+                    </h2>
+                    <p className="text-xs text-slate-400">Core software architects, developers, UI/UX, and QA staff</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {hierarchyTiers.engineers.map(emp => renderMemberCard(emp, 'regular'))}
+              </div>
+
+              <div className="flex justify-center my-6">
+                <div className="flex flex-col items-center">
+                  <div className="w-0.5 h-8 bg-gradient-to-b from-emerald-500 to-amber-500 rounded-full" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-4 ring-amber-100" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tier 4/5: Associate & Engineering Interns */}
+          {hierarchyTiers.interns.length > 0 && (
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    🎓
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
+                      {!isAdmin ? `Tier 4: Engineering & Associate Interns (${hierarchyTiers.interns.length})` : `Tier 5: Engineering & Associate Interns (${hierarchyTiers.interns.length})`}
+                    </h2>
+                    <p className="text-xs text-slate-400">Undergraduate trainees, associate engineers, and interns</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {hierarchyTiers.interns.map(emp => renderMemberCard(emp, 'regular'))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          MODE 2: TEAM WISE PODS (GROUPED BY LEADER)
+      ───────────────────────────────────────────────────────────── */}
+      {!isLoading && viewMode === 'team' && (
         <div className="space-y-8">
           {teamHierarchy.teams.length > 0 ? (
             teamHierarchy.teams.map((team) => {
@@ -519,46 +760,65 @@ export default function StaffHierarchy() {
               const leaderPhoto = team.employee?.profilePhoto || team.user?.avatar
 
               return (
-                <div key={team.id} className="bg-slate-50/70 border border-slate-200/80 rounded-3xl p-5 sm:p-6 space-y-5 shadow-sm">
-                  {/* Team Leader Banner */}
-                  <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md">
-                    <div className="flex items-center gap-3.5 sm:gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 overflow-hidden shadow-inner aspect-square">
-                        <UserAvatar
-                          user={{ name: team.user?.name, avatar: leaderPhoto }}
-                          className="w-full h-full rounded-2xl aspect-square"
-                          imgClassName="w-full h-full object-cover object-top aspect-square"
-                        />
+                <div
+                  key={team.id}
+                  className="bg-white border border-slate-200/90 rounded-3xl p-5 sm:p-7 space-y-6 shadow-sm hover:shadow-md transition-shadow"
+                >
+                  {/* Executive Team Leader Command Banner */}
+                  <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="relative z-10 flex items-center gap-4">
+                      {/* Avatar */}
+                      <div className="w-16 h-16 rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-md shrink-0">
+                        <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-900">
+                          <UserAvatar
+                            user={{ name: team.user?.name, avatar: leaderPhoto }}
+                            className="w-full h-full rounded-[14px]"
+                            imgClassName="w-full h-full object-cover object-top"
+                          />
+                        </div>
                       </div>
+
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">{team.user?.name || 'Team Leader'}</h2>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary/80 text-white border border-secondary">
+                          <h3 className="text-lg sm:text-xl font-bold text-white font-heading tracking-wide">
+                            {team.user?.name || 'Team Leader'}
+                          </h3>
+                          <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-secondary text-white shadow-xs">
                             👑 TEAM LEADER
                           </span>
                         </div>
-                        <p className="text-xs text-slate-300 mt-0.5">
+                        <p className="text-xs text-sky-200 font-medium mt-0.5">
                           {team.employee?.designation || team.user?.role || 'Leader'} · {team.employee?.department || 'Engineering'}
                         </p>
-                        <div className="flex items-center gap-2 mt-1.5 text-[11px] text-slate-400">
-                          {team.user?.email && <span>{team.user.email}</span>}
-                          {team.employee?.primaryPhone && <span>· {team.employee.primaryPhone}</span>}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-300">
+                          {team.user?.email && (
+                            <a href={`mailto:${team.user.email}`} className="hover:text-white flex items-center gap-1 transition-colors">
+                              <FiMail size={12} /> {team.user.email}
+                            </a>
+                          )}
+                          {team.employee?.primaryPhone && (
+                            <a href={`tel:${team.employee.primaryPhone}`} className="hover:text-white flex items-center gap-1 transition-colors">
+                              <FiPhone size={12} /> {team.employee.primaryPhone}
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Team Stats & Leader Actions */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-3 py-1.5 rounded-xl bg-white/10 text-white text-xs font-semibold flex items-center gap-1.5 border border-white/10">
-                        <FiUsers size={12} className="text-secondary" /> {team.members.length} Member{team.members.length !== 1 ? 's' : ''}
+                    {/* Team Metrics & View Profile */}
+                    <div className="relative z-10 flex items-center gap-2.5 flex-wrap">
+                      <span className="px-3.5 py-2 rounded-xl bg-white/10 text-white text-xs font-bold flex items-center gap-1.5 border border-white/10 shadow-xs">
+                        <FiUsers size={13} className="text-secondary" /> {team.members.length} Member{team.members.length !== 1 ? 's' : ''}
                       </span>
                       {staffCount > 0 && (
-                        <span className="px-3 py-1.5 rounded-xl bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-500/30">
-                          💼 {staffCount} Staff
+                        <span className="px-3 py-2 rounded-xl bg-blue-500/25 text-blue-200 text-xs font-semibold border border-blue-400/30">
+                          💼 {staffCount} Core
                         </span>
                       )}
                       {internCount > 0 && (
-                        <span className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-semibold border border-amber-500/30">
+                        <span className="px-3 py-2 rounded-xl bg-amber-500/25 text-amber-200 text-xs font-semibold border border-amber-400/30">
                           🎓 {internCount} Intern{internCount !== 1 ? 's' : ''}
                         </span>
                       )}
@@ -566,9 +826,9 @@ export default function StaffHierarchy() {
                         <button
                           type="button"
                           onClick={() => setSelectedMember(team.employee)}
-                          className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-white/20 hover:bg-white text-white hover:text-slate-900 text-xs font-bold transition-all cursor-pointer shadow-sm"
                         >
-                          View Leader Profile
+                          View Leader
                         </button>
                       )}
                     </div>
@@ -577,9 +837,9 @@ export default function StaffHierarchy() {
                   {/* Team Members List */}
                   <div>
                     <div className="flex items-center justify-between mb-3 px-1">
-                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-2 font-heading">
                         <span>Assigned Team Members</span>
-                        <span className="text-[11px] font-normal text-slate-400">({team.members.length})</span>
+                        <span className="text-[11px] font-bold text-slate-400">({team.members.length})</span>
                       </h4>
                     </div>
 
@@ -588,8 +848,8 @@ export default function StaffHierarchy() {
                         {team.members.map(member => renderMemberCard(member))}
                       </div>
                     ) : (
-                      <div className="p-6 text-center bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
-                        No team members currently assigned under {team.user?.name || 'this leader'}.
+                      <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-xs">
+                        No team members currently assigned under this leader.
                       </div>
                     )}
                   </div>
@@ -597,27 +857,27 @@ export default function StaffHierarchy() {
               )
             })
           ) : (
-            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
-              No teams match the current filters.
+            <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 text-slate-400 text-xs">
+              No teams match the current search or filters.
             </div>
           )}
 
-          {/* Unassigned / Direct Company Personnel */}
+          {/* Unassigned / Cross-functional Personnel Pod */}
           {teamHierarchy.unassignedMembers.length > 0 && (
-            <div className="bg-slate-50/70 border border-slate-200/80 rounded-3xl p-5 sm:p-6 space-y-4 shadow-sm">
+            <div className="bg-amber-50/40 border border-amber-200/80 rounded-3xl p-6 sm:p-7 space-y-4 shadow-xs">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                    Direct / Unassigned Personnel ({teamHierarchy.unassignedMembers.length})
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    Direct Company Personnel & Unassigned Staff ({teamHierarchy.unassignedMembers.length})
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Staff and interns without an assigned team leader
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Staff and interns reporting directly to corporate administration without an assigned team lead.
                   </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 pt-2">
                 {teamHierarchy.unassignedMembers.map(member => renderMemberCard(member))}
               </div>
             </div>
@@ -625,216 +885,197 @@ export default function StaffHierarchy() {
         </div>
       )}
 
-      {/* ── VIEW MODE 2: HIERARCHY TREE VIEW ── */}
-      {viewMode === 'tree' && (
-        <div className="space-y-8">
-          {/* Level 1: Project Manager (Manager view) OR Executive & Managing Directors (Admin view) */}
-          {hierarchyTiers.directors.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {!isAdmin ? `Tier 1: Project Manager (${hierarchyTiers.directors.length})` : `Tier 1: Executive & Managing Directors (${hierarchyTiers.directors.length})`}
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {hierarchyTiers.directors.map(emp => renderMemberCard(emp, true))}
-              </div>
-            </div>
-          )}
+      {/* ─────────────────────────────────────────────────────────────
+          MODE 3: ENTERPRISE PERSONNEL DIRECTORY GRID
+      ───────────────────────────────────────────────────────────── */}
+      {!isLoading && viewMode === 'grid' && (
+        <div>
+          <div className="flex items-center justify-between mb-4 px-1">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Displaying {filteredEmployees.length} Personnel
+            </p>
+          </div>
 
-          {/* Level 2: Operations & Secretary (Admin only) */}
-          {isAdmin && hierarchyTiers.management.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Tier 2: Operations, HR & General Management ({hierarchyTiers.management.length})
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {hierarchyTiers.management.map(emp => renderMemberCard(emp))}
-              </div>
-            </div>
-          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredEmployees.map(emp => renderMemberCard(emp))}
+          </div>
 
-          {/* Level 2/3: Team Leads (Manager view) OR PMs & Technical Leads (Admin view) */}
-          {hierarchyTiers.projectManagers.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {!isAdmin ? `Tier 2: Technical Team Leads (${hierarchyTiers.projectManagers.length})` : `Tier 3: Project Managers & Technical Team Leads (${hierarchyTiers.projectManagers.length})`}
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {hierarchyTiers.projectManagers.map(emp => renderMemberCard(emp))}
-              </div>
-            </div>
-          )}
-
-          {/* Level 3/4: Core Engineers */}
-          {hierarchyTiers.engineers.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-600" />
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {!isAdmin ? `Tier 3: Software Engineers & Developers (${hierarchyTiers.engineers.length})` : `Tier 4: Software Engineers & Specialists (${hierarchyTiers.engineers.length})`}
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {hierarchyTiers.engineers.map(emp => renderMemberCard(emp))}
-              </div>
-            </div>
-          )}
-
-          {/* Level 4/5: Interns */}
-          {hierarchyTiers.interns.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {!isAdmin ? `Tier 4: Engineering & Associate Interns (${hierarchyTiers.interns.length})` : `Tier 5: Engineering & Associate Interns (${hierarchyTiers.interns.length})`}
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {hierarchyTiers.interns.map(emp => renderMemberCard(emp))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── VIEW MODE 2: DIRECTORY GRID VIEW ── */}
-      {viewMode === 'grid' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filteredEmployees.map(emp => renderMemberCard(emp))}
           {filteredEmployees.length === 0 && (
-            <div className="col-span-full text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
-              No staff members match the selected filters.
+            <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 text-slate-400 text-xs">
+              No personnel match your search criteria.
             </div>
           )}
         </div>
       )}
 
-      {/* ── Member Detail Modal / Drawer ── */}
-      {selectedMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
-          >
-            <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-6 text-white relative">
-              <button
-                onClick={() => setSelectedMember(null)}
-                className="absolute top-4 right-4 p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
-              >
-                <FiX size={16} />
-              </button>
-
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner aspect-square">
-                  <UserAvatar
-                    user={{ name: selectedMember.userId?.name, avatar: selectedMember.profilePhoto || selectedMember.userId?.avatar }}
-                    className="w-full h-full rounded-2xl aspect-square"
-                    imgClassName="w-full h-full object-cover object-top aspect-square"
-                  />
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-bold">{selectedMember.userId?.name}</h3>
-                  <p className="text-xs text-slate-300">{selectedMember.designation || 'Staff Member'}</p>
-                  <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-1.5 border ${
-                    selectedMember.employmentType === 'intern'
-                      ? 'bg-amber-400 text-slate-900 border-amber-300'
-                      : 'bg-blue-400 text-slate-900 border-blue-300'
-                  }`}>
-                    {selectedMember.employmentType === 'intern' ? '🎓 INTERN' : '💼 PERMANENT STAFF'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4 text-xs">
-              <div className="space-y-2">
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400">Employee ID</span>
-                  <span className="font-mono font-bold text-slate-700">{selectedMember.employeeNo || '—'}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400">Department</span>
-                  <span className="font-semibold text-slate-700">{selectedMember.department || '—'}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400">Reporting Leader</span>
-                  <span className="font-semibold text-purple-700">{selectedMember.manager?.name || 'Independent / Executive'}</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400">Direct Reports</span>
-                  <span className="font-bold text-slate-800">
-                    {directReportsMap[selectedMember.userId?._id] || directReportsMap[selectedMember._id] || 0} members
-                  </span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-slate-100">
-                  <span className="text-slate-400">Joined Date</span>
-                  <span className="font-medium text-slate-700">
-                    {selectedMember.joinedDate ? new Date(selectedMember.joinedDate).toLocaleDateString('en-LK') : '—'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Remove Leader Action */}
-              {selectedMember.manager && (
+      {/* ─────────────────────────────────────────────────────────────
+          MEMBER INSPECTION MODAL / SLIDE-OVER DRAWER
+      ───────────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {selectedMember && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100"
+            >
+              {/* Header Hero Banner */}
+              <div className="relative bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white overflow-hidden">
                 <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm(`Remove assigned leader for ${selectedMember.userId?.name || 'this employee'}?`)) {
-                      unassignLeaderMut.mutate(selectedMember._id)
-                    }
-                  }}
-                  disabled={unassignLeaderMut.isPending}
-                  className="w-full py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl border border-red-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  onClick={() => setSelectedMember(null)}
+                  className="absolute top-4 right-4 p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
                 >
-                  <FiTrash2 size={13} /> {unassignLeaderMut.isPending ? 'Removing Leader...' : 'Remove Assigned Leader'}
+                  <FiX size={16} />
                 </button>
-              )}
 
-              {/* Permanently Delete Employee Action */}
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => requestDeleteEmployee(selectedMember._id)}
-                  disabled={deleteEmployeeMut.isPending}
-                  className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl border border-rose-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <FiTrash2 size={13} /> {deleteEmployeeMut.isPending ? 'Deleting Employee...' : 'Permanently Delete Employee'}
-                </button>
-              )}
+                <div className="flex items-center gap-4.5">
+                  <div className="w-18 h-18 rounded-2xl p-0.5 bg-gradient-to-tr from-sky-400 to-indigo-500 shadow-xl shrink-0">
+                    <div className="w-full h-full rounded-[14px] overflow-hidden bg-slate-800">
+                      <UserAvatar
+                        user={{
+                          name: selectedMember.userId?.name,
+                          avatar: selectedMember.profilePhoto || selectedMember.userId?.avatar
+                        }}
+                        className="w-full h-full rounded-[14px]"
+                        imgClassName="w-full h-full object-cover object-top"
+                      />
+                    </div>
+                  </div>
 
-              {/* Quick Contact Links */}
-              <div className="pt-1 flex items-center gap-2">
-                {selectedMember.userId?.email && (
-                  <a
-                    href={`mailto:${selectedMember.userId.email}`}
-                    className="flex-1 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center justify-center gap-1.5 transition-colors"
-                  >
-                    <FiMail size={13} /> Email
-                  </a>
-                )}
-                {selectedMember.primaryPhone && (
-                  <a
-                    href={`tel:${selectedMember.primaryPhone}`}
-                    className="flex-1 py-2 rounded-xl bg-secondary text-white font-bold flex items-center justify-center gap-1.5 hover:bg-secondary/90 transition-colors"
-                  >
-                    <FiPhone size={13} /> Call
-                  </a>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xl font-bold font-heading truncate">
+                      {selectedMember.userId?.name || 'Staff Member'}
+                    </h3>
+                    <p className="text-xs text-sky-300 font-semibold truncate mt-0.5">
+                      {selectedMember.designation || 'Specialist'}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                        selectedMember.employmentType === 'intern'
+                          ? 'bg-amber-400 text-slate-900 border-amber-300'
+                          : 'bg-sky-400 text-slate-900 border-sky-300'
+                      }`}>
+                        {selectedMember.employmentType === 'intern' ? '🎓 INTERN' : '💼 PERMANENT STAFF'}
+                      </span>
+                      {selectedMember.employeeNo && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyEmployeeId(selectedMember.employeeNo)}
+                          className="text-[10px] font-mono font-bold bg-white/15 hover:bg-white/25 text-white px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors"
+                          title="Click to copy ID"
+                        >
+                          {selectedMember.employeeNo}
+                          {copiedId ? <FiCheck size={10} className="text-emerald-400" /> : <FiCopy size={10} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body Details */}
+              <div className="p-6 space-y-5 text-xs max-h-[70vh] overflow-y-auto">
+                {/* Reporting Chain Box */}
+                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                    <FiLayers size={11} /> Reporting Line & Hierarchy Chain
+                  </p>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-slate-700 flex-wrap">
+                    <span className="text-indigo-600 font-bold">Executive Board</span>
+                    <FiArrowRight size={12} className="text-slate-400" />
+                    <span className="text-sky-600 font-bold">
+                      {selectedMember.manager?.name || 'Direct / Independent'}
+                    </span>
+                    <FiArrowRight size={12} className="text-slate-400" />
+                    <span className="text-slate-900 bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs">
+                      {selectedMember.userId?.name}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Key Employment Metrics Grid */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase">Department</p>
+                    <p className="font-bold text-slate-800 mt-0.5 truncate">{selectedMember.department || '—'}</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase">Branch</p>
+                    <p className="font-bold text-slate-800 mt-0.5 truncate">{selectedMember.branch?.name || 'Headquarters'}</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase">Direct Reports</p>
+                    <p className="font-bold text-indigo-600 mt-0.5">
+                      {directReportsMap[String(selectedMember.userId?._id)] || directReportsMap[String(selectedMember._id)] || 0} Members
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-100 shadow-2xs">
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase">Joined Date</p>
+                    <p className="font-bold text-slate-800 mt-0.5">
+                      {selectedMember.joinedDate ? new Date(selectedMember.joinedDate).toLocaleDateString('en-LK') : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Contact Actions */}
+                <div className="space-y-2 pt-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Direct Communication</p>
+                  <div className="flex items-center gap-2">
+                    {selectedMember.userId?.email && (
+                      <a
+                        href={`mailto:${selectedMember.userId.email}`}
+                        className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold flex items-center justify-center gap-2 transition-colors"
+                      >
+                        <FiMail size={14} className="text-secondary" /> Email Staff
+                      </a>
+                    )}
+                    {selectedMember.primaryPhone && (
+                      <a
+                        href={`tel:${selectedMember.primaryPhone}`}
+                        className="flex-1 py-2.5 rounded-xl bg-secondary text-white font-bold flex items-center justify-center gap-2 hover:bg-secondary/90 shadow-sm transition-colors"
+                      >
+                        <FiPhone size={14} /> Call Direct
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Administrative Controls */}
+                {(selectedMember.manager || isAdmin) && (
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    {selectedMember.manager && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`Remove assigned leader for ${selectedMember.userId?.name || 'this employee'}?`)) {
+                            unassignLeaderMut.mutate(selectedMember._id)
+                          }
+                        }}
+                        disabled={unassignLeaderMut.isPending}
+                        className="w-full py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-xl border border-amber-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <FiUserX size={14} /> {unassignLeaderMut.isPending ? 'Removing Leader...' : 'Remove Assigned Leader'}
+                      </button>
+                    )}
+
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => requestDeleteEmployee(selectedMember._id)}
+                        disabled={deleteEmployeeMut.isPending}
+                        className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl border border-rose-200 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <FiTrash2 size={14} /> {deleteEmployeeMut.isPending ? 'Deleting...' : 'Permanently Delete Employee'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {employeeDeleteModal}
     </div>
