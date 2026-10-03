@@ -1,6 +1,8 @@
 node_modules/
 .env
 uploads/
+backups/
+scratch/
 *.log
 .DS_Store
 Thumbs.db

@@ -6,10 +6,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   FiPlus, FiEdit2, FiTrash2, FiX, FiPackage, FiChevronDown,
   FiCheck, FiLayers, FiTag, FiFilter, FiUpload, FiZap, FiKey,
-  FiDollarSign, FiMessageSquare, FiInfo, FiChevronRight, FiChevronLeft
+  FiDollarSign, FiMessageSquare, FiInfo, FiChevronRight, FiChevronLeft, FiLink
 } from 'react-icons/fi'
 import { useDeleteWithPassword } from '../../components/admin/DeletePasswordGate'
 import { mediaUrl } from '../../lib/media'
+import { compressImageFile } from '../../lib/imageOptimizer'
 
 const EMPTY_SERVICE = {
   title: '',
@@ -61,6 +62,14 @@ export default function AdminServices() {
   // Upload Logo helper
   const uploadImage = async () => {
     if (!imageFile) return form.logoUrl || form.imageUrl || ''
+    try {
+      const compressedDataUrl = await compressImageFile(imageFile, { maxWidth: 500, maxHeight: 500, quality: 0.85 })
+      if (compressedDataUrl) {
+        return compressedDataUrl
+      }
+    } catch (e) {
+      console.warn('Client-side compression fallback to server upload:', e)
+    }
     const fd = new FormData()
     fd.append('image', imageFile)
     const { data: up } = await api.post('/uploads/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
@@ -238,15 +247,15 @@ export default function AdminServices() {
         <div className="flex gap-1.5 bg-slate-100 p-1 rounded-xl">
           <button
             onClick={() => { setTab('product'); setFilterCategory('All') }}
-            className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'product' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'product' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            📦 Software Products (ERP / SaaS)
+            <FiPackage size={14} /> Software Products (ERP / SaaS)
           </button>
           <button
             onClick={() => { setTab('service'); setFilterCategory('All') }}
-            className={`px-5 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'service' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+            className={`flex items-center gap-2 px-5 py-2 text-xs font-bold rounded-lg transition-all ${tab === 'service' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
           >
-            🛠 Software Services
+            <FiLayers size={14} /> Software Services
           </button>
         </div>
 
@@ -332,8 +341,12 @@ export default function AdminServices() {
 
               {/* Actions */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-medium">
-                  {item.demoUrl ? '🔗 Demo Set' : 'No Demo'}
+                <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                  {item.demoUrl ? (
+                    <>
+                      <FiLink size={12} className="text-blue-500" /> Demo Set
+                    </>
+                  ) : 'No Demo'}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => openEditModal(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="Edit">
@@ -408,16 +421,16 @@ export default function AdminServices() {
                         <button
                           type="button"
                           onClick={() => setForm({ ...form, type: 'product' })}
-                          className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${form.type === 'product' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'}`}
+                          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${form.type === 'product' ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'}`}
                         >
-                          📦 Product (SaaS / ERP)
+                          <FiPackage size={13} /> Product (SaaS / ERP)
                         </button>
                         <button
                           type="button"
                           onClick={() => setForm({ ...form, type: 'service' })}
-                          className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${form.type === 'service' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'}`}
+                          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${form.type === 'service' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200'}`}
                         >
-                          🛠 Software Service
+                          <FiLayers size={13} /> Software Service
                         </button>
                       </div>
                     </div>

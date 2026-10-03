@@ -1,3 +1,4 @@
+const sharp = require('sharp');
 const { relativeUploadPath } = require('../utils/uploadsPath');
 
 exports.uploadImageFile = async (req, res, next) => {
@@ -7,8 +8,22 @@ exports.uploadImageFile = async (req, res, next) => {
     if (req.file.filename && req.file.filename.startsWith('data:')) {
       imageUrl = req.file.filename;
     } else {
-      const b64 = Buffer.from(req.file.buffer).toString('base64');
-      imageUrl = `data:${req.file.mimetype};base64,${b64}`;
+      const isSvg = req.file.mimetype === 'image/svg+xml';
+      if (isSvg) {
+        const b64 = Buffer.from(req.file.buffer).toString('base64');
+        imageUrl = `data:${req.file.mimetype};base64,${b64}`;
+      } else {
+        try {
+          const optimized = await sharp(req.file.buffer)
+            .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 82 })
+            .toBuffer();
+          imageUrl = `data:image/webp;base64,${optimized.toString('base64')}`;
+        } catch (e) {
+          const b64 = Buffer.from(req.file.buffer).toString('base64');
+          imageUrl = `data:${req.file.mimetype};base64,${b64}`;
+        }
+      }
     }
     res.status(201).json({ success: true, imageUrl });
   } catch (err) { next(err); }
