@@ -9,6 +9,7 @@ import AllFeaturesModal from '../../components/showcase/AllFeaturesModal'
 import QuoteModal from '../../components/showcase/QuoteModal'
 import FeedbackModal from '../../components/showcase/FeedbackModal'
 import SEO from '../../components/common/SEO'
+import { mediaUrl } from '../../lib/media'
 
 // ... static products ...
 
@@ -178,6 +179,38 @@ export default function SoftwareProducts() {
           </motion.div>
         </div>
       </section>
+
+      {/* Product Logo Strip */}
+      {baseProducts.length > 0 && (
+        <section className="bg-white border-b border-slate-100 py-5">
+          <div className="container-max">
+            <p className="text-center text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+              {baseProducts.length} Software Products Available
+            </p>
+            <div className="flex flex-wrap justify-center gap-2.5">
+              {baseProducts.map((p, i) => (
+                <motion.div
+                  key={p._id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all group cursor-pointer"
+                  onClick={() => {}}
+                >
+                  <div className="w-6 h-6 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center shrink-0">
+                    {(p.logoUrl || p.imageUrl) ? (
+                      <img src={mediaUrl(p.logoUrl || p.imageUrl)} alt={p.title} className="w-5 h-5 object-contain" />
+                    ) : (
+                      <FiPackage size={12} className="text-slate-400" />
+                    )}
+                  </div>
+                  <span className="text-[12px] font-semibold text-slate-700 group-hover:text-blue-600 transition-colors whitespace-nowrap">{p.title}</span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Category Filter Sticky Bar */}
       <section className="bg-white/95 backdrop-blur-md py-4 border-y border-slate-200/80 sticky top-0 z-40 shadow-xs">
