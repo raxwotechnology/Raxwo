@@ -270,10 +270,14 @@ exports.getLetters = async (req, res, next) => {
       ];
     }
     const letters = await Letter.find(query)
-      .populate({ path: 'employee', populate: { path: 'userId', select: 'name email' } })
+      .populate({
+        path: 'employee',
+        select: '_id employeeNo userId designation department',
+        populate: { path: 'userId', select: 'name email avatar' }
+      })
       .populate('client', 'name email')
       .populate('issuedBy', 'name')
-      .select('-signatures.provider.data -signatures.client.data -signatures.seal.data -signatures.witness.data')
+      .select('-signatures.director.data -signatures.hr.data -signatures.manager.data -signatures.signatory.data -signatures.seal.data -signatures.provider.data -signatures.client.data -signatures.witness.data')
       .sort({ createdAt: -1 })
       .limit(500)
       .lean();
