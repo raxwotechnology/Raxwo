@@ -14,7 +14,12 @@ exports.downloadDatabase = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-const sharp = require('sharp');
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (_) {
+  sharp = null;
+}
 
 // In-memory settings cache to avoid repeated DB reads on every page load
 let settingsCache = null;
@@ -24,6 +29,7 @@ const SETTINGS_CACHE_TTL = 60000; // 1 minute
 async function compressSignature(base64Str) {
   if (!base64Str || typeof base64Str !== 'string') return base64Str;
   if (!base64Str.startsWith('data:image/')) return base64Str;
+  if (!sharp) return base64Str;
   try {
     const parts = base64Str.split(',');
     if (parts.length < 2) return base64Str;
