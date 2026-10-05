@@ -14,10 +14,33 @@ exports.downloadDatabase = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const sharp = require('sharp');
+
 // In-memory settings cache to avoid repeated DB reads on every page load
 let settingsCache = null;
 let settingsCacheTime = 0;
 const SETTINGS_CACHE_TTL = 60000; // 1 minute
+
+async function compressSignature(base64Str) {
+  if (!base64Str || typeof base64Str !== 'string') return base64Str;
+  if (!base64Str.startsWith('data:image/')) return base64Str;
+  try {
+    const parts = base64Str.split(',');
+    if (parts.length < 2) return base64Str;
+    const buf = Buffer.from(parts[1], 'base64');
+    if (buf.length <= 25 * 1024) return base64Str; // already small
+
+    const optBuf = await sharp(buf)
+      .resize({ width: 400, height: 200, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+
+    return `data:image/webp;base64,${optBuf.toString('base64')}`;
+  } catch (err) {
+    console.warn('Failed to compress signature image:', err.message);
+    return base64Str;
+  }
+}
 
 exports.getSiteSettings = async (req, res, next) => {
   try {
@@ -27,7 +50,6 @@ exports.getSiteSettings = async (req, res, next) => {
     }
     let settings = await SiteSetting.findOne()
       .select('-__v')
-      .maxTimeMS(5000)
       .lean();
     if (!settings) {
       const created = await SiteSetting.create({});
@@ -59,14 +81,22 @@ exports.updateSiteSettings = async (req, res, next) => {
     normalizeUrl('logoUrl');
     normalizeUrl('sealUrl');
     normalizeUrl('letterheadUrl');
+
     if (body.signatures && typeof body.signatures === 'object') {
-      ['hr', 'admin', 'manager'].forEach((k) => {
+      const roles = ['hr', 'admin', 'manager', 'director', 'marketing'];
+      for (const k of roles) {
         if (body.signatures[k]?.url != null) {
-          const raw = String(body.signatures[k].url || '').trim();
-          body.signatures[k].url = raw ? toRelativeUploadUrl(raw) : '';
+          let raw = String(body.signatures[k].url || '').trim();
+          if (raw.startsWith('data:image/')) {
+            raw = await compressSignature(raw);
+          } else {
+            raw = toRelativeUploadUrl(raw);
+          }
+          body.signatures[k].url = raw;
         }
-      });
+      }
     }
+
     let settings = await SiteSetting.findOne();
     if (!settings) {
       settings = await SiteSetting.create(body);
@@ -78,6 +108,11 @@ exports.updateSiteSettings = async (req, res, next) => {
       }
       await settings.save();
     }
+
+    // Invalidate cache immediately on update
+    settingsCache = null;
+    settingsCacheTime = 0;
+
     res.json({ success: true, settings });
   } catch (err) { next(err); }
 };

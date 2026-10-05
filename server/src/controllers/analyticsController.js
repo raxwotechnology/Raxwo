@@ -522,7 +522,6 @@ exports.getNotifications = async (req, res, next) => {
     const notifications = await Notification.find({ recipient: req.user._id })
       .sort({ createdAt: -1 })
       .limit(20)
-      .maxTimeMS(5000)
       .lean();
     res.json({ success: true, notifications: notifications || [] });
   } catch (err) { next(err); }

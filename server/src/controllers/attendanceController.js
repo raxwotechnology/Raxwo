@@ -595,7 +595,6 @@ exports.getAttendanceAnalytics = async (req, res, next) => {
 
     const records = await Attendance.find(query)
       .select('employee date status isHalfDay checkIn checkOut otHours totalWorkedHours')
-      .maxTimeMS(6000)
       .lean();
 
     const today = new Date();

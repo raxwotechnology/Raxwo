@@ -601,7 +601,6 @@ exports.getSavedStampsList = async (req, res, next) => {
 
     const stamps = await SavedStamp.find(query)
       .sort({ isDefault: -1, createdAt: -1 })
-      .maxTimeMS(5000)
       .lean();
 
     const cleanedStamps = stamps.map(st => {

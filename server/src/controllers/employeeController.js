@@ -101,7 +101,6 @@ exports.getEmployees = async (req, res, next) => {
       .populate('userId', 'name email phone avatar role')
       .populate('manager', 'name email avatar role')
       .sort({ createdAt: -1 })
-      .maxTimeMS(8000)
       .lean();
 
     if (search) {

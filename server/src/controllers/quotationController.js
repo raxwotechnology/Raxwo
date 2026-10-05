@@ -82,7 +82,6 @@ exports.getQuotations = async (req, res, next) => {
       .populate('project', 'title deadline')
       .populate('bankAccount', 'bankName accountNumber branchName')
       .limit(200)
-      .maxTimeMS(10000)
       .lean();
     res.json({ success: true, count: quotations.length, quotations });
   } catch (err) { next(err); }
