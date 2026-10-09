@@ -129,7 +129,10 @@ exports.getSubscriptions = async (req, res, next) => {
       const dueEnd = new Date(s.nextDueDate || new Date());
       dueEnd.setHours(23, 59, 59, 999);
 
-      if (remaining === 0 || now <= dueEnd) {
+      if (['paused', 'cancelled', 'expired', 'hold'].includes(s.status)) {
+        obj.status = s.status;
+        obj.overdueDays = calcOverdueDays(s.nextDueDate);
+      } else if (remaining === 0 || now <= dueEnd) {
         obj.overdueDays = 0;
         if (s.status === 'overdue') obj.status = 'active';
       } else {

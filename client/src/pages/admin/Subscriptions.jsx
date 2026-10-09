@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import {
   FiPlus, FiSearch, FiEdit2, FiTrash2, FiFileText,
   FiLink, FiServer, FiAlertCircle, FiDollarSign, FiX, FiList, FiEye, FiExternalLink,
-  FiMail, FiMessageSquare, FiUsers, FiCheck
+  FiMail, FiMessageSquare, FiUsers, FiCheck, FiPauseCircle, FiPlayCircle
 } from 'react-icons/fi'
 import { motion, AnimatePresence } from 'framer-motion'
 import ExportBar from '../../components/ui/ExportBar'
@@ -211,7 +211,7 @@ export default function AdminSubscriptions() {
 
   const getSubPaymentStatus = (s) => {
     if (!s) return 'unknown'
-    if (s.status === 'paused' || s.status === 'cancelled' || s.status === 'expired') {
+    if (s.status === 'paused' || s.status === 'cancelled' || s.status === 'expired' || s.status === 'hold') {
       return s.status
     }
     const { isOverdue } = getReminderState(s)
@@ -235,18 +235,34 @@ export default function AdminSubscriptions() {
       if (statusFilter === 'paid' && pStatus !== 'paid') return false
       if (statusFilter === 'unpaid' && pStatus !== 'unpaid') return false
       if (statusFilter === 'overdue' && pStatus !== 'overdue') return false
+      if (statusFilter === 'hold' && s.status !== 'hold') return false
       if (['paused', 'cancelled', 'expired'].includes(statusFilter) && s.status !== statusFilter) return false
     }
 
     if (paymentTab === 'paid') return pStatus === 'paid'
     if (paymentTab === 'unpaid') return pStatus === 'unpaid'
     if (paymentTab === 'overdue') return pStatus === 'overdue'
+    if (paymentTab === 'hold') return s.status === 'hold'
     return true
   })
 
   const countPaid = subs.filter(s => getSubPaymentStatus(s) === 'paid').length
   const countUnpaid = subs.filter(s => getSubPaymentStatus(s) === 'unpaid').length
   const countOverdue = subs.filter(s => getSubPaymentStatus(s) === 'overdue').length
+  const countHold = subs.filter(s => s.status === 'hold').length
+
+  const toggleHoldMut = useMutation({
+    mutationFn: ({ id, currentStatus }) => {
+      const newStatus = currentStatus === 'hold' ? 'active' : 'hold'
+      return api.put(`/subscriptions/${id}`, { status: newStatus }).then(r => r.data)
+    },
+    onSuccess: (data, vars) => {
+      toast.success(vars.currentStatus === 'hold' ? 'Subscription resumed from hold ✓' : 'Subscription placed on hold ⏸')
+      qc.invalidateQueries({ queryKey: ['admin-subscriptions'] })
+      qc.invalidateQueries({ queryKey: ['admin-billing-overview'] })
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed to update subscription status')
+  })
 
   /* Mutations */
   const saveMut = useMutation({
@@ -778,6 +794,13 @@ export default function AdminSubscriptions() {
             >
               <FiAlertCircle size={13} /> Overdue ({countOverdue})
             </button>
+            <button
+              type="button"
+              onClick={() => setPaymentTab('hold')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${paymentTab === 'hold' ? 'bg-amber-600 text-white shadow-sm' : 'text-amber-800 hover:bg-amber-100/60'}`}
+            >
+              <FiPauseCircle size={13} /> On Hold ({countHold})
+            </button>
           </div>
 
           <div className="text-xs font-medium text-slate-500">
@@ -795,6 +818,7 @@ export default function AdminSubscriptions() {
             <option value="paid">Paid (Current Cycle)</option>
             <option value="unpaid">Pending / Unpaid</option>
             <option value="overdue">Overdue</option>
+            <option value="hold">On Hold</option>
             <option value="paused">Paused</option>
             <option value="cancelled">Cancelled</option>
           </select>
@@ -820,7 +844,12 @@ export default function AdminSubscriptions() {
                     <p className="text-xs text-slate-500 truncate">{s.client?.name}</p>
                   </div>
                   <div className="flex flex-col items-end shrink-0 gap-1">
-                    <span className={`badge capitalize text-[10px] px-2 py-0.5 ${s.status === 'active' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-gray'}`}>{s.status}</span>
+                    <span className={`badge capitalize text-[10px] px-2 py-0.5 ${
+                      s.status === 'active' ? 'badge-green' : 
+                      s.status === 'overdue' ? 'badge-red' : 
+                      s.status === 'hold' ? 'bg-amber-100 text-amber-800 border border-amber-300' : 
+                      'badge-gray'
+                    }`}>{s.status === 'hold' ? 'On Hold' : s.status}</span>
                     {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-md">{s.overdueDays || 1}d overdue</span>}
                     {isInReminder && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md">Due in {daysUntilDue}d</span>}
                   </div>
@@ -838,7 +867,7 @@ export default function AdminSubscriptions() {
                      <p className="text-[11px] text-slate-500 font-medium">Due: <span className="font-bold text-slate-700">{new Date(s.nextDueDate).toLocaleDateString()}</span></p>
                      {hasBalance ? (
                        <p className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isOverdue ? 'text-red-700 bg-red-100' : isInReminder ? 'text-red-600 bg-red-50 border border-red-200' : 'text-red-500 bg-red-50'}`}>
-                         Bal: LKR {s.remainingBalance?.toLocaleString()}
+                         Unpaid: LKR {s.remainingBalance?.toLocaleString()}
                        </p>
                      ) : (
                        <p className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -849,29 +878,39 @@ export default function AdminSubscriptions() {
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="grid grid-cols-4 gap-2 pt-1">
                   <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
-                    <FiEye size={16} />
-                    <span className="text-[10px] font-semibold">View</span>
+                    <FiEye size={15} />
+                    <span className="text-[9px] font-semibold">View</span>
                   </button>
                   <button onClick={() => openPayment(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 transition-colors">
-                    <FiDollarSign size={16} />
-                    <span className="text-[10px] font-semibold">Pay</span>
+                    <FiDollarSign size={15} />
+                    <span className="text-[9px] font-semibold">Pay</span>
                   </button>
                   <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors">
-                    <FiList size={16} />
-                    <span className="text-[10px] font-semibold">Logs</span>
+                    <FiList size={15} />
+                    <span className="text-[9px] font-semibold">Ledger</span>
+                  </button>
+                  <button 
+                    onClick={() => toggleHoldMut.mutate({ id: s._id, currentStatus: s.status })}
+                    disabled={toggleHoldMut.isPending}
+                    className={`flex flex-col items-center justify-center gap-1 py-2 rounded-xl transition-colors ${
+                      s.status === 'hold' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                    }`}
+                  >
+                    {s.status === 'hold' ? <FiPlayCircle size={15} /> : <FiPauseCircle size={15} />}
+                    <span className="text-[9px] font-semibold">{s.status === 'hold' ? 'Resume' : 'Hold'}</span>
                   </button>
                   <button onClick={() => openAgreement(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors">
-                    <FiFileText size={16} />
-                    <span className="text-[10px] font-semibold">Docs</span>
+                    <FiFileText size={15} />
+                    <span className="text-[9px] font-semibold">Docs</span>
                   </button>
                   <button onClick={() => openEdit(s)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
-                    <FiEdit2 size={16} />
-                    <span className="text-[10px] font-semibold">Edit</span>
+                    <FiEdit2 size={15} />
+                    <span className="text-[9px] font-semibold">Edit</span>
                   </button>
-                  <button type="button" onClick={() => requestDeleteSub(s._id)} className="flex flex-col items-center justify-center gap-1 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-colors">
-                    <FiTrash2 size={16} />
+                  <button type="button" onClick={() => requestDeleteSub(s._id)} className="col-span-2 flex items-center justify-center gap-1 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-500 transition-colors">
+                    <FiTrash2 size={14} />
                     <span className="text-[10px] font-semibold">Delete</span>
                   </button>
                 </div>
@@ -915,13 +954,24 @@ export default function AdminSubscriptions() {
                     <td>
                       <p className="font-medium text-slate-800">LKR {s.amount?.toLocaleString()}<span className="text-slate-400 text-xs">/{s.billingFrequency === 'monthly' ? 'mo' : s.billingFrequency}</span></p>
                       {hasBalance ? (
-                        <p className={`text-xs font-bold mt-0.5 inline-flex items-center gap-1 ${isOverdue ? 'text-red-600' : isInReminder ? 'text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200' : 'text-red-500'}`}>
-                          Bal: LKR {s.remainingBalance?.toLocaleString()}
-                        </p>
+                        <div className="mt-1 space-y-0.5">
+                          <span className={`text-[11px] font-bold inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${
+                            isOverdue
+                              ? 'text-red-700 bg-red-100 border border-red-200'
+                              : isInReminder
+                              ? 'text-amber-800 bg-amber-100 border border-amber-200'
+                              : 'text-red-600 bg-red-50 border border-red-100'
+                          }`}>
+                            <FiAlertCircle size={10} /> Unpaid: LKR {s.remainingBalance?.toLocaleString()}
+                          </span>
+                          <p className="text-[10px] text-slate-400 font-medium">
+                            Full: LKR {((s.totalBilled || s.amount) || 0).toLocaleString()} · Paid: LKR {(s.totalPaid || 0).toLocaleString()}
+                          </p>
+                        </div>
                       ) : (
-                        <p className="text-xs font-semibold text-emerald-600 mt-0.5 flex items-center gap-1"><FiCheck size={12} /> Paid</p>
+                        <p className="text-xs font-semibold text-emerald-600 mt-1 flex items-center gap-1"><FiCheck size={12} /> Paid in full</p>
                       )}
-                      <p className="text-xs text-slate-400">Due: {new Date(s.nextDueDate).toLocaleDateString()}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Due: {new Date(s.nextDueDate).toLocaleDateString()}</p>
                     </td>
                     <td>
                       {(() => {
@@ -941,6 +991,11 @@ export default function AdminSubscriptions() {
                             {pSt === 'overdue' && (
                               <span className="badge badge-red flex items-center gap-1 font-bold">
                                 <FiAlertCircle size={11} /> Overdue
+                              </span>
+                            )}
+                            {pSt === 'hold' && (
+                              <span className="badge bg-amber-500/15 text-amber-800 border border-amber-500/30 flex items-center gap-1 font-bold">
+                                <FiPauseCircle size={11} /> On Hold
                               </span>
                             )}
                             {['paused', 'cancelled', 'expired'].includes(pSt) && (
@@ -965,7 +1020,15 @@ export default function AdminSubscriptions() {
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => { setSelectedSub(s); setShowViewModal(true); }} className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100" title="View"><FiEye size={14} /></button>
                         <button onClick={() => openPayment(s)} className="p-1.5 rounded-lg text-green-500 hover:bg-green-50" title="Record Payment"><FiDollarSign size={14} /></button>
-                        <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50" title="Payment History"><FiList size={14} /></button>
+                        <button onClick={() => { setSelectedSub(s); setShowHistoryModal(true); }} className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50" title="Payment Ledger & History"><FiList size={14} /></button>
+                        <button
+                          onClick={() => toggleHoldMut.mutate({ id: s._id, currentStatus: s.status })}
+                          disabled={toggleHoldMut.isPending}
+                          className={`p-1.5 rounded-lg transition-colors ${s.status === 'hold' ? 'text-emerald-600 hover:bg-emerald-50' : 'text-amber-600 hover:bg-amber-50'}`}
+                          title={s.status === 'hold' ? 'Resume Subscription (Activate)' : 'Put Subscription on Hold'}
+                        >
+                          {s.status === 'hold' ? <FiPlayCircle size={14} /> : <FiPauseCircle size={14} />}
+                        </button>
                         <button onClick={() => openAgreement(s)} className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50" title="Add Agreement"><FiFileText size={14} /></button>
                         <button onClick={() => openEdit(s)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100" title="Edit"><FiEdit2 size={14} /></button>
                         <button type="button" onClick={() => requestDeleteSub(s._id)} className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500" title="Delete"><FiTrash2 size={14} /></button>
@@ -1121,6 +1184,7 @@ export default function AdminSubscriptions() {
                   <label className="form-label font-medium text-slate-700">Status</label>
                   <select className="form-select font-medium" value={form.status} onChange={e => f('status')(e.target.value)}>
                     <option value="active">Active</option>
+                    <option value="hold">On Hold</option>
                     <option value="paused">Paused</option>
                     <option value="overdue">Overdue</option>
                     <option value="cancelled">Cancelled</option>
@@ -1466,42 +1530,69 @@ export default function AdminSubscriptions() {
         </Modal>
       </AnimatePresence>
 
-      {/* ── Payment History Modal ── */}
+      {/* ── Payment Ledger & History Modal ── */}
       <AnimatePresence>
-        <Modal open={showHistoryModal} onClose={() => setShowHistoryModal(false)} title="Payment History" maxWidth="max-w-3xl">
+        <Modal open={showHistoryModal} onClose={() => setShowHistoryModal(false)} title="Subscription Payment Ledger & History" maxWidth="max-w-4xl">
           {selectedSub && (
             <div className="space-y-6">
-              {/* Modern Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100/50 p-4 rounded-2xl shadow-sm flex flex-col justify-center">
-                  <p className="text-[11px] font-bold text-indigo-500 uppercase tracking-wider mb-1">Subscription</p>
-                  <p className="text-sm font-semibold text-slate-800 line-clamp-2" title={selectedSub.title}>{selectedSub.title}</p>
+              {/* Modern Summary Cards — 4 Cards with Unpaid Amount */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100/60 p-4 rounded-2xl shadow-xs flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-1">Billing Rate</p>
+                  <p className="text-lg font-bold text-slate-800">LKR {selectedSub.amount?.toLocaleString()}</p>
+                  <p className="text-[11px] text-slate-400 capitalize">{selectedSub.billingFrequency || 'monthly'}</p>
                 </div>
-                <div className="bg-white border border-slate-100 p-4 rounded-2xl shadow-sm flex flex-col justify-center">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Billed</p>
-                  <p className="text-xl font-bold text-slate-800">LKR {selectedSub.totalBilled?.toLocaleString()}</p>
+                <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-xs flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Billed</p>
+                  <p className="text-lg font-bold text-slate-800">LKR {((selectedSub.totalBilled || selectedSub.amount) || 0).toLocaleString()}</p>
+                  <p className="text-[11px] text-slate-400">All-time billed</p>
                 </div>
-                <div className="bg-emerald-50/50 border border-emerald-100/50 p-4 rounded-2xl shadow-sm flex flex-col justify-center">
-                  <p className="text-[11px] font-bold text-emerald-500 uppercase tracking-wider mb-1">Total Paid</p>
-                  <p className="text-xl font-bold text-emerald-600">LKR {selectedSub.totalPaid?.toLocaleString()}</p>
+                <div className="bg-emerald-50/60 border border-emerald-100 p-4 rounded-2xl shadow-xs flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Total Collected</p>
+                  <p className="text-lg font-bold text-emerald-700">LKR {(selectedSub.totalPaid || 0).toLocaleString()}</p>
+                  <p className="text-[11px] text-emerald-600/70 font-medium">{selectedSub.payments?.length || 0} transaction(s)</p>
+                </div>
+                <div className={`p-4 rounded-2xl shadow-xs flex flex-col justify-center border ${
+                  (selectedSub.remainingBalance || 0) > 0 
+                    ? 'bg-red-50/70 border-red-200 text-red-900' 
+                    : 'bg-emerald-50/50 border-emerald-100 text-emerald-900'
+                }`}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1 opacity-70">
+                    {(selectedSub.remainingBalance || 0) > 0 ? 'Unpaid Balance' : 'Payment Status'}
+                  </p>
+                  <p className={`text-lg font-bold ${(selectedSub.remainingBalance || 0) > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                    LKR {(selectedSub.remainingBalance || 0).toLocaleString()}
+                  </p>
+                  <p className={`text-[11px] font-semibold ${(selectedSub.remainingBalance || 0) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    {(selectedSub.remainingBalance || 0) > 0 ? '⚠️ Outstanding Due' : '✓ Fully Settled'}
+                  </p>
                 </div>
               </div>
 
-              {/* Action buttons: Export PDF, Email, SMS */}
-              <div className="flex gap-2 flex-wrap items-center justify-between bg-slate-50/50 p-2 rounded-xl border border-slate-100">
-                <ExportBar
-                  data={[...(selectedSub.payments || [])].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))}
-                  columns={[
-                    { header: 'Date', accessor: (p) => p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—' },
-                    { header: 'Amount', accessor: (p) => `LKR ${p.amount?.toLocaleString()}` },
-                    { header: 'Method', accessor: (p) => p.method?.replace('_', ' ') || '—' },
-                    { header: 'Reference', accessor: (p) => p.reference || '—' },
-                    { header: 'Note', accessor: (p) => p.note || '—' },
-                    { header: 'Recorded By', accessor: (p) => p.recordedBy?.name || '—' },
-                  ]}
-                  title={`Payment History - ${selectedSub.title}`}
-                  filters={{ Subscription: selectedSub.subscriptionNo, Client: selectedSub.client?.name }}
-                />
+              {/* Action buttons: Export PDF, Record Payment, Email, SMS */}
+              <div className="flex gap-2 flex-wrap items-center justify-between bg-slate-50/80 p-3 rounded-2xl border border-slate-200/80">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setShowHistoryModal(false); openPayment(selectedSub); }}
+                    className="btn-primary btn-sm flex items-center gap-1.5 shadow-sm"
+                  >
+                    <FiDollarSign size={14} /> Record Payment
+                  </button>
+                  <ExportBar
+                    data={[...(selectedSub.payments || [])].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))}
+                    columns={[
+                      { header: 'Date', accessor: (p) => p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—' },
+                      { header: 'Amount', accessor: (p) => `LKR ${p.amount?.toLocaleString()}` },
+                      { header: 'Method', accessor: (p) => p.method?.replace('_', ' ') || '—' },
+                      { header: 'Reference', accessor: (p) => p.reference || '—' },
+                      { header: 'Note', accessor: (p) => p.note || '—' },
+                      { header: 'Recorded By', accessor: (p) => p.recordedBy?.name || '—' },
+                    ]}
+                    title={`Payment Ledger - ${selectedSub.title}`}
+                    filters={{ Subscription: selectedSub.subscriptionNo, Client: selectedSub.client?.name }}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <button
                     type="button"

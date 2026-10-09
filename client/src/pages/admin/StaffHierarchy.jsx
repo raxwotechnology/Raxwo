@@ -162,7 +162,7 @@ export default function StaffHierarchy() {
       return {
         isManagerScoped: true,
         directors: pmLeader,
-        management: [],
+        admins: [],
         projectManagers: teamLeads,
         engineers,
         interns,
@@ -170,7 +170,7 @@ export default function StaffHierarchy() {
     }
 
     const directors = []
-    const management = []
+    const admins = []
     const projectManagers = []
     const engineers = []
     const interns = []
@@ -182,12 +182,10 @@ export default function StaffHierarchy() {
 
       if (isIntern) {
         interns.push(emp)
-      } else if (desig.includes('director') || desig.includes('ceo') || desig.includes('founder') || desig.includes('managing') || desig.includes('chief')) {
+      } else if (desig.includes('director') || desig.includes('ceo') || desig.includes('founder') || desig.includes('managing') || desig.includes('chief executive')) {
         directors.push(emp)
-      } else if (desig.includes('system') || desig.includes('administrator') || desig.includes('secretary') || desig.includes('operations') || desig.includes('hr') || desig.includes('general manager')) {
-        management.push(emp)
-      } else if (role === 'admin') {
-        directors.push(emp)
+      } else if (role === 'admin' || desig.includes('administrator') || desig.includes('system admin') || desig.includes('operations') || desig.includes('hr') || desig.includes('general manager')) {
+        admins.push(emp)
       } else if (role === 'manager' || desig.includes('manager') || desig.includes('team lead') || desig.includes('tech lead') || desig.includes('lead')) {
         projectManagers.push(emp)
       } else {
@@ -195,7 +193,7 @@ export default function StaffHierarchy() {
       }
     })
 
-    return { isManagerScoped: false, directors, management, projectManagers, engineers, interns }
+    return { isManagerScoped: false, directors, admins, projectManagers, engineers, interns }
   }, [filteredEmployees, isAdmin, currentUser, deptFilter])
 
   // Group employees by team leaders & their direct reports (Team Wise)
@@ -288,7 +286,7 @@ export default function StaffHierarchy() {
   }, [employees, filteredEmployees, search, deptFilter, isAdmin, currentUser])
 
   const totalCount = employees.length
-  const leaderCount = (hierarchyTiers.directors.length + hierarchyTiers.management.length + hierarchyTiers.projectManagers.length)
+  const leaderCount = (hierarchyTiers.directors.length + (hierarchyTiers.admins?.length || 0) + hierarchyTiers.projectManagers.length)
   const devCount = hierarchyTiers.engineers.length
   const internCount = hierarchyTiers.interns.length
 
@@ -304,6 +302,7 @@ export default function StaffHierarchy() {
   const renderMemberCard = (emp, tierType = 'regular') => {
     const isIntern = emp.employmentType === 'intern'
     const isExecutive = tierType === 'executive'
+    const isAdminTier = tierType === 'admin'
     const isLead = tierType === 'lead'
     const reportsCount = directReportsMap[String(emp.userId?._id)] || directReportsMap[String(emp._id)] || 0
     const photo = emp.profilePhoto || emp.userId?.avatar
@@ -317,6 +316,8 @@ export default function StaffHierarchy() {
         className={`group relative bg-white rounded-2xl p-4 sm:p-5 border transition-all cursor-pointer shadow-xs hover:shadow-xl flex flex-col justify-between text-left overflow-hidden ${
           isExecutive
             ? 'border-indigo-200/90 ring-1 ring-indigo-500/20 bg-gradient-to-b from-indigo-50/30 via-white to-white'
+            : isAdminTier
+            ? 'border-blue-200/90 ring-1 ring-blue-500/20 bg-gradient-to-b from-blue-50/30 via-white to-white'
             : isLead
             ? 'border-sky-200/90 ring-1 ring-sky-500/20 bg-gradient-to-b from-sky-50/25 via-white to-white'
             : isIntern
@@ -328,6 +329,8 @@ export default function StaffHierarchy() {
         <div className={`absolute top-0 left-0 right-0 h-1 transition-opacity duration-300 ${
           isExecutive
             ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 opacity-90'
+            : isAdminTier
+            ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 opacity-90'
             : isLead
             ? 'bg-gradient-to-r from-sky-500 via-blue-600 to-sky-500 opacity-80'
             : isIntern
@@ -341,6 +344,8 @@ export default function StaffHierarchy() {
             <div className={`w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-2xl p-0.5 shadow-xs transition-transform duration-300 group-hover:scale-105 ${
               isExecutive
                 ? 'bg-gradient-to-tr from-indigo-600 to-purple-500'
+                : isAdminTier
+                ? 'bg-gradient-to-tr from-blue-600 to-cyan-500'
                 : isLead
                 ? 'bg-gradient-to-tr from-sky-500 to-blue-600'
                 : isIntern
@@ -362,7 +367,12 @@ export default function StaffHierarchy() {
                 <FiShield size={10} />
               </span>
             )}
-            {isLead && !isExecutive && (
+            {isAdminTier && !isExecutive && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white" title="Admin Panel">
+                <FiShield size={10} />
+              </span>
+            )}
+            {isLead && !isExecutive && !isAdminTier && (
               <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-sky-600 text-white rounded-full flex items-center justify-center shadow-md border-2 border-white" title="Team Lead">
                 <FiAward size={10} />
               </span>
@@ -407,6 +417,8 @@ export default function StaffHierarchy() {
           <span className={`font-bold px-2.5 py-0.5 rounded-full border shadow-2xs flex items-center gap-1.5 ${
             isExecutive
               ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+              : isAdminTier
+              ? 'bg-blue-50 text-blue-700 border-blue-200'
               : isLead
               ? 'bg-sky-50 text-sky-700 border-sky-200'
               : isIntern
@@ -415,6 +427,8 @@ export default function StaffHierarchy() {
           }`}>
             {isExecutive ? (
               <><FiShield size={11} className="text-indigo-600" /> Executive</>
+            ) : isAdminTier ? (
+              <><FiShield size={11} className="text-blue-600" /> Admin Panel</>
             ) : isLead ? (
               <><FiAward size={11} className="text-sky-600" /> Team Lead</>
             ) : isIntern ? (
@@ -612,6 +626,57 @@ export default function StaffHierarchy() {
       ───────────────────────────────────────────────────────────── */}
       {!isLoading && viewMode === 'tree' && (
         <div className="space-y-12">
+          {/* ── 🏢 COMPANY ROOT APEX NODE ── */}
+          <div className="flex flex-col items-center">
+            <div className="relative group bg-white border border-slate-200/90 hover:border-indigo-300 rounded-3xl p-6 sm:p-7 shadow-sm hover:shadow-xl transition-all max-w-xl w-full text-center overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-indigo-100/40 to-sky-100/40 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-600 via-secondary to-purple-600" />
+              
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-secondary p-0.5 shadow-sm mb-3">
+                  <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center p-2">
+                    <img
+                      src="/logo.png"
+                      alt="Raxwo"
+                      className="w-full h-full object-contain"
+                      onError={(e) => { e.currentTarget.style.display = 'none'; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex' }}
+                    />
+                    <div className="hidden w-full h-full items-center justify-center text-indigo-600 font-extrabold text-xl">R</div>
+                  </div>
+                </div>
+                
+                <span className="text-[10px] font-extrabold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 tracking-wider uppercase mb-1.5 flex items-center gap-1.5 shadow-2xs">
+                  <FiShield size={12} className="text-indigo-600" /> Corporate Apex · Organization Root
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-heading tracking-tight">
+                  Raxwo (Pvt) Ltd
+                </h2>
+                <p className="text-xs text-slate-500 font-medium mt-1 max-w-md">
+                  Enterprise Cloud ERP & Multi-tenant Business Management Infrastructure
+                </p>
+
+                {/* Corporate Meta Badges */}
+                <div className="flex items-center justify-center gap-3 mt-4 pt-3.5 border-t border-slate-100 flex-wrap text-xs">
+                  <span className="inline-flex items-center gap-1.5 text-slate-600 font-semibold bg-slate-50 px-3 py-1 rounded-xl border border-slate-200/80 shadow-2xs">
+                    <FiUsers size={12} className="text-secondary" /> {totalCount} Active Personnel
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-slate-600 font-semibold bg-slate-50 px-3 py-1 rounded-xl border border-slate-200/80 shadow-2xs">
+                    <FiLayers size={12} className="text-indigo-600" /> {Math.max(1, departments.length - 1)} Departments
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200/80 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Operational
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Connecting Stem from Company Apex to Next Level */}
+            <div className="flex flex-col items-center my-6">
+              <div className="w-0.5 h-10 bg-gradient-to-b from-indigo-500 to-sky-500 rounded-full" />
+              <div className="w-2.5 h-2.5 rounded-full bg-sky-500 ring-4 ring-sky-100" />
+            </div>
+          </div>
+
           {/* Tier 1: Board of Directors & Managing Directors */}
           {hierarchyTiers.directors.length > 0 && (
             <div className="relative">
@@ -636,32 +701,32 @@ export default function StaffHierarchy() {
               {/* Connecting Tree Stem to Next Tier */}
               <div className="flex justify-center my-6">
                 <div className="flex flex-col items-center">
-                  <div className="w-0.5 h-8 bg-gradient-to-b from-indigo-500 to-sky-500 rounded-full" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-sky-500 ring-4 ring-sky-100" />
+                  <div className="w-0.5 h-8 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-full" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500 ring-4 ring-blue-100" />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Tier 2: Management / Operations (Admin View Only) */}
-          {isAdmin && hierarchyTiers.management.length > 0 && (
+          {/* Tier 2: Admin Panel & Executive Administration (Admins) */}
+          {isAdmin && hierarchyTiers.admins.length > 0 && (
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-sm shadow-xs">
-                    <FiBriefcase size={16} />
+                    <FiShield size={16} />
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
-                      Tier 2: Operations, HR & General Management ({hierarchyTiers.management.length})
+                      Tier 2: Admin Panel & Executive Administration ({hierarchyTiers.admins.length})
                     </h2>
-                    <p className="text-xs text-slate-400">Company secretarial, HR leadership, and operations</p>
+                    <p className="text-xs text-slate-400">System administrators, operations oversight, and HR governance</p>
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {hierarchyTiers.management.map(emp => renderMemberCard(emp, 'lead'))}
+                {hierarchyTiers.admins.map(emp => renderMemberCard(emp, 'admin'))}
               </div>
 
               <div className="flex justify-center my-6">
@@ -673,7 +738,7 @@ export default function StaffHierarchy() {
             </div>
           )}
 
-          {/* Tier 2/3: Project Managers & Technical Team Leads */}
+          {/* Tier 3: Project Managers & Technical Team Leads */}
           {hierarchyTiers.projectManagers.length > 0 && (
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
@@ -683,9 +748,9 @@ export default function StaffHierarchy() {
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
-                      {!isAdmin ? `Tier 2: Technical Team Leads (${hierarchyTiers.projectManagers.length})` : `Tier 3: Project Managers & Technical Team Leads (${hierarchyTiers.projectManagers.length})`}
+                      {!isAdmin ? `Tier 2: Technical Team Leads (${hierarchyTiers.projectManagers.length})` : `Tier 3: Department Managers & Technical Team Leads (${hierarchyTiers.projectManagers.length})`}
                     </h2>
-                    <p className="text-xs text-slate-400">Direct technical leaders managing sprint execution & staff</p>
+                    <p className="text-xs text-slate-400">Direct technical leaders managing sprint execution, departments & staff</p>
                   </div>
                 </div>
               </div>
@@ -703,7 +768,7 @@ export default function StaffHierarchy() {
             </div>
           )}
 
-          {/* Tier 3/4: Core Software Engineers, Designers & Specialists */}
+          {/* Tier 4: Core Software Engineers, Designers & Specialists */}
           {hierarchyTiers.engineers.length > 0 && (
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
@@ -713,7 +778,7 @@ export default function StaffHierarchy() {
                   </div>
                   <div>
                     <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider font-heading">
-                      {!isAdmin ? `Tier 3: Software Engineers & Specialists (${hierarchyTiers.engineers.length})` : `Tier 4: Software Engineers & Core Specialists (${hierarchyTiers.engineers.length})`}
+                      {!isAdmin ? `Tier 3: Software Engineers & Specialists (${hierarchyTiers.engineers.length})` : `Tier 4: Software Engineers, Designers & Core Specialists (${hierarchyTiers.engineers.length})`}
                     </h2>
                     <p className="text-xs text-slate-400">Core software architects, developers, UI/UX, and QA staff</p>
                   </div>
