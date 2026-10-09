@@ -71,7 +71,11 @@ const app = express();
 app.set('trust proxy', 1);
 
 // Security & Universal CORS middleware
-app.use(helmet({ crossOriginResourcePolicy: false, crossOriginOpenerPolicy: false }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false
+}));
 
 // Universal CORS middleware ensuring Access-Control headers on ALL responses (including errors & preflights)
 app.use((req, res, next) => {
