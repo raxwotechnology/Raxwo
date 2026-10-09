@@ -2,9 +2,9 @@
   "name": "raxwo-server",
   "version": "1.0.0",
   "description": "Raxwo Pvt Ltd - HRM & Corporate Portal Backend",
-  "main": "src/server.js",
+  "main": "index.js",
   "scripts": {
-    "start": "cd server && node src/server.js",
+    "start": "node index.js",
     "dev": "cd server && nodemon src/server.js",
     "seed": "cd server && node src/seed.js",
     "build": "cd client && npm run build"
