@@ -6,7 +6,6 @@
 const { sendMail } = require('../utils/mailer');
 const EmailLog = require('../models/EmailLog');
 const SiteSetting = require('../models/SiteSetting');
-const { localFileToDataUri } = require('./documentHtmlService');
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 
@@ -18,30 +17,25 @@ const buildEmailHTML = async (title, content) => {
   const companyName = settings.siteName || 'Raxwo Technology';
   const rawLogoUrl = (settings.logoUrl || '').trim();
 
+  // Public base URL for external image links in emails.
+  // Note: Emails MUST use absolute public HTTPS URLs. Base64 data URIs are blocked/dropped by Gmail, Apple Mail, and Outlook.
+  const publicBase = (process.env.PUBLIC_URL || (APP_URL && !APP_URL.includes('localhost') ? APP_URL : 'https://manage.raxwo.net')).replace(/\/$/, '');
+
   let logoSrc = '';
-  if (rawLogoUrl) {
-    logoSrc = localFileToDataUri(rawLogoUrl);
-  }
-
-  if (!logoSrc) {
-    const publicBase = (settings.websiteUrl && /^https?:\/\//i.test(settings.websiteUrl))
-      ? settings.websiteUrl.replace(/\/$/, '')
-      : (process.env.PUBLIC_URL || (APP_URL && !APP_URL.includes('localhost') ? APP_URL : 'https://manage.raxwo.net'));
-
-    if (/^https?:\/\//i.test(rawLogoUrl)) {
-      logoSrc = rawLogoUrl;
-    } else if (rawLogoUrl) {
-      const rel = rawLogoUrl.startsWith('/') ? rawLogoUrl : `/${rawLogoUrl}`;
-      logoSrc = `${publicBase}${rel}`;
-    } else {
-      logoSrc = `${publicBase}/raxwo-logo-final.png`;
-    }
+  if (/^https?:\/\//i.test(rawLogoUrl)) {
+    logoSrc = rawLogoUrl;
+  } else if (rawLogoUrl && !rawLogoUrl.startsWith('data:')) {
+    const rel = rawLogoUrl.startsWith('/') ? rawLogoUrl : `/${rawLogoUrl}`;
+    logoSrc = `${publicBase}${rel}`;
+  } else {
+    // Standard white/transparent branding logo hosted on the portal
+    logoSrc = `${publicBase}/raxwo-logo-final.png`;
   }
 
   const contactEmail = settings.contactEmail || settings.adminEmail || 'contact@raxwo.net';
   const contactPhone = settings.contactPhone || '';
   const address = settings.contactAddress || 'Colombo, Sri Lanka';
-  const website = settings.websiteUrl || APP_URL;
+  const website = settings.websiteUrl ? (settings.websiteUrl.startsWith('http') ? settings.websiteUrl : `https://${settings.websiteUrl}`) : APP_URL;
 
   const primaryColor = '#2563eb';
 
@@ -57,18 +51,13 @@ const buildEmailHTML = async (title, content) => {
   .footer { background: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e2e8f0; }
   .footer p { margin: 5px 0; font-size: 13px; color: #64748b; }
   .footer a { color: ${primaryColor}; text-decoration: none; }
-  .btn { display: inline-block; background-color: ${primaryColor}; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 24px 0; transition: background-color 0.3s; text-align: center; }
-  .info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 24px 0; }
-  .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
-  .info-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-  .info-label { color: #64748b; font-weight: 500; font-size: 14px; }
-  .info-val { color: #0f172a; font-weight: 600; text-align: right; font-size: 14px; }
+  .btn { display: inline-block; background-color: ${primaryColor}; color: #ffffff !important; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 15px; margin: 24px 0; text-align: center; }
 </style>
 </head>
 <body>
   <div class="wrapper">
     <div style="background-color: #0F172A; background: linear-gradient(135deg, #0F172A, #1E293B); padding: 36px 24px; text-align: center; border-top-left-radius: 12px; border-top-right-radius: 12px;">
-      ${logoSrc ? `<img src="${logoSrc}" alt="${companyName}" width="180" style="max-height: 55px; width: auto; max-width: 200px; display: block; margin: 0 auto 16px auto; border: 0; outline: none;" />` : ''}
+      ${logoSrc ? `<img src="${logoSrc}" alt="${companyName}" width="160" style="max-height: 50px; width: auto; max-width: 180px; display: block; margin: 0 auto 16px auto; border: 0; outline: none; color: #FFFFFF; font-size: 16px; font-weight: 700; text-decoration: none; font-family: 'Segoe UI', Arial, sans-serif;" />` : `<div style="color: #FFFFFF; font-size: 18px; font-weight: 700; margin-bottom: 12px;">${companyName}</div>`}
       <h1 style="color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.3; font-family: 'Segoe UI', Arial, sans-serif; text-align: center; text-shadow: 0 1px 3px rgba(0,0,0,0.6);">${title}</h1>
     </div>
     <div class="body">
@@ -86,10 +75,24 @@ const buildEmailHTML = async (title, content) => {
 </html>`;
 };
 
-const btnHtml = (label, url) => `<div style="text-align: center;"><a href="${url}" class="btn">${label}</a></div>`;
+const btnHtml = (label, url) => `<div style="text-align: center; margin: 24px 0;"><a href="${url}" class="btn" style="background-color: #2563eb; color: #ffffff !important; display: inline-block; padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 15px; text-decoration: none; font-family: 'Segoe UI', Arial, sans-serif;">${label}</a></div>`;
+
+// Table-based info box for 100% email client compatibility (flexbox collapses in Gmail/Outlook)
 const infoBoxHtml = (rows) => {
-  const inner = rows.map(r => `<div class="info-row"><span class="info-label">${r.label}</span><span class="info-val">${r.value}</span></div>`).join('');
-  return `<div class="info-box">${inner}</div>`;
+  const tableRows = rows.map((r, idx) => {
+    const isLast = idx === rows.length - 1;
+    const border = isLast ? '' : 'border-bottom: 1px solid #e2e8f0;';
+    return `<tr>
+      <td style="padding: 11px 16px; font-size: 14px; color: #64748b; font-weight: 500; font-family: 'Segoe UI', Arial, sans-serif; text-align: left; ${border}">${r.label}</td>
+      <td align="right" style="padding: 11px 16px; font-size: 14px; color: #0f172a; font-weight: 600; font-family: 'Segoe UI', Arial, sans-serif; text-align: right; ${border}">${r.value}</td>
+    </tr>`;
+  }).join('');
+
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; border-collapse: separate; border-spacing: 0; margin: 20px 0; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>`;
 };
 
 
