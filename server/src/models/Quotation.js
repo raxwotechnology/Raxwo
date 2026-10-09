@@ -43,7 +43,7 @@ const quotationSchema = new mongoose.Schema({
   bankAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'BankAccount' },
   bankBranch: { type: String, default: '' },
   preparedBy: { type: String, default: '' },
-  directorRole: { type: String, enum: ['', 'admin', 'manager', 'hr'], default: '' },
+  directorRole: { type: String, enum: ['', 'admin', 'director', 'manager', 'hr'], default: '' },
   directorName: { type: String, default: '' },
   directorSealUrl: { type: String, default: '' },
   showSeal: { type: Boolean, default: true },

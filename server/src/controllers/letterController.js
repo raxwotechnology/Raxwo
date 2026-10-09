@@ -277,7 +277,7 @@ exports.getLetters = async (req, res, next) => {
       })
       .populate('client', 'name email')
       .populate('issuedBy', 'name')
-      .select('-signatures.director.data -signatures.hr.data -signatures.manager.data -signatures.signatory.data -signatures.seal.data -signatures.provider.data -signatures.client.data -signatures.witness.data')
+      .select('-signatures.director.data -signatures.marketing.data -signatures.hr.data -signatures.manager.data -signatures.signatory.data -signatures.seal.data -signatures.provider.data -signatures.client.data -signatures.witness.data')
       .sort({ createdAt: -1 })
       .limit(500)
       .lean();
@@ -332,6 +332,7 @@ exports.updateLetter = async (req, res, next) => {
         hr: { ...prev.signatures?.hr, ...signatures.hr },
         manager: { ...prev.signatures?.manager, ...signatures.manager },
         director: { ...prev.signatures?.director, ...signatures.director },
+        marketing: { ...prev.signatures?.marketing, ...signatures.marketing },
         seal: { ...prev.signatures?.seal, ...signatures.seal },
       };
     }

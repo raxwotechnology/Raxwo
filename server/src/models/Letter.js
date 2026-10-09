@@ -24,7 +24,7 @@ const letterSchema = new mongoose.Schema({
     default: 'none',
   },
   signatures: {
-    activeRole: { type: String, enum: ['', 'admin', 'manager', 'hr', 'custom'], default: 'admin' },
+    activeRole: { type: String, enum: ['', 'admin', 'director', 'manager', 'hr', 'custom', 'marketing'], default: 'admin' },
     includeSignature: { type: Boolean, default: true },
     includeSeal: { type: Boolean, default: true },
     signatory: {
@@ -37,6 +37,7 @@ const letterSchema = new mongoose.Schema({
     manager: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
     seal: { data: { type: String, default: '' } },
     director: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
+    marketing: { data: { type: String, default: '' }, name: { type: String, default: '' }, title: { type: String, default: '' } },
   },
   structuredData: { type: mongoose.Schema.Types.Mixed, default: null },
 }, { timestamps: true });
