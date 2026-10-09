@@ -455,111 +455,83 @@ export default function StaffHierarchy() {
 
   return (
     <div className="space-y-6 animate-fade-in pb-16">
-      {/* ── Executive Hero Header (Clean Light Theme) ── */}
-      <div className="relative overflow-hidden bg-white p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-200/90">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-sky-100/50 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
-        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-indigo-50/60 rounded-full blur-2xl pointer-events-none" />
+      {/* ── Standard ERP Page Header ── */}
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">{!isAdmin ? 'Project Team Hierarchy' : 'Company Hierarchy & Directory'}</h1>
+          <p className="page-subtitle">
+            {!isAdmin
+              ? 'Interactive reporting structure for assigned project teams, technical team leads, and interns.'
+              : 'Explore corporate governance, executive leadership, technical reporting lines, and personnel directory.'}
+          </p>
+        </div>
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider">
-              <FiLayers size={13} className="text-secondary" />
-              <span>{!isAdmin ? 'Team Reporting Tree' : 'Corporate Organizational Architecture'}</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight font-heading">
-              {!isAdmin ? 'Project Team Hierarchy' : 'Company Hierarchy & Directory'}
-            </h1>
-            <p className="text-sm text-slate-500 max-w-2xl leading-relaxed">
-              {!isAdmin
-                ? 'Interactive reporting structure for assigned project teams, technical team leads, senior engineers, and associate interns.'
-                : 'Explore corporate governance, executive leadership, technical reporting lines, project teams, and personnel directory.'}
-            </p>
-          </div>
-
-          {/* Segmented View Mode Toggle */}
-          <div className="flex items-center p-1.5 rounded-2xl bg-slate-100 border border-slate-200/80 shrink-0 self-start md:self-center shadow-xs">
+        {/* View Mode Segmented Controls */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center p-1 rounded-xl bg-slate-100 border border-slate-200 shrink-0 shadow-2xs">
             <button
+              type="button"
               onClick={() => setViewMode('tree')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                viewMode === 'tree'
-                  ? 'bg-white text-slate-900 shadow-sm font-extrabold border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'tree' ? 'bg-white text-slate-900 shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <FiLayers size={14} className={viewMode === 'tree' ? 'text-indigo-600' : ''} />
+              <FiLayers size={13} className={viewMode === 'tree' ? 'text-indigo-600' : ''} />
               <span>Org Tree</span>
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('team')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                viewMode === 'team'
-                  ? 'bg-white text-slate-900 shadow-sm font-extrabold border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'team' ? 'bg-white text-slate-900 shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <FiUsers size={14} className={viewMode === 'team' ? 'text-secondary' : ''} />
+              <FiUsers size={13} className={viewMode === 'team' ? 'text-secondary' : ''} />
               <span>Team Pods</span>
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('grid')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                viewMode === 'grid'
-                  ? 'bg-white text-slate-900 shadow-sm font-extrabold border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm font-extrabold' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <FiGrid size={14} className={viewMode === 'grid' ? 'text-emerald-600' : ''} />
+              <FiGrid size={13} className={viewMode === 'grid' ? 'text-emerald-600' : ''} />
               <span>Staff Grid</span>
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Live Headcount KPI Chips (Light Theme) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-slate-100">
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-              <FiUsers size={18} />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Total Personnel</p>
-              <p className="text-xl font-bold text-slate-900 font-heading">{totalCount}</p>
-            </div>
-          </div>
+      {/* ── Standard ERP KPI Cards (Categorized Figures) ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="kpi-card kpi-blue">
+          <p className="text-xs uppercase text-slate-500 font-medium">Total Personnel</p>
+          <p className="text-2xl font-bold text-primary mt-1">{totalCount}</p>
+          <p className="text-[11px] text-slate-400 font-medium mt-1">Active staff directory</p>
+        </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
-            <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 shrink-0">
-              <FiShield size={18} />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">{!isAdmin ? 'Team Leads' : 'Leadership & PMs'}</p>
-              <p className="text-xl font-bold text-slate-900 font-heading">{leaderCount}</p>
-            </div>
-          </div>
+        <div className="kpi-card kpi-purple">
+          <p className="text-xs uppercase text-slate-500 font-medium">{!isAdmin ? 'Team Leads' : 'Leadership & PMs'}</p>
+          <p className="text-2xl font-bold text-primary mt-1">{leaderCount}</p>
+          <p className="text-[11px] text-slate-400 font-medium mt-1">Executive & Management</p>
+        </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
-              <FiBriefcase size={18} />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Core Specialists</p>
-              <p className="text-xl font-bold text-slate-900 font-heading">{devCount}</p>
-            </div>
-          </div>
+        <div className="kpi-card kpi-green">
+          <p className="text-xs uppercase text-slate-500 font-medium">Core Specialists</p>
+          <p className="text-2xl font-bold text-primary mt-1">{devCount}</p>
+          <p className="text-[11px] text-slate-400 font-medium mt-1">Engineers & Designers</p>
+        </div>
 
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50/80 border border-slate-100">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600 shrink-0">
-              <FiBookOpen size={18} />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Active Interns</p>
-              <p className="text-xl font-bold text-slate-900 font-heading">{internCount}</p>
-            </div>
-          </div>
+        <div className="kpi-card kpi-orange">
+          <p className="text-xs uppercase text-slate-500 font-medium">Active Interns</p>
+          <p className="text-2xl font-bold text-primary mt-1">{internCount}</p>
+          <p className="text-[11px] text-slate-400 font-medium mt-1">Trainees & Interns</p>
         </div>
       </div>
 
       {/* ── Search & Filter Control Bar ── */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <FiSearch size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
