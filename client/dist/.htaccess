@@ -27,3 +27,20 @@
     Header set Cache-Control "no-cache, no-store, must-revalidate"
   </FilesMatch>
 </IfModule>
+
+# Security: Block sensitive files, configs, dotfiles, maps, and server sources
+<FilesMatch "^\.">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
+
+<FilesMatch "\.(env|json|lock|log|md|yml|yaml|ts|tsx|map|bak|swp)$">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
+
+<Files "manifest.json">
+  Order allow,deny
+  Allow from all
+</Files>
+

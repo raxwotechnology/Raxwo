@@ -77,6 +77,32 @@ app.use(helmet({
   crossOriginOpenerPolicy: false
 }));
 
+// Security Shield: Block direct access to server source files, env files, configs, and sourcemaps
+app.use((req, res, next) => {
+  const reqPath = (req.path || '').toLowerCase();
+  
+  if (
+    reqPath.startsWith('/server') ||
+    reqPath.startsWith('/src') ||
+    reqPath.startsWith('/client/src') ||
+    reqPath.startsWith('/node_modules') ||
+    reqPath.startsWith('/.git') ||
+    reqPath.startsWith('/backups') ||
+    reqPath.startsWith('/scratch') ||
+    reqPath.includes('/.') ||
+    reqPath.endsWith('.env') ||
+    reqPath.endsWith('.map') ||
+    reqPath.endsWith('.ts') ||
+    reqPath.endsWith('.tsx') ||
+    reqPath.endsWith('.config.js') ||
+    reqPath.endsWith('.config.mjs') ||
+    (reqPath.endsWith('.json') && !reqPath.startsWith('/api') && reqPath !== '/manifest.json')
+  ) {
+    return res.status(404).send('Not Found');
+  }
+  next();
+});
+
 // Universal CORS middleware ensuring Access-Control headers on ALL responses (including errors & preflights)
 app.use((req, res, next) => {
   const origin = req.headers.origin || 'https://manage.raxwo.net';
@@ -136,17 +162,19 @@ app.use('/uploads', (req, res) => {
   `);
 });
 
-// ── Diagnostic endpoint (unauthenticated, read-only) ─────────────────────────
-// Visit https://backend.raxwo.net/api/debug/uploads to inspect file storage
+// ── Diagnostic endpoint ────────────────────────────────────────────────────────
 app.get('/api/debug/uploads', (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ success: false, message: 'Not found' });
+  }
   try {
     const uploadsRoot = getUploadsRoot();
     const docsDir = path.join(uploadsRoot, 'documents');
     let files = [];
     let canWrite = false;
     try {
-      files = fs.readdirSync(docsDir).slice(0, 50); // list up to 50 files
-    } catch (e) { files = [`ERROR reading dir: ${e.message}`]; }
+      files = fs.readdirSync(docsDir).slice(0, 50);
+    } catch (e) { files = []; }
     try {
       const testFile = path.join(docsDir, `_write_test_${Date.now()}.tmp`);
       fs.writeFileSync(testFile, 'test');
@@ -154,14 +182,8 @@ app.get('/api/debug/uploads', (req, res) => {
       canWrite = true;
     } catch (e) { canWrite = false; }
     res.json({
-      uploadsRoot,
-      docsDir,
       canWrite,
       fileCount: files.length,
-      files,
-      cwd: process.cwd(),
-      __dirname: __dirname,
-      env_UPLOADS_DIR: process.env.UPLOADS_DIR || null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -235,36 +257,42 @@ app.get('/sitemap.xml', seoController.getSitemap);
 app.get('/robots.txt', seoController.getRobots);
 
 // Serve client build if available (for single-domain or proxy deployments)
-const possibleDistPaths = [
+// Security: Only accept strictly isolated client/dist directories, never project root or server source directories
+const candidateDistPaths = [
   process.env.DIST_PATH,
   path.resolve(__dirname, '../../client/dist'),
   path.resolve(__dirname, '../client/dist'),
   path.resolve(__dirname, '../../../client/dist'),
-  path.resolve(__dirname, '../../dist'),
-  path.resolve(__dirname, '../dist'),
-  path.resolve(__dirname, '../public'),
-  path.resolve(__dirname, '../../public'),
-  path.resolve(__dirname, '../../public_html'),
-  path.resolve(__dirname, '../../../public_html'),
-  path.resolve(__dirname, '..'),
-  path.resolve(__dirname, '../..'),
   path.resolve(process.cwd(), 'client/dist'),
   path.resolve(process.cwd(), '../client/dist'),
   path.resolve(process.cwd(), 'dist'),
-  path.resolve(process.cwd(), '../dist'),
-  path.resolve(process.cwd(), 'public'),
-  path.resolve(process.cwd(), 'public_html'),
-  path.resolve(process.cwd(), '../public_html'),
-  path.resolve(process.cwd(), '../../public_html'),
-  path.resolve(process.cwd()),
+  path.resolve(__dirname, '../../dist'),
 ].filter(Boolean);
 
-let distDir = possibleDistPaths.find(p => fs.existsSync(path.join(p, 'index.html')));
+let distDir = candidateDistPaths.find(p => {
+  try {
+    const hasIndex = fs.existsSync(path.join(p, 'index.html'));
+    const isNotServerRoot = !fs.existsSync(path.join(p, 'server')) && !fs.existsSync(path.join(p, 'package.json'));
+    return hasIndex && isNotServerRoot;
+  } catch (err) {
+    return false;
+  }
+});
 
 if (distDir) {
   console.log(`🎨 Serving React Frontend static build from: ${distDir}`);
   const seoPrerender = createSeoPrerenderMiddleware(distDir);
-  app.use(express.static(distDir));
+  app.use(express.static(distDir, {
+    dotfiles: 'ignore',
+    etag: true,
+    lastModified: true,
+    maxAge: '1d',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('index.html')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      }
+    }
+  }));
   app.get('*', (req, res, next) => {
     if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/uploads')) {
       return next();
