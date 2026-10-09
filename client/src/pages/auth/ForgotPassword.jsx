@@ -64,7 +64,7 @@ export default function ForgotPassword() {
     try {
       await api.post('/auth/forgot-password/reset', { email, otp, password: data.password })
       toast.success('Password reset. You can sign in now.')
-      window.location.href = '/login'
+      window.location.href = '/'
     } catch (err) {
       toast.error(err.response?.data?.message || 'Reset failed')
     } finally {
@@ -80,7 +80,7 @@ export default function ForgotPassword() {
         animate={{ opacity: 1, scale: 1 }}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8"
       >
-        <Link to="/login" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-secondary mb-6">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-secondary mb-6">
           <FiArrowLeft size={14} /> Back to sign in
         </Link>
 

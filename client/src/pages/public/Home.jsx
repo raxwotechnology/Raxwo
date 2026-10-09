@@ -231,9 +231,13 @@ function HomeNav() {
             <button onClick={handleLogout} className="px-4 py-2 rounded-xl text-sm font-semibold text-red-300 hover:text-red-200 hover:bg-red-500/10 transition-all">Sign Out</button>
           </>
         ) : (
-          <Link to="/login" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all">
+          <button
+            type="button"
+            onClick={() => { const el = document.getElementById('signin-card') || document.querySelector('form'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold text-white/80 hover:text-[#20b2f5] hover:bg-white/10 transition-all cursor-pointer"
+          >
             <FiLogIn size={16} /> Sign In
-          </Link>
+          </button>
         )}
       </div>
 
@@ -395,9 +399,19 @@ function HomeNav() {
                 </div>
               ) : (
                 <div className="pt-6 mt-4 border-t border-white/10 space-y-3">
-                  <Link to="/login" onClick={() => setMobileOpen(false)} className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[15px] font-semibold border border-white/15 transition-all">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileOpen(false);
+                      setTimeout(() => {
+                        const el = document.getElementById('signin-card') || document.querySelector('form');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }, 100);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[15px] font-semibold border border-white/15 transition-all cursor-pointer"
+                  >
                     <FiLogIn size={18} /> Sign In
-                  </Link>
+                  </button>
                   <Link to="/contact" onClick={() => setMobileOpen(false)} className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-[#20b2f5] text-white text-[16px] font-bold shadow-[0_0_30px_rgba(32,178,245,0.4)]">
                     Let's Talk <FiMessageSquare size={18} />
                   </Link>

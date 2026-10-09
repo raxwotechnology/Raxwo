@@ -118,7 +118,7 @@ export default function Register() {
         <div className="mt-6 pt-5 border-t border-slate-100 text-center">
           <p className="text-[13px] text-slate-500">
             Already have an account?{' '}
-            <Link to="/login" className="font-semibold text-secondary hover:text-primary transition-colors">Sign in</Link>
+            <Link to="/" className="font-semibold text-secondary hover:text-primary transition-colors">Sign in</Link>
           </p>
         </div>
       </motion.div>

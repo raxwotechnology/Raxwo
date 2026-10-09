@@ -47,8 +47,8 @@ api.interceptors.response.use(
       
       const p = window.location.pathname
       // Only redirect if we had a token (meaning the 401 was unexpected expiration, not a manual logout)
-      if (hasToken && p !== '/login' && p !== '/' && !p.startsWith('/services') && !p.startsWith('/about')) {
-        window.location.href = '/login'
+      if (hasToken && p !== '/' && !p.startsWith('/services') && !p.startsWith('/about')) {
+        window.location.href = '/'
       }
     }
     return Promise.reject(error)

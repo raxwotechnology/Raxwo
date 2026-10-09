@@ -36,7 +36,7 @@ export default function ResetPassword() {
         password: data.password,
       })
       toast.success('Password updated. Sign in with your new password.')
-      navigate('/login')
+      navigate('/')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Reset failed')
     } finally {
@@ -134,7 +134,7 @@ export default function ResetPassword() {
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          <Link to="/login" className="text-secondary font-medium hover:underline">Back to sign in</Link>
+          <Link to="/" className="text-secondary font-medium hover:underline">Back to sign in</Link>
         </p>
       </motion.div>
     </div>

@@ -124,14 +124,14 @@ export default function ClientFeedback() {
                     <button
                       type="button"
                       className={`btn-sm ${liked ? 'btn-primary' : 'btn-outline'}`}
-                      onClick={() => isAuthenticated ? reactMut.mutate({ id: f._id, action: 'like' }) : navigate('/login')}
+                      onClick={() => isAuthenticated ? reactMut.mutate({ id: f._id, action: 'like' }) : navigate('/')}
                     >
                       <FiThumbsUp size={13} /> {f.likes || 0}
                     </button>
                     <button
                       type="button"
                       className={`btn-sm ${disliked ? 'btn-danger' : 'btn-outline'}`}
-                      onClick={() => isAuthenticated ? reactMut.mutate({ id: f._id, action: 'dislike' }) : navigate('/login')}
+                      onClick={() => isAuthenticated ? reactMut.mutate({ id: f._id, action: 'dislike' }) : navigate('/')}
                     >
                       <FiThumbsDown size={13} /> {f.dislikes || 0}
                     </button>

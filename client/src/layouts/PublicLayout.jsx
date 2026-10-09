@@ -328,7 +328,7 @@ export default function PublicLayout() {
             ) : (
               <div className="flex items-center gap-2">
                 <Link
-                  to="/login"
+                  to="/"
                   className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-[#20b2f5] hover:text-white border border-white/15 hover:border-[#20b2f5] transition-all shadow-sm"
                 >
                   <FiLogIn size={15} /> Sign In
@@ -500,7 +500,7 @@ export default function PublicLayout() {
               ) : (
                 <div className="pt-6 mt-4 border-t border-white/10 space-y-3">
                   <Link
-                    to="/login"
+                    to="/"
                     onClick={() => setMenuOpen(false)}
                     className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[15px] font-semibold border border-white/15 transition-all"
                   >

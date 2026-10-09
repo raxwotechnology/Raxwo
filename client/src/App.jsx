@@ -122,7 +122,7 @@ import ClientDashboard from './pages/client/Dashboard'
 // Guard components
 const ProtectedRoute = ({ children, roles }) => {
   const { isAuthenticated, user } = useAuthStore()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!isAuthenticated) return <Navigate to="/" replace />
   if (roles && !roles.includes(user?.role)) return <Navigate to="/" replace />
   return children
 }
@@ -213,7 +213,7 @@ export default function App() {
       </Route>
 
       {/* Auth */}
-      <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+      <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/register" element={<GuestRoute><Register /></GuestRoute>} />
       <Route path="/reset-password" element={<GuestRoute><ResetPassword /></GuestRoute>} />
       <Route path="/forgot-password" element={<GuestRoute><ForgotPassword /></GuestRoute>} />
