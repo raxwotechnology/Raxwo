@@ -105,10 +105,11 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote, o
 
   return (
     <motion.div
+      id={`product-${item._id || item.id || ''}`}
       whileHover={{ y: -6, scale: 1.01 }}
       transition={{ duration: 0.2 }}
       onClick={handleCardClick}
-      className="group relative bg-white rounded-3xl border border-slate-200/80 shadow-lg hover:shadow-2xl hover:border-blue-300 transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer"
+      className="group relative bg-white rounded-3xl border border-slate-200/80 shadow-lg hover:shadow-2xl hover:border-blue-300 transition-all duration-300 flex flex-col justify-between overflow-hidden cursor-pointer scroll-mt-28"
     >
       {/* Top Accent Gradient Bar */}
       <div
@@ -124,7 +125,7 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote, o
           <div className="flex items-center justify-between gap-3 mb-4">
             {logoSrc ? (
               <div className="h-14 w-auto min-w-[70px] max-w-[170px] p-2 rounded-2xl bg-white border border-slate-200/80 shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform">
-                <img src={mediaUrl(logoSrc)} alt={item.title} className="max-h-full max-w-full object-contain" />
+                <img src={mediaUrl(logoSrc)} alt={item.title} className="max-h-full max-w-full object-contain mix-blend-multiply" />
               </div>
             ) : (
               <div

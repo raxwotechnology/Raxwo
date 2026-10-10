@@ -13,10 +13,12 @@ import {
   FiX, FiTrash2, FiUserX, FiCheckCircle, FiAward, FiCopy,
   FiCalendar, FiMapPin, FiActivity, FiArrowRight, FiCheck
 } from 'react-icons/fi'
+import { useSiteBranding } from '../../hooks/useSiteBranding'
 
 export default function StaffHierarchy() {
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuthStore()
+  const { logoSrc, siteName } = useSiteBranding()
   const isAdmin = currentUser?.role === 'admin'
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState('all')
@@ -606,12 +608,20 @@ export default function StaffHierarchy() {
               
               <div className="relative z-10 flex flex-col items-center">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-secondary p-0.5 shadow-sm mb-3">
-                  <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center p-2">
+                  <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center p-1.5 overflow-hidden">
                     <img
-                      src="/logo.png"
-                      alt="Raxwo"
+                      src={logoSrc || '/logo.png'}
+                      alt={siteName || 'Raxwo'}
                       className="w-full h-full object-contain"
-                      onError={(e) => { e.currentTarget.style.display = 'none'; if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex' }}
+                      onError={(e) => {
+                        if (!e.currentTarget.dataset.fallbackTried) {
+                          e.currentTarget.dataset.fallbackTried = '1';
+                          e.currentTarget.src = '/raxwo-logo.png';
+                        } else {
+                          e.currentTarget.style.display = 'none';
+                          if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex';
+                        }
+                      }}
                     />
                     <div className="hidden w-full h-full items-center justify-center text-indigo-600 font-extrabold text-xl">R</div>
                   </div>

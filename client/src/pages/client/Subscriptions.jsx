@@ -30,9 +30,9 @@ function getReminderState(sub) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const daysUntilDue = Math.round((due - today) / 86400000)
-  const reminderDays = Number(sub.reminderDaysBefore) || 0
-  const isOverdue = (sub.overdueDays > 0) || (daysUntilDue < 0 && sub.remainingBalance > 0)
-  const isInReminder = !isOverdue && reminderDays > 0 && daysUntilDue >= 0 && daysUntilDue <= reminderDays && sub.remainingBalance > 0
+  const reminderDays = Number(sub.reminderDaysBefore) > 0 ? Number(sub.reminderDaysBefore) : 5
+  const isOverdue = (sub.overdueDays > 0) || daysUntilDue < 0
+  const isInReminder = !isOverdue && daysUntilDue >= 0 && daysUntilDue <= reminderDays
   return { isInReminder, isOverdue, daysUntilDue }
 }
 
@@ -140,7 +140,8 @@ export default function ClientSubscriptions() {
           >
             {subs.map(sub => {
               const { isInReminder, isOverdue, daysUntilDue } = getReminderState(sub);
-              const hasBalance = sub.remainingBalance > 0;
+              const hasBalance = (sub.remainingBalance || 0) > 0 || isOverdue || isInReminder || (sub.totalPaid || 0) === 0;
+              const displayBalance = (sub.remainingBalance || 0) > 0 ? sub.remainingBalance : (sub.amount || 0);
 
               return (
                 <motion.div 
@@ -177,7 +178,7 @@ export default function ClientSubscriptions() {
                         </span>
                         {isInReminder && (
                           <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200">
-                            Due in {daysUntilDue}d
+                            {daysUntilDue === 0 ? 'Due Today' : `Due in ${daysUntilDue}d`}
                           </span>
                         )}
                       </div>
@@ -209,7 +210,7 @@ export default function ClientSubscriptions() {
                         <span className="text-xs font-medium text-slate-500">Balance Due</span>
                         <span className={`text-base font-black ${hasBalance ? 'text-red-600' : 'text-emerald-500 flex items-center gap-1'}`}>
                           {!hasBalance && <FiCheckCircle size={14} />}
-                          LKR {sub.remainingBalance?.toLocaleString()}
+                          LKR {displayBalance.toLocaleString()}
                         </span>
                       </div>
                       {isOverdue && (
@@ -221,7 +222,7 @@ export default function ClientSubscriptions() {
                       {isInReminder && (
                         <div className="mt-2 bg-amber-100 text-amber-900 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 border border-amber-300">
                           <FiAlertCircle size={14} className="shrink-0 text-amber-700" /> 
-                          <span>Payment Reminder: Due in {daysUntilDue} day(s)!</span>
+                          <span>{daysUntilDue === 0 ? 'Payment Reminder: Payment is due today!' : `Payment Reminder: Due in ${daysUntilDue} day(s)!`}</span>
                         </div>
                       )}
                     </div>
@@ -291,11 +292,11 @@ export default function ClientSubscriptions() {
                       <button 
                         className="w-full relative group overflow-hidden rounded-xl font-bold text-white shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
                         style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' }}
-                        onClick={() => handlePay(sub)}
+                        onClick={() => handlePay({ ...sub, remainingBalance: displayBalance })}
                       >
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
                         <span className="relative flex items-center justify-center gap-2 py-3 text-sm">
-                          <FiDollarSign size={16} /> Pay LKR {sub.remainingBalance?.toLocaleString()}
+                          <FiDollarSign size={16} /> Pay LKR {displayBalance.toLocaleString()}
                         </span>
                       </button>
                     ) : (

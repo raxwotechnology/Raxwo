@@ -24,7 +24,7 @@ function getReminderState(sub) {
   const daysUntilDue = Math.round((due - today) / 86400000)
   const reminderDays = Number(sub.reminderDaysBefore) > 0 ? Number(sub.reminderDaysBefore) : 5
   const isOverdue = (sub.overdueDays > 0) || daysUntilDue < 0
-  const isInReminder = !isOverdue && daysUntilDue >= 0 && daysUntilDue <= reminderDays && (sub.status === 'active' || (sub.remainingBalance || 0) > 0)
+  const isInReminder = !isOverdue && daysUntilDue >= 0 && daysUntilDue <= reminderDays
   return { isInReminder, isOverdue, daysUntilDue }
 }
 
@@ -100,6 +100,7 @@ export default function AdminSubscriptions() {
     nextDueDate: '',
     reminderDaysBefore: '5',
     status: 'active', hostingUrl: '', domainName: '', provider: '', expiryDate: '', renewalStatus: 'active',
+    recordInitialPayment: false,
     paymentMethod: 'cash', bankAccount: '',
     socialMediaLinks: { facebook: '', instagram: '', tiktok: '', youtube: '', linkedin: '', twitter: '' }
   }
@@ -214,10 +215,10 @@ export default function AdminSubscriptions() {
     if (s.status === 'paused' || s.status === 'cancelled' || s.status === 'expired' || s.status === 'hold') {
       return s.status
     }
-    const { isOverdue } = getReminderState(s)
+    const { isOverdue, isInReminder, daysUntilDue } = getReminderState(s)
     const hasBalance = (s.remainingBalance || 0) > 0
     if (isOverdue || s.status === 'overdue') return 'overdue'
-    if (hasBalance) return 'unpaid'
+    if (hasBalance || isInReminder || daysUntilDue <= 0 || (s.totalPaid || 0) === 0) return 'unpaid'
     return 'paid'
   }
 
@@ -421,6 +422,13 @@ export default function AdminSubscriptions() {
     if (selectedSub) {
       delete payload.paymentMethod
       delete payload.bankAccount
+      delete payload.recordInitialPayment
+    } else {
+      payload.recordInitialPayment = Boolean(form.recordInitialPayment)
+      if (!form.recordInitialPayment) {
+        delete payload.paymentMethod
+        delete payload.bankAccount
+      }
     }
     saveMut.mutate(payload)
   }
@@ -833,7 +841,9 @@ export default function AdminSubscriptions() {
           {isLoading && <div className="text-center py-10"><div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin mx-auto" /></div>}
           {!isLoading && filteredSubs.map(s => {
             const { isInReminder, isOverdue, daysUntilDue } = getReminderState(s)
-            const hasBalance = (s.remainingBalance || 0) > 0
+            const pSt = getSubPaymentStatus(s)
+            const hasBalance = (s.remainingBalance || 0) > 0 || pSt === 'unpaid' || pSt === 'overdue'
+            const unpaidAmount = (s.remainingBalance || 0) > 0 ? s.remainingBalance : (s.amount || 0)
 
             return (
               <div key={s._id} className={`bg-white rounded-2xl border shadow-sm p-4 space-y-3 ${isOverdue ? 'border-red-300 bg-red-50/20' : isInReminder ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'}`}>
@@ -851,7 +861,11 @@ export default function AdminSubscriptions() {
                       'badge-gray'
                     }`}>{s.status === 'hold' ? 'On Hold' : s.status}</span>
                     {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-md">{s.overdueDays || 1}d overdue</span>}
-                    {isInReminder && <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md">Due in {daysUntilDue}d</span>}
+                    {isInReminder && (
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-md">
+                        {daysUntilDue === 0 ? 'Due Today' : `Due in ${daysUntilDue}d`}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm bg-slate-50/80 p-3 rounded-xl border border-slate-100">
@@ -867,7 +881,7 @@ export default function AdminSubscriptions() {
                      <p className="text-[11px] text-slate-500 font-medium">Due: <span className="font-bold text-slate-700">{new Date(s.nextDueDate).toLocaleDateString()}</span></p>
                      {hasBalance ? (
                        <p className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${isOverdue ? 'text-red-700 bg-red-100' : isInReminder ? 'text-red-600 bg-red-50 border border-red-200' : 'text-red-500 bg-red-50'}`}>
-                         Unpaid: LKR {s.remainingBalance?.toLocaleString()}
+                         Unpaid: LKR {unpaidAmount?.toLocaleString()}
                        </p>
                      ) : (
                        <p className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -938,7 +952,9 @@ export default function AdminSubscriptions() {
               )}
               {!isLoading && filteredSubs.map(s => {
                 const { isInReminder, isOverdue, daysUntilDue } = getReminderState(s)
-                const hasBalance = (s.remainingBalance || 0) > 0
+                const pSt = getSubPaymentStatus(s)
+                const hasBalance = (s.remainingBalance || 0) > 0 || pSt === 'unpaid' || pSt === 'overdue'
+                const unpaidAmount = (s.remainingBalance || 0) > 0 ? s.remainingBalance : (s.amount || 0)
 
                 return (
                   <tr key={s._id} className={isOverdue ? 'bg-red-50/20' : isInReminder ? 'bg-amber-50/20' : ''}>
@@ -962,7 +978,7 @@ export default function AdminSubscriptions() {
                               ? 'text-amber-800 bg-amber-100 border border-amber-200'
                               : 'text-red-600 bg-red-50 border border-red-100'
                           }`}>
-                            <FiAlertCircle size={10} /> Unpaid: LKR {s.remainingBalance?.toLocaleString()}
+                            <FiAlertCircle size={10} /> Unpaid: LKR {unpaidAmount?.toLocaleString()}
                           </span>
                           <p className="text-[10px] text-slate-400 font-medium">
                             Full: LKR {((s.totalBilled || s.amount) || 0).toLocaleString()} · Paid: LKR {(s.totalPaid || 0).toLocaleString()}
@@ -975,7 +991,6 @@ export default function AdminSubscriptions() {
                     </td>
                     <td>
                       {(() => {
-                        const pSt = getSubPaymentStatus(s)
                         return (
                           <div className="flex flex-col items-start gap-1">
                             {pSt === 'paid' && (
@@ -1004,7 +1019,7 @@ export default function AdminSubscriptions() {
                             {isOverdue && <span className="text-[10px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">{s.overdueDays || 1}d overdue</span>}
                             {isInReminder && (
                               <span className="text-[10px] font-bold text-amber-800 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                <FiAlertCircle size={10} /> Due in {daysUntilDue}d
+                                <FiAlertCircle size={10} /> {daysUntilDue === 0 ? 'Due today' : `Due in ${daysUntilDue}d`}
                               </span>
                             )}
                           </div>
@@ -1227,37 +1242,56 @@ export default function AdminSubscriptions() {
               
               {/* Payment Info for New Subscription */}
               {!selectedSub && (
-                <div className="pt-3 border-t border-slate-200/80">
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                    <FiCheck size={13} className="text-emerald-600" /> Initial Payment Setup
-                  </p>
-                  <div className="grid sm:grid-cols-2 gap-4">
+                <div className="pt-3 border-t border-slate-200/80 space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70">
                     <div>
-                      <label className="form-label font-medium text-slate-700">Initial Payment Method</label>
-                      <select className="form-select font-medium" value={form.paymentMethod} onChange={e => f('paymentMethod')(e.target.value)}>
-                        <option value="cash">Cash</option>
-                        <option value="card">Card</option>
-                        <option value="bank_transfer">Bank transfer</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="online_transfer">Online transfer</option>
-                        <option value="payhere">PayHere</option>
-                        <option value="manual">Other / manual</option>
-                      </select>
-                      <p className="text-[11px] text-slate-500 mt-1 font-medium">Records initial payment automatically</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <FiCheck size={13} className="text-emerald-600" /> Initial Payment Setup
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Has the client made the first payment upfront? (Leave unchecked if unpaid / payment pending)
+                      </p>
                     </div>
-                    {['bank_transfer', 'payhere', 'card', 'online_transfer'].includes(form.paymentMethod) && (
-                      <div>
-                        <label className="form-label font-medium text-slate-700">Bank Account</label>
-                        <select className="form-select font-medium" value={form.bankAccount} onChange={(e) => f('bankAccount')(e.target.value)}>
-                          <option value="">Select bank account…</option>
-                          {bankAccounts.map((b) => (
-                            <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>
-                          ))}
-                        </select>
-                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Updates account balance automatically</p>
-                      </div>
-                    )}
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={form.recordInitialPayment}
+                        onChange={(e) => f('recordInitialPayment')(e.target.checked)}
+                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span className="text-xs font-bold text-slate-700">Initial Payment Received</span>
+                    </label>
                   </div>
+
+                  {form.recordInitialPayment && (
+                    <div className="grid sm:grid-cols-2 gap-4 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100 animate-fade-in">
+                      <div>
+                        <label className="form-label font-medium text-slate-700">Payment Method</label>
+                        <select className="form-select font-medium" value={form.paymentMethod} onChange={e => f('paymentMethod')(e.target.value)}>
+                          <option value="cash">Cash</option>
+                          <option value="card">Card</option>
+                          <option value="bank_transfer">Bank transfer</option>
+                          <option value="cheque">Cheque</option>
+                          <option value="online_transfer">Online transfer</option>
+                          <option value="payhere">PayHere</option>
+                          <option value="manual">Other / manual</option>
+                        </select>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Records initial payment automatically</p>
+                      </div>
+                      {['bank_transfer', 'payhere', 'card', 'online_transfer'].includes(form.paymentMethod) && (
+                        <div>
+                          <label className="form-label font-medium text-slate-700">Bank Account</label>
+                          <select className="form-select font-medium" value={form.bankAccount} onChange={(e) => f('bankAccount')(e.target.value)}>
+                            <option value="">Select bank account…</option>
+                            {bankAccounts.map((b) => (
+                              <option key={b._id} value={b._id}>{b.bankName} ({b.accountNumber})</option>
+                            ))}
+                          </select>
+                          <p className="text-[11px] text-slate-500 mt-1 font-medium">Updates account balance automatically</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

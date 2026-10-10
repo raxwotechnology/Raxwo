@@ -162,56 +162,136 @@ export default function PublicLayout() {
             </a>
             
             {/* Services dropdown */}
-            <div className="group" ref={servicesRef}>
+            {/* Services dropdown */}
+            <div className="group relative" ref={servicesRef}>
               <button
                 onClick={() => setServicesDropdownOpen(!servicesDropdownOpen)}
                 className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${servicesDropdownOpen || location.pathname === '/services' ? 'text-white bg-white/15' : 'text-white/80 hover:text-[#20b2f5] hover:bg-white/10'}`}
               >
-                <FiLayers size={16} /> Services <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+                <FiLayers size={16} /> Services <FiChevronDown size={14} className={`transition-transform duration-300 group-hover:rotate-180 ${servicesDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
-                <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Our Services</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => (
-                      <Link key={s._id} to={`/services`} className="group/item flex flex-col items-center text-center">
-                        <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                          <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                        </div>
-                        <h4 className="text-sm font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
-                      </Link>
-                    ))}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
+                <div className="w-[660px] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] border border-slate-200/90 overflow-hidden p-5">
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                        <FiLayers size={14} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Enterprise Services</span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-400">Custom Engineering & Development</span>
                   </div>
-                  <div className="mt-4 pt-4 border-t border-slate-200">
-                    <NavLink to="/services" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all services on this portal →</NavLink>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {allServices.filter(s => s.type === 'service' || !s.type).slice(0, 4).map(s => {
+                      const cleanTitle = (s.title || '').replace(/^["'\s]+|["'\s]+$/g, '')
+                      return (
+                        <Link
+                          key={s._id}
+                          to={`/services`}
+                          className="group/item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50/80 transition-all"
+                        >
+                          <div className="w-14 h-14 rounded-lg overflow-hidden bg-slate-100 border border-slate-200/60 shrink-0 flex items-center justify-center">
+                            <img
+                              src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=200&q=80"}
+                              alt={cleanTitle}
+                              className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-xs font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors line-clamp-1">
+                              {cleanTitle}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                              {s.category || 'Professional Service'}
+                            </p>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">Tailored digital engineering for your business</span>
+                    <NavLink to="/services" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:text-blue-600 transition-colors">
+                      View all services →
+                    </NavLink>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Software Products dropdown */}
-            <div className="group" ref={productsRef}>
+            <div className="group relative" ref={productsRef}>
               <button
                 onClick={() => setProductsDropdownOpen(!productsDropdownOpen)}
                 className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-base font-semibold transition-all whitespace-nowrap ${productsDropdownOpen || location.pathname === '/software-products' ? 'text-white bg-white/15' : 'text-white/80 hover:text-[#20b2f5] hover:bg-white/10'}`}
               >
-                <FiPackage size={16} /> Software Products <FiChevronDown size={14} className={`transition-transform group-hover:rotate-180`} />
+                <FiPackage size={16} /> Software Products <FiChevronDown size={14} className={`transition-transform duration-300 group-hover:rotate-180 ${productsDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
-              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
-                <div className="w-[700px] bg-[#f8f9fa] rounded-none shadow-2xl border-t-2 border-primary overflow-hidden p-6">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4 border-b border-slate-200 pb-2">Software Products</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
-                      <Link key={s._id} to={`/software-products`} className="group/item flex flex-col items-center text-center">
-                        <div className="w-full h-20 mb-2 overflow-hidden rounded-md bg-white border border-slate-100 flex items-center justify-center">
-                          <img src={s.imageUrl ? mediaUrl(s.imageUrl) : "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=80"} alt={s.title} className="w-full h-full object-cover group-hover/item:scale-105 transition-transform duration-500" />
-                        </div>
-                        <h4 className="text-sm font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors">{s.title}</h4>
-                      </Link>
-                    ))}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
+                <div className="w-[720px] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] border border-slate-200/90 overflow-hidden p-5">
+                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                        <FiPackage size={14} />
+                      </div>
+                      <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Ready-Made ERP &amp; SaaS Systems</span>
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-400">1-Click Auto Login Demos Available</span>
                   </div>
-                  <div className="mt-4 pt-4 border-t border-slate-200">
-                    <NavLink to="/software-products" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:underline">View all software products →</NavLink>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {allServices.filter(s => s.type === 'product').slice(0, 8).map(s => {
+                      const rawTitle = (s.title || '').replace(/^["'\s]+|["'\s]+$/g, '')
+                      const brandName = rawTitle.split(/—|-|\|/)[0].trim() || rawTitle
+                      const logoSrc = s.logoUrl || s.imageUrl
+
+                      return (
+                        <Link
+                          key={s._id}
+                          to={`/software-products`}
+                          className="group/item flex items-center gap-3 p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-all text-left"
+                        >
+                          <div className="w-13 h-13 min-w-[52px] rounded-xl bg-white border border-slate-200/80 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs group-hover/item:border-blue-300 group-hover/item:scale-105 transition-all">
+                            {logoSrc ? (
+                              <img
+                                src={mediaUrl(logoSrc)}
+                                alt={brandName}
+                                className="w-full h-full object-contain mix-blend-multiply"
+                              />
+                            ) : (
+                              <FiPackage size={20} className="text-slate-400 group-hover/item:text-blue-600" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <h4 className="text-xs font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors line-clamp-1">
+                                {brandName}
+                              </h4>
+                              {(s.badge || s.category) && (
+                                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 shrink-0">
+                                  {s.badge || s.category}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 line-clamp-1">
+                              {s.tagline || (rawTitle !== brandName ? rawTitle : 'Enterprise Management Solution')}
+                            </p>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                  {allServices.filter(s => s.type === 'product').length > 8 && (
+                    <p className="text-[11px] text-slate-400 mt-2.5 text-center font-medium">+ {allServices.filter(s => s.type === 'product').length - 8} more products available</p>
+                  )}
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">Discover all ready-to-deploy platforms</span>
+                    <NavLink to="/software-products" className="inline-flex items-center gap-1.5 text-xs font-bold text-[#20b2f5] hover:text-blue-600 transition-colors">
+                      View all software products →
+                    </NavLink>
                   </div>
                 </div>
               </div>

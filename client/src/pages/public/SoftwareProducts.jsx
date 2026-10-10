@@ -182,31 +182,65 @@ export default function SoftwareProducts() {
 
       {/* Product Logo Strip */}
       {baseProducts.length > 0 && (
-        <section className="bg-white border-b border-slate-100 py-5">
+        <section className="bg-white/80 backdrop-blur-sm border-b border-slate-200/80 py-6">
           <div className="container-max">
-            <p className="text-center text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-              {baseProducts.length} Software Products Available
-            </p>
-            <div className="flex flex-wrap justify-center gap-2.5">
-              {baseProducts.map((p, i) => (
-                <motion.div
-                  key={p._id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 hover:border-blue-300 hover:bg-blue-50 rounded-xl transition-all group cursor-pointer"
-                  onClick={() => {}}
-                >
-                  <div className="w-6 h-6 rounded-lg overflow-hidden bg-white border border-slate-100 flex items-center justify-center shrink-0">
-                    {(p.logoUrl || p.imageUrl) ? (
-                      <img src={mediaUrl(p.logoUrl || p.imageUrl)} alt={p.title} className="w-5 h-5 object-contain" />
-                    ) : (
-                      <FiPackage size={12} className="text-slate-400" />
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-center text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                {baseProducts.length} Ready-to-Deploy Enterprise Solutions
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2 sm:gap-2.5 max-w-6xl mx-auto">
+              {baseProducts.map((p, i) => {
+                // Clean title: remove wrapping quotes and trim long promotional tags for the compact badge
+                const rawTitle = (p.title || '').replace(/^["'\s]+|["'\s]+$/g, '')
+                const brandName = rawTitle.split(/—|-|\|/)[0].trim() || rawTitle
+                const logoSrc = p.logoUrl || p.imageUrl
+
+                const handleProductChipClick = () => {
+                  const targetCat = p.badge || p.category
+                  if (targetCat && activeCategory !== 'All' && activeCategory !== targetCat) {
+                    setActiveCategory('All')
+                  }
+                  setTimeout(() => {
+                    const el = document.getElementById(`product-${p._id || p.id || ''}`)
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                      el.classList.add('ring-4', 'ring-[#20b2f5]/50')
+                      setTimeout(() => el.classList.remove('ring-4', 'ring-[#20b2f5]/50'), 2000)
+                    }
+                  }, 100)
+                }
+
+                return (
+                  <motion.button
+                    key={p._id || i}
+                    type="button"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(i * 0.02, 0.3) }}
+                    onClick={handleProductChipClick}
+                    title={rawTitle}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50/80 hover:bg-white border border-slate-200/90 hover:border-[#20b2f5] hover:shadow-sm rounded-xl transition-all duration-200 group text-left cursor-pointer"
+                  >
+                    <div className="w-6 h-6 rounded-lg overflow-hidden bg-white border border-slate-200/60 p-0.5 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                      {logoSrc ? (
+                        <img src={mediaUrl(logoSrc)} alt={brandName} className="w-full h-full object-contain mix-blend-multiply" />
+                      ) : (
+                        <FiPackage size={12} className="text-slate-400" />
+                      )}
+                    </div>
+                    <span className="text-[12px] font-semibold text-slate-700 group-hover:text-slate-900 transition-colors whitespace-nowrap">
+                      {brandName}
+                    </span>
+                    {(p.badge || p.category) && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-slate-200/60 text-slate-600 group-hover:bg-[#20b2f5]/10 group-hover:text-[#0b7ea6] transition-colors">
+                        {p.badge || p.category}
+                      </span>
                     )}
-                  </div>
-                  <span className="text-[12px] font-semibold text-slate-700 group-hover:text-blue-600 transition-colors whitespace-nowrap">{p.title}</span>
-                </motion.div>
-              ))}
+                  </motion.button>
+                )
+              })}
             </div>
           </div>
         </section>
