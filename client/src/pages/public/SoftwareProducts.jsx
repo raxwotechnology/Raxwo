@@ -182,19 +182,28 @@ export default function SoftwareProducts() {
 
       {/* Product Logo Strip */}
       {baseProducts.length > 0 && (
-        <section className="bg-white/80 backdrop-blur-sm border-b border-slate-200/80 py-6">
+        <section className="bg-white border-b border-slate-200/80 py-8 relative overflow-hidden">
           <div className="container-max">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-center text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                {baseProducts.length} Ready-to-Deploy Enterprise Solutions
-              </p>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Featured Ready-to-Deploy Platforms
+                </h3>
+              </div>
+              <span className="text-xs font-medium text-slate-400">
+                {baseProducts.length} Enterprise Solutions · Click any product to explore
+              </span>
             </div>
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-2.5 max-w-6xl mx-auto">
+
+            {/* Clean Grid of Product Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
               {baseProducts.map((p, i) => {
-                // Clean title: remove wrapping quotes and trim long promotional tags for the compact badge
                 const rawTitle = (p.title || '').replace(/^["'\s]+|["'\s]+$/g, '')
-                const brandName = rawTitle.split(/—|-|\|/)[0].trim() || rawTitle
+                // Extract clean brand name (first word or word before hyphen/dash)
+                const brandMatch = rawTitle.match(/^([A-Za-z0-9]+)/)
+                const brandName = brandMatch ? brandMatch[1] : (rawTitle.split(/—|-|\|/)[0].trim() || rawTitle)
+                const categoryTag = p.badge || p.category || 'ERP'
                 const logoSrc = p.logoUrl || p.imageUrl
 
                 const handleProductChipClick = () => {
@@ -216,28 +225,30 @@ export default function SoftwareProducts() {
                   <motion.button
                     key={p._id || i}
                     type="button"
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: Math.min(i * 0.02, 0.3) }}
                     onClick={handleProductChipClick}
                     title={rawTitle}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-50/80 hover:bg-white border border-slate-200/90 hover:border-[#20b2f5] hover:shadow-sm rounded-xl transition-all duration-200 group text-left cursor-pointer"
+                    className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-blue-300 hover:shadow-md transition-all duration-200 group text-center cursor-pointer relative"
                   >
-                    <div className="w-6 h-6 rounded-lg overflow-hidden bg-white border border-slate-200/60 p-0.5 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-xs">
+                    <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
+                      {categoryTag}
+                    </span>
+                    <div className="w-12 h-12 rounded-xl bg-white border border-slate-200/80 p-1.5 flex items-center justify-center shrink-0 mb-2 shadow-2xs group-hover:scale-105 group-hover:border-blue-200 transition-all">
                       {logoSrc ? (
-                        <img src={mediaUrl(logoSrc)} alt={brandName} className="w-full h-full object-contain mix-blend-multiply" />
+                        <img
+                          src={mediaUrl(logoSrc)}
+                          alt={brandName}
+                          className="w-full h-full object-contain mix-blend-multiply"
+                        />
                       ) : (
-                        <FiPackage size={12} className="text-slate-400" />
+                        <FiPackage size={18} className="text-slate-400" />
                       )}
                     </div>
-                    <span className="text-[12px] font-semibold text-slate-700 group-hover:text-slate-900 transition-colors whitespace-nowrap">
+                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#20b2f5] transition-colors truncate max-w-full">
                       {brandName}
                     </span>
-                    {(p.badge || p.category) && (
-                      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-slate-200/60 text-slate-600 group-hover:bg-[#20b2f5]/10 group-hover:text-[#0b7ea6] transition-colors">
-                        {p.badge || p.category}
-                      </span>
-                    )}
                   </motion.button>
                 )
               })}

@@ -269,36 +269,46 @@ export default function ShowcaseDetailPage() {
             <div className="lg:col-span-7 xl:col-span-8 space-y-7">
 
               {/* Product Identity */}
-              <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="flex items-start gap-5">
-                {logoSrc ? (
-                  <div className="shrink-0 h-20 w-20 rounded-2xl bg-white border border-slate-200 shadow-lg flex items-center justify-center p-3 overflow-hidden">
-                    <img src={mediaUrl(logoSrc)} alt={item.title} className="max-h-full max-w-full object-contain" />
-                  </div>
-                ) : (
-                  <div
-                    className="shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center text-white shadow-lg"
-                    style={{ background: `linear-gradient(135deg, ${accentFrom}, ${accentTo})` }}
+              <motion.div variants={fadeUp} initial="hidden" animate="visible" custom={1} className="space-y-5">
+                {/* Badges + Meta */}
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span
+                    className="inline-block px-3 py-1 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider shadow-xs"
+                    style={{ background: `linear-gradient(90deg, ${accentFrom}, ${accentTo})` }}
                   >
-                    <IconComp size={36} />
-                  </div>
-                )}
+                    {item.badge || item.category || 'SaaS ERP'}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200/80 text-emerald-700 rounded-lg text-[11px] font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                    Live Demo Ready
+                  </span>
+                  <span className="text-xs text-slate-400 font-medium">Enterprise Edition</span>
+                </div>
 
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className="inline-block px-3 py-1 text-white rounded-full text-[11px] font-bold uppercase tracking-widest shadow-sm"
-                      style={{ background: `linear-gradient(90deg, ${accentFrom}, ${accentTo})` }}
+                {/* Logo & Headline Duo */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+                  {logoSrc ? (
+                    <div className="shrink-0 h-24 w-32 sm:h-24 sm:w-36 rounded-2xl bg-white border border-slate-200/80 shadow-md p-2.5 flex items-center justify-center hover:shadow-lg transition-shadow">
+                      <img
+                        src={mediaUrl(logoSrc)}
+                        alt={item.title}
+                        className="max-h-full max-w-full object-contain mix-blend-multiply"
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      className="shrink-0 w-20 h-20 rounded-2xl flex items-center justify-center text-white shadow-md"
+                      style={{ background: `linear-gradient(135deg, ${accentFrom}, ${accentTo})` }}
                     >
-                      {item.badge || item.category || 'SaaS ERP'}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full text-[11px] font-bold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
-                      Live Demo Available
-                    </span>
+                      <IconComp size={36} />
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-2xl sm:text-3xl xl:text-4xl font-bold text-slate-900 tracking-tight leading-tight">
+                      {item.title}
+                    </h1>
                   </div>
-                  <h1 className="text-3xl sm:text-4xl xl:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
-                    {item.title}
-                  </h1>
                 </div>
               </motion.div>
 
