@@ -253,15 +253,15 @@ export default function PublicLayout() {
                           to={`/software-products`}
                           className="group/item flex items-center gap-3 p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-all text-left"
                         >
-                          <div className="w-13 h-13 min-w-[52px] rounded-xl bg-white border border-slate-200/80 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs group-hover/item:border-blue-300 group-hover/item:scale-105 transition-all">
+                          <div className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-xl bg-white border border-slate-200/80 p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-xs group-hover/item:border-blue-300 group-hover/item:scale-105 transition-all">
                             {logoSrc ? (
                               <img
                                 src={mediaUrl(logoSrc)}
                                 alt={brandName}
-                                className="w-full h-full object-contain mix-blend-multiply"
+                                className="w-full h-full max-h-full max-w-full object-contain mix-blend-multiply block"
                               />
                             ) : (
-                              <FiPackage size={20} className="text-slate-400 group-hover/item:text-blue-600" />
+                              <FiPackage size={22} className="text-slate-400 group-hover/item:text-blue-600" />
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
