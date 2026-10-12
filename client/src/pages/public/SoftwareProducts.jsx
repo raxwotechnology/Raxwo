@@ -182,22 +182,22 @@ export default function SoftwareProducts() {
 
       {/* Product Logo Strip */}
       {baseProducts.length > 0 && (
-        <section className="bg-white border-b border-slate-200/80 py-8 relative overflow-hidden">
+        <section className="bg-white border-b border-slate-200/80 py-5 sm:py-8 relative overflow-hidden">
           <div className="container-max">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   Featured Ready-to-Deploy Platforms
                 </h3>
               </div>
-              <span className="text-xs font-medium text-slate-400">
-                {baseProducts.length} Enterprise Solutions · Click any product to explore
+              <span className="text-[11px] sm:text-xs font-medium text-slate-400">
+                {baseProducts.length} Enterprise Solutions · Swipe or click to explore
               </span>
             </div>
 
-            {/* Clean Grid of Product Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            {/* Product Cards: Swipeable horizontal row on mobile, clean grid on tablet/desktop */}
+            <div className="flex sm:grid overflow-x-auto sm:overflow-visible no-scrollbar pb-2 sm:pb-0 gap-2.5 sm:gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
               {baseProducts.map((p, i) => {
                 const rawTitle = (p.title || '').replace(/^["'\s]+|["'\s]+$/g, '')
                 // Extract clean brand name (first word or word before hyphen/dash)
@@ -230,12 +230,12 @@ export default function SoftwareProducts() {
                     transition={{ delay: Math.min(i * 0.02, 0.3) }}
                     onClick={handleProductChipClick}
                     title={rawTitle}
-                    className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-blue-300 hover:shadow-md transition-all duration-200 group text-center cursor-pointer relative"
+                    className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-blue-300 hover:shadow-md transition-all duration-200 group text-center cursor-pointer relative shrink-0 w-28 sm:w-auto snap-start"
                   >
                     <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
                       {categoryTag}
                     </span>
-                    <div className="w-12 h-12 rounded-xl bg-white border border-slate-200/80 p-1.5 flex items-center justify-center shrink-0 mb-2 shadow-2xs group-hover:scale-105 group-hover:border-blue-200 transition-all">
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white border border-slate-200/80 p-1.5 flex items-center justify-center shrink-0 mb-1.5 sm:mb-2 shadow-2xs group-hover:scale-105 group-hover:border-blue-200 transition-all">
                       {logoSrc ? (
                         <img
                           src={mediaUrl(logoSrc)}
