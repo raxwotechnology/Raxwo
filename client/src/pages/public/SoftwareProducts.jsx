@@ -2,19 +2,18 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { FiFilter, FiPackage, FiArrowRight } from 'react-icons/fi'
+import { FiFilter, FiPackage, FiArrowRight, FiSearch, FiX } from 'react-icons/fi'
 import api from '../../lib/api'
 import ProductServiceCard from '../../components/showcase/ProductServiceCard'
 import AllFeaturesModal from '../../components/showcase/AllFeaturesModal'
 import QuoteModal from '../../components/showcase/QuoteModal'
 import FeedbackModal from '../../components/showcase/FeedbackModal'
 import SEO from '../../components/common/SEO'
-import { mediaUrl } from '../../lib/media'
 
 // ... static products ...
 
 
-const STATIC_PRODUCTS = [
+export const STATIC_PRODUCTS = [
   {
     _id: 'p1',
     icon: 'FiLayers',
@@ -123,6 +122,7 @@ const STATIC_PRODUCTS = [
 
 export default function SoftwareProducts() {
   const [activeCategory, setActiveCategory] = useState('All')
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedFeaturesItem, setSelectedFeaturesItem] = useState(null)
   const [selectedQuoteItem, setSelectedQuoteItem] = useState(null)
   const [selectedFeedbackItem, setSelectedFeedbackItem] = useState(null)
@@ -136,9 +136,30 @@ export default function SoftwareProducts() {
   const baseProducts = isLoading ? [] : (raw.length > 0 ? raw : STATIC_PRODUCTS)
 
   const categories = ['All', ...Array.from(new Set(baseProducts.map(s => s.badge || s.category).filter(Boolean)))]
-  const filtered = activeCategory === 'All'
-    ? baseProducts
-    : baseProducts.filter(s => (s.badge || s.category) === activeCategory)
+
+  const filtered = baseProducts.filter(item => {
+    const matchesCategory = activeCategory === 'All' || (item.badge || item.category) === activeCategory
+    const q = searchQuery.toLowerCase().trim()
+    if (!q) return matchesCategory
+
+    const title = (item.title || '').toLowerCase()
+    const tagline = (item.tagline || '').toLowerCase()
+    const desc = (item.description || '').toLowerCase()
+    const badge = (item.badge || item.category || '').toLowerCase()
+    const highlights = Array.isArray(item.topHighlights) ? item.topHighlights.join(' ').toLowerCase() : ''
+    const features = Array.isArray(item.categorizedFeatures)
+      ? item.categorizedFeatures.map(c => (c.items || []).join(' ')).join(' ').toLowerCase()
+      : (Array.isArray(item.features) ? item.features.join(' ').toLowerCase() : '')
+
+    return matchesCategory && (
+      title.includes(q) ||
+      tagline.includes(q) ||
+      desc.includes(q) ||
+      badge.includes(q) ||
+      highlights.includes(q) ||
+      features.includes(q)
+    )
+  })
 
   return (
     <div className="bg-slate-50 text-slate-900 min-h-screen">
@@ -180,99 +201,49 @@ export default function SoftwareProducts() {
         </div>
       </section>
 
-      {/* Product Logo Strip */}
-      {baseProducts.length > 0 && (
-        <section className="bg-white border-b border-slate-200/80 py-5 sm:py-8 relative overflow-hidden">
-          <div className="container-max">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 mb-4 sm:mb-6 pb-3 sm:pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Featured Ready-to-Deploy Platforms
-                </h3>
-              </div>
-              <span className="text-[11px] sm:text-xs font-medium text-slate-400">
-                {baseProducts.length} Enterprise Solutions · Swipe or click to explore
-              </span>
-            </div>
-
-            {/* Product Cards: Swipeable horizontal row on mobile, clean grid on tablet/desktop */}
-            <div className="flex sm:grid overflow-x-auto sm:overflow-visible no-scrollbar pb-2 sm:pb-0 gap-2.5 sm:gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 snap-x snap-mandatory -mx-4 px-4 sm:mx-0 sm:px-0">
-              {baseProducts.map((p, i) => {
-                const rawTitle = (p.title || '').replace(/^["'\s]+|["'\s]+$/g, '')
-                // Extract clean brand name (first word or word before hyphen/dash)
-                const brandMatch = rawTitle.match(/^([A-Za-z0-9]+)/)
-                const brandName = brandMatch ? brandMatch[1] : (rawTitle.split(/—|-|\|/)[0].trim() || rawTitle)
-                const categoryTag = p.badge || p.category || 'ERP'
-                const logoSrc = p.logoUrl || p.imageUrl
-
-                const handleProductChipClick = () => {
-                  const targetCat = p.badge || p.category
-                  if (targetCat && activeCategory !== 'All' && activeCategory !== targetCat) {
-                    setActiveCategory('All')
-                  }
-                  setTimeout(() => {
-                    const el = document.getElementById(`product-${p._id || p.id || ''}`)
-                    if (el) {
-                      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                      el.classList.add('ring-4', 'ring-[#20b2f5]/50')
-                      setTimeout(() => el.classList.remove('ring-4', 'ring-[#20b2f5]/50'), 2000)
-                    }
-                  }, 100)
-                }
-
-                return (
-                  <motion.button
-                    key={p._id || i}
-                    type="button"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(i * 0.02, 0.3) }}
-                    onClick={handleProductChipClick}
-                    title={rawTitle}
-                    className="flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-blue-300 hover:shadow-md transition-all duration-200 group text-center cursor-pointer relative shrink-0 w-28 sm:w-auto snap-start"
-                  >
-                    <span className="absolute top-2 right-2 text-[9px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
-                      {categoryTag}
-                    </span>
-                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white border border-slate-200/80 p-1.5 flex items-center justify-center shrink-0 mb-1.5 sm:mb-2 shadow-2xs group-hover:scale-105 group-hover:border-blue-200 transition-all">
-                      {logoSrc ? (
-                        <img
-                          src={mediaUrl(logoSrc)}
-                          alt={brandName}
-                          className="w-full h-full object-contain mix-blend-multiply"
-                        />
-                      ) : (
-                        <FiPackage size={18} className="text-slate-400" />
-                      )}
-                    </div>
-                    <span className="text-xs font-bold text-slate-800 group-hover:text-[#20b2f5] transition-colors truncate max-w-full">
-                      {brandName}
-                    </span>
-                  </motion.button>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Category Filter Sticky Bar */}
+      {/* Search & Category Filter Sticky Bar */}
       <section className="bg-white/95 backdrop-blur-md py-4 border-y border-slate-200/80 sticky top-0 z-40 shadow-xs">
         <div className="container-max">
-          <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
-            <FiFilter size={14} className="text-slate-400 shrink-0" />
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                  activeCategory === cat ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+            {/* Search Input */}
+            <div className="relative w-full md:w-80 lg:w-96">
+              <FiSearch size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search products, ERPs, or features..."
+                className="w-full pl-10 pr-9 py-2.5 text-xs sm:text-sm font-medium rounded-xl border border-slate-200 bg-slate-50/80 hover:bg-slate-100/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#20b2f5] focus:border-transparent transition-all shadow-2xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+                >
+                  <FiX size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Category Filter Chips */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+              <FiFilter size={14} className="text-slate-400 shrink-0 mr-1 hidden sm:block" />
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                    activeCategory === cat
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -280,6 +251,21 @@ export default function SoftwareProducts() {
       {/* Products Showcase Grid */}
       <section className="section-padding bg-slate-50">
         <div className="container-max">
+          {searchQuery && (
+            <div className="flex items-center justify-between gap-2 mb-6 p-3 rounded-xl bg-blue-50/80 border border-blue-100 text-xs text-blue-900">
+              <span>
+                Found <strong className="font-bold text-blue-700">{filtered.length}</strong> {filtered.length === 1 ? 'solution' : 'solutions'} matching &ldquo;<span className="font-semibold text-slate-800">{searchQuery}</span>&rdquo;
+              </span>
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
+              >
+                Clear Search
+              </button>
+            </div>
+          )}
+
           <AnimatePresence mode="wait">
             <motion.div
               key={activeCategory}
@@ -304,7 +290,20 @@ export default function SoftwareProducts() {
           {filtered.length === 0 && (
             <div className="text-center py-20 text-slate-500">
               <FiPackage size={40} className="mx-auto mb-3 text-slate-300" />
-              <p className="text-sm font-semibold">No software products in this category yet.</p>
+              <p className="text-sm font-semibold">
+                {searchQuery
+                  ? `No software products found matching "${searchQuery}".`
+                  : 'No software products in this category yet.'}
+              </p>
+              {(searchQuery || activeCategory !== 'All') && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(''); setActiveCategory('All'); }}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-xs hover:bg-blue-500 transition-all cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  Reset Search &amp; Filters
+                </button>
+              )}
             </div>
           )}
         </div>
