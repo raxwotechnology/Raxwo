@@ -18,7 +18,7 @@ router.post('/assign', protect, authorize('admin', 'manager'), assignLeave);
 router.get('/', protect, authorize('admin', 'manager'), getLeaves);
 router.put('/:id/status', protect, authorize('admin', 'manager'), updateLeaveStatus);
 router.put('/:id', protect, authorize('admin', 'manager'), updateLeave);
-router.delete('/:id', protect, authorize('admin', 'manager'), deleteLeave);
+router.delete('/:id', protect, deleteLeave);
 router.get('/balance/:employeeId', protect, authorize('admin', 'manager'), getEmployeeLeaveBalance);
 router.get('/policy-for/:employeeId', protect, authorize('admin', 'manager'), getPolicyForEmployee);
 

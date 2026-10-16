@@ -179,16 +179,21 @@ exports.requestLeave = async (req, res, next) => {
       insufficientBalance,
     });
 
-    // Notify admins/managers
+    // Notify admins/managers (excluding the requester)
     const User = require('../models/User');
-    const admins = await User.find({ role: { $in: ['admin', 'manager'] } });
-    await Notification.insertMany(admins.map(a => ({
-      recipient: a._id,
-      title: insufficientBalance ? '⚠️ Leave Request (Insufficient Balance)' : 'New Leave Request',
-      message: `${req.user.name} requested ${leaveType} leave (${days} day${days !== 1 ? 's' : ''})${insufficientBalance ? ' — INSUFFICIENT BALANCE' : ''}`,
-      type: 'leave',
-      link: '/admin/leaves',
-    })));
+    const admins = await User.find({
+      role: { $in: ['admin', 'manager'] },
+      _id: { $ne: req.user._id },
+    });
+    if (admins.length > 0) {
+      await Notification.insertMany(admins.map(a => ({
+        recipient: a._id,
+        title: insufficientBalance ? '⚠️ Leave Request (Insufficient Balance)' : 'New Leave Request',
+        message: `${req.user.name} (${req.user.role}) requested ${leaveType.replace('_', ' ')} leave (${days} day${days !== 1 ? 's' : ''})${insufficientBalance ? ' — INSUFFICIENT BALANCE' : ''}`,
+        type: 'leave',
+        link: a.role === 'admin' ? '/admin/leaves' : '/manager/leaves',
+      })));
+    }
 
     const { sendLeaveSubmittedEmail } = require('../services/emailService');
     const populatedEmp = await Employee.findById(employee._id).populate('userId');
@@ -248,11 +253,13 @@ exports.assignLeave = async (req, res, next) => {
       approvedBy: req.user._id, approvedAt: new Date(), remarks,
     });
 
+    const empRole = employee.userId?.role || 'developer';
+    const targetLink = empRole === 'admin' ? '/admin/leaves' : empRole === 'manager' ? '/manager/leaves' : `/${empRole}/leaves`;
     await createNotification({
       recipient: employee.userId._id,
       title: 'Leave Assigned',
       message: `Admin assigned you ${days} day(s) of ${leaveType} leave. ${remarks ? 'Remarks: ' + remarks : ''}`,
-      type: 'leave', link: '/developer/leaves',
+      type: 'leave', link: targetLink,
     });
 
     res.status(201).json({ success: true, leave });
@@ -328,11 +335,25 @@ exports.updateLeave = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// ─── @route DELETE /api/leaves/:id (admin) ────────────────────────────────────
+// ─── @route DELETE /api/leaves/:id ────────────────────────────────────────────
 exports.deleteLeave = async (req, res, next) => {
   try {
-    const leave = await Leave.findByIdAndDelete(req.params.id);
+    const leave = await Leave.findById(req.params.id);
     if (!leave) return res.status(404).json({ success: false, message: 'Leave not found' });
+
+    // Non-admins can only cancel their own pending leaves
+    if (req.user.role !== 'admin') {
+      const employee = await resolveEmployeeForUser(req.user);
+      const isOwner = employee && String(leave.employee) === String(employee._id);
+      if (!isOwner) {
+        return res.status(403).json({ success: false, message: 'Not authorized to delete this leave record' });
+      }
+      if (leave.status !== 'pending') {
+        return res.status(400).json({ success: false, message: 'Only pending leave requests can be cancelled' });
+      }
+    }
+
+    await Leave.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: 'Leave record deleted' });
   } catch (err) { next(err); }
 };
@@ -379,6 +400,12 @@ exports.updateLeaveStatus = async (req, res, next) => {
     if (!isTopManagerOrAdmin(req.user)) {
       const scope = await getManagerScope(req.user);
       const targetEmpId = String(leave.employee?._id || leave.employee);
+
+      // Prevent managers from self-approving their own leave
+      if (scope.ownEmployeeId && String(scope.ownEmployeeId) === targetEmpId) {
+        return res.status(403).json({ success: false, message: 'You cannot approve your own leave request. An administrator must approve it.' });
+      }
+
       const isAllowed = scope.employeeIds.some(id => String(id) === targetEmpId);
       if (!isAllowed) {
         return res.status(403).json({ success: false, message: 'You can only review leaves for employees assigned to you or your projects.' });
