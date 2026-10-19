@@ -536,72 +536,21 @@
   /* =======================================================================
      6. Document Editors & Previews (Quotations, Invoices, Agreements)
      ======================================================================= */
-  /* Split Modal layout vertically for mobile */
-  .fixed.inset-0 > div > .flex-col.lg\:flex-row, .fixed.inset-0 > div > .flex-col.md\:flex-row {
-    flex-direction: column !important;
-  }
-  
-  /* Editor takes upper half */
-  .fixed.inset-0 > div > .flex-col.lg\:flex-row > form, 
-  .fixed.inset-0 > div > .flex-col.md\:flex-row > form,
-  .fixed.inset-0 > div > .flex-col.lg\:flex-row > .w-full.shrink-0, 
-  .fixed.inset-0 > div > .flex-col.md\:flex-row > .w-[400px].shrink-0, 
-  .fixed.inset-0 > div > .flex-col.md\:flex-row > .w-full.shrink-0 {
-    height: auto !important; 
-    flex: 1 1 50% !important;
-    min-height: 0 !important;
-    max-height: 50% !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    border-bottom: 4px solid #cbd5e1 !important; 
-    border-right: none !important;
-    padding-bottom: 1rem !important;
-  }
-
-  /* Live Preview takes lower half */
-  .fixed.inset-0 > div > .flex-col.lg\:flex-row > div:last-child, 
-  .fixed.inset-0 > div > .flex-col.md\:flex-row > div:last-child {
-    flex: 1 1 50% !important; 
-    height: auto !important; 
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    background: #e2e8f0; 
-    padding: 0.75rem !important;
-  }
-  
   /* Guarantee iOS Touch Scrolling for ALL modal scroll containers */
   .fixed.inset-0 .overflow-y-auto,
   .fixed.inset-0 .overflow-auto {
     -webkit-overflow-scrolling: touch !important;
-    min-height: 0 !important; /* Prevents flex children from breaking out */
+    min-height: 0 !important;
   }
 
-  /* Document Scaling */
+  /* Document Scaling: ensure A4 paper keeps exact coordinate system inside scaled wrapper */
+  .doc-preview-panel {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+  }
   .doc-print-frame, .invoice-doc, .quotation-doc {
-    transform-origin: top center !important; margin: 0 auto !important;
-    max-width: 100% !important; padding: 1rem !important; box-shadow: none !important; border-radius: 0 !important; border: none !important;
-  }
-  .invoice-doc-inner table.doc-table, .quotation-doc-inner table.doc-table { font-size: 0.75rem; }
-  .invoice-doc-inner table.doc-table th, .invoice-doc-inner table.doc-table td,
-  .quotation-doc-inner table.doc-table th, .quotation-doc-inner table.doc-table td { padding: 0.5rem !important; }
-
-  /* Dense Grid for Line Items in Documents */
-  .grid.grid-cols-1.md\:grid-cols-12 {
-    display: grid !important; grid-template-columns: repeat(12, minmax(0, 1fr)) !important; gap: 0.25rem;
-  }
-  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(1) { grid-column: span 12 / span 12 !important; } /* Title/Desc */
-  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(2) { grid-column: span 3 / span 3 !important; } /* Qty */
-  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(3) { grid-column: span 4 / span 4 !important; } /* Rate */
-  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(4) { grid-column: span 3 / span 3 !important; } /* Tax */
-  .grid.grid-cols-1.md\:grid-cols-12 > div:nth-child(5) { grid-column: span 2 / span 2 !important; align-items: flex-end; justify-content: flex-end; } /* Delete */
-  
-  .grid.grid-cols-1.md\:grid-cols-12 .form-label.md\:sr-only {
-    display: block !important; position: static !important; width: auto !important; height: auto !important;
-    margin: 0 0 0.25rem 0 !important; clip: auto !important; white-space: normal !important; font-size: 0.65rem !important;
-  }
-  .grid.grid-cols-1.md\:grid-cols-12 .form-input {
-    padding: 0.5rem 0.4rem !important; font-size: 14px !important; min-height: 40px !important;
+    box-sizing: border-box !important;
   }
 
   /* =======================================================================
@@ -739,13 +688,7 @@
   .animate-fade-in.space-y-5,
   .animate-fade-in.space-y-8 { padding-bottom: 1.5rem; }
 
-  /* Preview panel label on mobile */
-  .doc-preview-panel::before {
-    content: 'Live Preview'; display: block; font-size: 0.7rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.06em; color: #64748b;
-    padding: 0.5rem 0.75rem; background: #f1f5f9; border-radius: 0.5rem;
-    margin-bottom: 0.5rem; text-align: center;
-  }
+
 }
 
 @media (max-width: 640px) {

@@ -55,9 +55,13 @@ export default function LetterPaginatedPreview({
     const h = el.scrollHeight || el.offsetHeight || 0
     if (h === 0) return
 
-    if (compact && h > LETTER_PAGE_HEIGHT) {
-      const fitZoom = Math.max(0.75, Math.min(1, LETTER_PAGE_HEIGHT / h))
-      setAutoScale(fitZoom)
+    if (compact) {
+      if (h > LETTER_PAGE_HEIGHT) {
+        const fitZoom = Math.max(0.55, Math.min(1, LETTER_PAGE_HEIGHT / h))
+        setAutoScale(fitZoom)
+      } else {
+        setAutoScale(1)
+      }
       setPageCount(1)
     } else {
       setAutoScale(1)
@@ -65,11 +69,41 @@ export default function LetterPaginatedPreview({
     }
   }, [compact])
 
-  // Measure once on mount + whenever control props change
+  // Measure on mount, on explicit prop changes, and whenever content/images resize
   useEffect(() => {
-    // Small delay to let React finish painting children
-    const t = setTimeout(measure, 100)
-    return () => clearTimeout(t)
+    const el = contentRef.current
+    if (!el) return
+
+    measure()
+    const t = setTimeout(measure, 120)
+
+    let ro
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        measure()
+      })
+      ro.observe(el)
+    }
+
+    const imgs = el.querySelectorAll('img')
+    const cleanups = []
+    imgs.forEach((img) => {
+      if (!img.complete) {
+        const onFinish = () => measure()
+        img.addEventListener('load', onFinish)
+        img.addEventListener('error', onFinish)
+        cleanups.push(() => {
+          img.removeEventListener('load', onFinish)
+          img.removeEventListener('error', onFinish)
+        })
+      }
+    })
+
+    return () => {
+      clearTimeout(t)
+      if (ro) ro.disconnect()
+      cleanups.forEach((c) => c())
+    }
   }, [measureKey, scale, compact, measure])
 
   const finalZoom = baseZoom * autoScale

@@ -42,7 +42,7 @@ export function buildLetterheadHtml(company, { forPrint = true, siteSettings } =
   const contactHtml = contactBlockHtml(company)
 
   return `
-    <header style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:24px;border-bottom:2px solid #e2e8f0;margin-bottom:32px;position:relative;">
+    <header class="letter-header" style="display:flex;align-items:center;justify-content:space-between;gap:24px;padding-bottom:24px;border-bottom:2px solid #e2e8f0;margin-bottom:32px;position:relative;">
       <div style="position:absolute;bottom:-2px;left:0;width:100%;height:2px;background:linear-gradient(90deg, #0284c7, #38bdf8);"></div>
       <div style="display:flex;align-items:center;gap:20px;min-width:0">
         <div style="flex-shrink:0">${logoHtml}</div>
@@ -63,7 +63,7 @@ export function buildRefDateHtml(letterRef, issuedDate) {
       : issuedDate || ''
 
   return `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;font-size:10pt;">
+    <div class="letter-ref-bar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;font-size:10pt;">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="color:#64748b;font-size:8.5pt;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Ref</span>
         <div style="height:14px;width:2px;background:#e2e8f0;border-radius:2px;"></div>
@@ -111,7 +111,7 @@ export function buildSigsHtml(signatures, opts = {}) {
     : ''
 
   return `
-    <div style="margin-top:48px;padding-top:24px;border-top:1px solid #e2e8f0;page-break-inside:avoid">
+    <div class="letter-sig-block" style="margin-top:48px;padding-top:24px;border-top:1px solid #e2e8f0;page-break-inside:avoid">
       <div style="margin-left:auto;max-width:240px;text-align:right">
         ${sigBlock}
         ${sealBlock}
@@ -155,19 +155,29 @@ export function buildLetterInnerForPrint({ company, letterTitle, letterRef, issu
 }
 
 export const LETTER_COMPACT_CSS = `
-  .letter-compact { font-size: 11.5pt !important; line-height: 1.6 !important; }
-  .letter-compact header { margin-bottom: 20px !important; padding-bottom: 16px !important; }
-  .letter-compact .letter-body p, .letter-compact .letter-body .letter-p { margin: 0 0 10px !important; font-size: 11.5pt !important; }
-  .letter-compact .letter-body .letter-h1 { font-size: 16pt !important; margin: 0 0 12px !important; padding-bottom: 8px !important; }
-  .letter-compact .letter-body .letter-h2 { margin: 16px 0 8px !important; font-size: 12pt !important; }
-  .letter-compact .letter-body .letter-close { margin-top: 24px !important; }
-  .letter-compact .letter-body .letter-sig-space { height: 32px !important; }
-  .letter-compact .letter-body .letter-info-table { margin: 12px 0 16px !important; font-size: 11pt !important; }
+  .letter-compact { font-size: 11pt !important; line-height: 1.5 !important; }
+  .letter-compact header, .letter-compact .letter-header { margin-bottom: 16px !important; padding-bottom: 12px !important; }
+  .letter-compact .letter-ref-bar { margin-bottom: 16px !important; }
+  .letter-compact .letter-body p, .letter-compact .letter-body .letter-p, .letter-compact p, .letter-compact .ql-editor p { margin: 0 0 8px !important; font-size: 11pt !important; line-height: 1.5 !important; }
+  .letter-compact .letter-body .letter-h1, .letter-compact h1, .letter-compact .ql-editor h1 { font-size: 15pt !important; margin: 0 0 10px !important; padding-bottom: 6px !important; }
+  .letter-compact .letter-body .letter-h2, .letter-compact h2, .letter-compact .ql-editor h2 { margin: 12px 0 6px !important; font-size: 11.5pt !important; }
+  .letter-compact .letter-body ul, .letter-compact .letter-body ol, .letter-compact ul, .letter-compact ol, .letter-compact .ql-editor ul, .letter-compact .ql-editor ol { margin: 6px 0 10px 1.4em !important; padding: 0 !important; }
+  .letter-compact .letter-body li, .letter-compact li, .letter-compact .ql-editor li { margin-bottom: 3px !important; line-height: 1.45 !important; font-size: 10.5pt !important; }
+  .letter-compact .letter-sig-block { margin-top: 18px !important; padding-top: 12px !important; }
+  .letter-compact .letter-body .letter-close { margin-top: 16px !important; }
+  .letter-compact .letter-body .letter-sig-space { height: 20px !important; }
+  .letter-compact .letter-body .letter-info-table { margin: 10px 0 12px !important; font-size: 10.5pt !important; }
   .letter-compact .letter-body .letter-info-table th,
-  .letter-compact .letter-body .letter-info-table td { padding: 8px 12px !important; }
-  .letter-compact-more { font-size: 11pt !important; line-height: 1.5 !important; }
-  .letter-compact-more header { margin-bottom: 16px !important; }
-  .letter-compact-more .letter-body .letter-p, .letter-compact-more .letter-body p { margin-bottom: 8px !important; font-size: 11pt !important; }
+  .letter-compact .letter-body .letter-info-table td { padding: 6px 10px !important; }
+  .letter-compact .ql-toolbar { padding: 4px 6px !important; margin-bottom: 6px !important; }
+
+  .letter-compact-more { font-size: 10.5pt !important; line-height: 1.45 !important; }
+  .letter-compact-more header, .letter-compact-more .letter-header { margin-bottom: 12px !important; padding-bottom: 8px !important; }
+  .letter-compact-more .letter-ref-bar { margin-bottom: 10px !important; }
+  .letter-compact-more .letter-body .letter-p, .letter-compact-more .letter-body p, .letter-compact-more p, .letter-compact-more .ql-editor p { margin-bottom: 6px !important; font-size: 10.5pt !important; line-height: 1.4 !important; }
+  .letter-compact-more .letter-body li, .letter-compact-more li, .letter-compact-more .ql-editor li { margin-bottom: 2px !important; line-height: 1.35 !important; font-size: 10pt !important; }
+  .letter-compact-more .letter-body ul, .letter-compact-more .letter-body ol, .letter-compact-more ul, .letter-compact-more ol, .letter-compact-more .ql-editor ul, .letter-compact-more .ql-editor ol { margin: 4px 0 8px 1.2em !important; }
+  .letter-compact-more .letter-sig-block { margin-top: 14px !important; padding-top: 10px !important; }
 `
 
 export const LETTER_PAGE_WIDTH = 794
@@ -180,27 +190,28 @@ const A4_CONTENT_HEIGHT_PX = 1015
 
 const PRINT_STYLES = `
   @page { margin: 25mm 15mm; size: A4; }
-  body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; }
+  body { margin: 0; padding: 0; background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 11pt; }
   ${LETTER_COMPACT_CSS}
-  /* Letter body prose styles */
-  .letter-body p, .letter-body .letter-p { margin: 0 0 16px; font-size: 12.5pt; line-height: 1.7; color: #1e293b; }
+  /* Letter body prose styles - 11pt standard base */
+  .letter-body { font-size: 11pt; line-height: 1.55; color: #1e293b; }
+  .letter-body p, .letter-body .letter-p { margin: 0 0 12px; font-size: 11pt; line-height: 1.55; color: #1e293b; }
   .letter-body strong, .letter-body b { color: #0f172a; font-weight: 700; }
-  .letter-body .letter-h1 { font-size: 20pt; font-weight: 800; color: #0f172a; margin: 0 0 28px; letter-spacing: -0.02em; line-height: 1.3; }
-  .letter-body .letter-h2 { font-size: 14pt; font-weight: 700; color: #0f172a; margin: 28px 0 14px; letter-spacing: -0.01em; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-  .letter-body .letter-salutation { margin: 16px 0 28px; font-size: 12.5pt; color: #0f172a; font-weight: 600; }
-  .letter-body .letter-ref-line { font-size: 11.5pt; color: #475569; margin: 0 0 10px; }
-  .letter-body .letter-info-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 24px 0 32px; font-size: 12pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .letter-body .letter-info-table th { text-align: left; width: 35%; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 600; color: #334155; }
-  .letter-body .letter-info-table td { padding: 12px 16px; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
+  .letter-body .letter-h1 { font-size: 18pt; font-weight: 800; color: #0f172a; margin: 0 0 20px; letter-spacing: -0.02em; line-height: 1.3; }
+  .letter-body .letter-h2 { font-size: 13pt; font-weight: 700; color: #0f172a; margin: 20px 0 10px; letter-spacing: -0.01em; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }
+  .letter-body .letter-salutation { margin: 12px 0 20px; font-size: 11pt; color: #0f172a; font-weight: 600; }
+  .letter-body .letter-ref-line { font-size: 10pt; color: #475569; margin: 0 0 8px; }
+  .letter-body .letter-info-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 16px 0 24px; font-size: 10.5pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .letter-body .letter-info-table th { text-align: left; width: 35%; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 600; color: #334155; }
+  .letter-body .letter-info-table td { padding: 10px 14px; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
   .letter-body .letter-info-table tr:last-child th, .letter-body .letter-info-table tr:last-child td { border-bottom: none; }
-  .letter-body .letter-ol { margin: 16px 0 20px 1.5em; padding: 0; color: #1e293b; font-size: 12.5pt; }
-  .letter-body .letter-ol li { margin-bottom: 10px; line-height: 1.7; }
-  .letter-body .letter-small { font-size: 10.5pt; color: #64748b; }
-  .letter-body .letter-upper { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11pt; font-weight: 700; }
-  .letter-body .letter-close { margin-top: 40px; margin-bottom: 0; color: #1e293b; font-size: 12.5pt; }
-  .letter-body .letter-sig-space { height: 56px; }
-  .letter-body .letter-sig-name { font-weight: 700; margin: 0; color: #0f172a; font-size: 12.5pt; }
-  .letter-body .letter-sig-title { font-size: 11pt; color: #64748b; margin: 4px 0 0; }
+  .letter-body .letter-ol, .letter-body ul, .letter-body ol { margin: 10px 0 16px 1.5em; padding: 0; color: #1e293b; font-size: 11pt; }
+  .letter-body .letter-ol li, .letter-body li { margin-bottom: 6px; line-height: 1.55; }
+  .letter-body .letter-small { font-size: 9.5pt; color: #64748b; }
+  .letter-body .letter-upper { text-transform: uppercase; letter-spacing: 0.05em; font-size: 10.5pt; font-weight: 700; }
+  .letter-body .letter-close { margin-top: 28px; margin-bottom: 0; color: #1e293b; font-size: 11pt; }
+  .letter-body .letter-sig-space { height: 40px; }
+  .letter-body .letter-sig-name { font-weight: 700; margin: 0; color: #0f172a; font-size: 11pt; }
+  .letter-body .letter-sig-title { font-size: 9.5pt; color: #64748b; margin: 4px 0 0; }
   /* Quill rich-text */
   .letter-body .ql-font-serif { font-family: Georgia,'Times New Roman',serif; }
   .letter-body .ql-font-monospace { font-family: Consolas,Monaco,'Courier New',monospace; }
@@ -211,28 +222,29 @@ const PRINT_STYLES = `
   .letter-body .ql-align-right { text-align: right; }
   .letter-body .ql-align-justify { text-align: justify; }
   /* legacy class names */
-  .letter-pdf-prose .letter-h1 { font-size: 20pt; font-weight: 800; color: #0f172a; margin: 0 0 28px; letter-spacing: -0.02em; line-height: 1.3; }
-  .letter-pdf-prose .letter-h2 { font-size: 14pt; font-weight: 700; color: #0f172a; margin: 28px 0 14px; letter-spacing: -0.01em; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; }
-  .letter-pdf-prose .letter-p { margin: 0 0 16px; font-size: 12.5pt; line-height: 1.7; color: #1e293b; }
-  .letter-pdf-prose .letter-salutation { margin: 16px 0 28px; font-size: 12.5pt; color: #0f172a; font-weight: 600; }
-  .letter-pdf-prose .letter-info-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 24px 0 32px; font-size: 12pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .letter-pdf-prose .letter-info-table th { text-align: left; width: 35%; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 600; color: #334155; }
-  .letter-pdf-prose .letter-info-table td { padding: 12px 16px; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
+  .letter-pdf-prose { font-size: 11pt; line-height: 1.55; }
+  .letter-pdf-prose .letter-h1 { font-size: 18pt; font-weight: 800; color: #0f172a; margin: 0 0 20px; letter-spacing: -0.02em; line-height: 1.3; }
+  .letter-pdf-prose .letter-h2 { font-size: 13pt; font-weight: 700; color: #0f172a; margin: 20px 0 10px; letter-spacing: -0.01em; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }
+  .letter-pdf-prose .letter-p, .letter-pdf-prose p { margin: 0 0 12px; font-size: 11pt; line-height: 1.55; color: #1e293b; }
+  .letter-pdf-prose .letter-salutation { margin: 12px 0 20px; font-size: 11pt; color: #0f172a; font-weight: 600; }
+  .letter-pdf-prose .letter-info-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 16px 0 24px; font-size: 10.5pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .letter-pdf-prose .letter-info-table th { text-align: left; width: 35%; padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid #cbd5e1; font-weight: 600; color: #334155; }
+  .letter-pdf-prose .letter-info-table td { padding: 10px 14px; border-bottom: 1px solid #cbd5e1; color: #0f172a; }
   .letter-pdf-prose .letter-info-table tr:last-child th, .letter-pdf-prose .letter-info-table tr:last-child td { border-bottom: none; }
-  .letter-pdf-prose .letter-ol { margin: 16px 0 20px 1.5em; padding: 0; color: #1e293b; font-size: 12.5pt; }
-  .letter-pdf-prose .letter-ol li { margin-bottom: 10px; line-height: 1.7; }
+  .letter-pdf-prose .letter-ol, .letter-pdf-prose ul, .letter-pdf-prose ol { margin: 10px 0 16px 1.5em; padding: 0; color: #1e293b; font-size: 11pt; }
+  .letter-pdf-prose .letter-ol li, .letter-pdf-prose li { margin-bottom: 6px; line-height: 1.55; }
   .letter-pdf-prose .ql-align-center { text-align: center; }
   .letter-pdf-prose .ql-align-right { text-align: right; }
   .letter-pdf-prose .ql-align-justify { text-align: justify; }
   /* Enterprise letter styles (custom builder) */
-  .enterprise-letter-body { font-size: 12.5pt; line-height: 1.7; color: #1e293b; }
-  .enterprise-letter-body p { margin-bottom: 18px; }
-  .enterprise-letter-body table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 24px 0 32px; font-size: 12pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-  .enterprise-letter-body td, .enterprise-letter-body th { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 12px 16px; }
+  .enterprise-letter-body { font-size: 11pt; line-height: 1.55; color: #1e293b; }
+  .enterprise-letter-body p { margin-bottom: 12px; font-size: 11pt; line-height: 1.55; }
+  .enterprise-letter-body table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 16px 0 24px; font-size: 10.5pt; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .enterprise-letter-body td, .enterprise-letter-body th { border-bottom: 1px solid #cbd5e1; border-right: 1px solid #cbd5e1; padding: 10px 14px; }
   .enterprise-letter-body th { background: #f8fafc; font-weight: 600; color: #334155; }
   .enterprise-letter-body tr:last-child th, .enterprise-letter-body tr:last-child td { border-bottom: none; }
   .enterprise-letter-body th:last-child, .enterprise-letter-body td:last-child { border-right: none; }
-  .enterprise-footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; letter-spacing: 0.02em; }
+  .enterprise-footer { margin-top: 36px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 8pt; color: #94a3b8; letter-spacing: 0.02em; }
   @media print {
     body { margin: 0; padding: 0; }
     .letter-page-wrap { width: 100%; max-width: none; }
@@ -246,7 +258,7 @@ function measureContentHeight(el) {
   return Math.max(el.scrollHeight || 0, el.offsetHeight || 0, el.getBoundingClientRect?.().height || 0)
 }
 
-/** Tighten spacing first, then apply a gentle zoom — never shrink below 75%. */
+/** Tighten spacing first, then apply a gentle zoom to fit exactly 1 page. */
 export function applyLetterPageFit(docOrEl, { fitToOnePage = false, scale = 1 } = {}) {
   if (!docOrEl) return 1
   
@@ -264,7 +276,7 @@ export function applyLetterPageFit(docOrEl, { fitToOnePage = false, scale = 1 } 
   wrap.style.height = ''
   wrap.style.overflow = ''
 
-  const userScale = Math.max(0.75, Math.min(1.15, Number(scale) || 1))
+  const userScale = Math.max(0.70, Math.min(1.15, Number(scale) || 1))
 
   if (fitToOnePage) {
     content.classList.add('letter-compact')
@@ -279,10 +291,15 @@ export function applyLetterPageFit(docOrEl, { fitToOnePage = false, scale = 1 } 
   let fitZoom = 1
   if (fitToOnePage && height > A4_CONTENT_HEIGHT_PX) {
     fitZoom = A4_CONTENT_HEIGHT_PX / height
-    fitZoom = Math.max(0.75, Math.min(1, fitZoom))
+    fitZoom = Math.max(0.55, Math.min(1, fitZoom))
   }
 
-  const finalZoom = userScale * fitZoom
+  let finalZoom = userScale * fitZoom
+  // Ensure fitToOnePage strictly never allows height to overflow 1 A4 page
+  if (fitToOnePage && height * finalZoom > A4_CONTENT_HEIGHT_PX) {
+    finalZoom = Math.max(0.55, Math.min(1, A4_CONTENT_HEIGHT_PX / height))
+  }
+
   if (Math.abs(finalZoom - 1) > 0.004) {
     content.style.zoom = String(finalZoom)
     if (!content.style.zoom || content.style.zoom === 'normal') {
@@ -387,14 +404,13 @@ export async function downloadLetterPdf(opts, filenameBase = 'letter') {
   // Inline any blob: or remote URLs into base64 so backend Puppeteer doesn't fail fetching them
   const inlinedInnerHtml = await inlineImagesToDataUrls(innerHtml)
 
+  const compactClasses = fitToOnePage ? 'letter-compact letter-compact-more' : ''
+
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${esc(buildOpts.letterTitle || 'Letter')}</title><style>${PRINT_STYLES}
-    .letter-pdf-page { width:794px;min-height:1123px;padding:64px 72px;background:#fff;box-sizing:border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .letter-pdf-page { width:794px;padding:36px 48px;background:#fff;box-sizing:border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     .letter-pdf-page .letter-page-wrap { max-width:100%;margin:0; }
-    .letter-pdf-page .letter-body { font-size:12.5pt;line-height:1.7;color:#1e293b; font-family: 'Segoe UI', system-ui, sans-serif; }
-    .letter-pdf-page .letter-body p { margin:0 0 16px; }
-    .letter-pdf-page header { margin-bottom:32px;padding-bottom:24px; }
   </style></head><body style="margin:0;padding:0;background:#fff">
-    <div class="letter-pdf-page">${inlinedInnerHtml}</div>
+    <div class="letter-pdf-page ${compactClasses}">${inlinedInnerHtml}</div>
   </body></html>`
 
   try {
@@ -405,7 +421,7 @@ export async function downloadLetterPdf(opts, filenameBase = 'letter') {
     }, { responseType: 'text' })
     const finalHtml = typeof res.data === 'string' ? res.data : await res.data.text()
     
-    await htmlStringToPdfDownload(finalHtml, filenameBase)
+    await htmlStringToPdfDownload(finalHtml, filenameBase, { fitToOnePage, letterScale })
   } catch (err) {
     console.error('Letter PDF Generation Error:', err)
     throw err

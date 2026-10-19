@@ -6,7 +6,8 @@ import { jsPDF } from 'jspdf';
  * and downloads it as a multi-page PDF. This completely bypasses the need for 
  * Puppeteer on the backend.
  */
-export async function htmlStringToPdfDownload(htmlString, filename) {
+export async function htmlStringToPdfDownload(htmlString, filename, opts = {}) {
+  const { fitToOnePage = false, letterScale = 1 } = opts;
   const container = document.createElement('div');
   // 794px width is exactly 210mm at 96 DPI (A4 width)
   container.style.width = '794px';
@@ -31,6 +32,20 @@ export async function htmlStringToPdfDownload(htmlString, filename) {
       });
     }));
 
+    if (fitToOnePage) {
+      const pageWrap = container.querySelector('.letter-page-wrap') || container.firstElementChild;
+      if (pageWrap) {
+        const h = pageWrap.scrollHeight || pageWrap.offsetHeight;
+        // 1123px is A4 height at 96 DPI
+        if (h > 1123) {
+          const fitScale = Math.max(0.55, 1123 / h);
+          pageWrap.style.transform = `scale(${fitScale})`;
+          pageWrap.style.transformOrigin = 'top left';
+          pageWrap.style.width = `${794 / fitScale}px`;
+        }
+      }
+    }
+
     const canvas = await html2canvas(container, {
       scale: 2, // High resolution
       useCORS: true,
@@ -48,19 +63,25 @@ export async function htmlStringToPdfDownload(htmlString, filename) {
     // Calculate total height of the canvas in mm
     const totalImgHeightInMm = (canvas.height * pdfWidth) / canvas.width;
     
-    let heightLeft = totalImgHeightInMm;
-    let position = 0;
+    // If fitToOnePage, force exactly 1 page
+    if (fitToOnePage || totalImgHeightInMm <= pdfHeight + 3) {
+      const renderHeight = fitToOnePage ? Math.min(totalImgHeightInMm, pdfHeight) : totalImgHeightInMm;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, renderHeight);
+    } else {
+      let heightLeft = totalImgHeightInMm;
+      let position = 0;
 
-    // First page
-    pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, totalImgHeightInMm);
-    heightLeft -= pdfHeight;
-
-    // Add subsequent pages if the content is longer than one A4 page
-    while (heightLeft > 0) {
-      position = heightLeft - totalImgHeightInMm;
-      pdf.addPage();
+      // First page
       pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, totalImgHeightInMm);
       heightLeft -= pdfHeight;
+
+      // Add subsequent pages if the content is longer than one A4 page
+      while (heightLeft > 0) {
+        position = heightLeft - totalImgHeightInMm;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, totalImgHeightInMm);
+        heightLeft -= pdfHeight;
+      }
     }
 
     pdf.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
