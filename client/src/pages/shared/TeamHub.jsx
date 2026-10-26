@@ -162,8 +162,13 @@ export default function TeamHub({ isManagerView = false }) {
         emp.designation?.toLowerCase().includes(q) ||
         emp.department?.toLowerCase().includes(q)
       
+      const isIntern = emp.employmentType === 'intern'
+      const isBranchIntern = isIntern && (emp.internship?.workLocation === 'branch' || !emp.internship?.workLocation)
       const matchType = typeFilter === 'all' ||
-        (typeFilter === 'intern' ? emp.employmentType === 'intern' : emp.employmentType !== 'intern')
+        (typeFilter === 'intern' ? isIntern :
+         typeFilter === 'branch_intern' ? isBranchIntern :
+         typeFilter === 'remote_intern' ? (isIntern && emp.internship?.workLocation === 'remote') :
+         emp.employmentType !== 'intern')
 
       return matchSearch && matchType
     })
@@ -686,7 +691,16 @@ export default function TeamHub({ isManagerView = false }) {
                 typeFilter === 'intern' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              Interns ({leaderTeamEmployees.filter(e => e.employmentType === 'intern').length})
+              All Interns ({leaderTeamEmployees.filter(e => e.employmentType === 'intern').length})
+            </button>
+            <button
+              onClick={() => setTypeFilter('branch_intern')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                typeFilter === 'branch_intern' ? 'bg-white text-amber-800 shadow-sm font-bold' : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Interns working on-site at Raxwo branch"
+            >
+              🏢 Branch Interns ({leaderTeamEmployees.filter(e => e.employmentType === 'intern' && (e.internship?.workLocation === 'branch' || !e.internship?.workLocation)).length})
             </button>
             <button
               onClick={() => setTypeFilter('permanent')}
@@ -767,10 +781,22 @@ export default function TeamHub({ isManagerView = false }) {
                   </div>
                   <p className="text-[10px] text-slate-500 truncate mt-0.5">{emp.designation || 'Member'}</p>
                   <div className="flex items-center justify-between mt-1">
-                    <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.2 rounded-md border ${
-                      isIntern ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-blue-50 text-blue-700 border-blue-200'
+                    <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.5 rounded-md border ${
+                      isIntern
+                        ? (emp.internship?.workLocation === 'branch' || !emp.internship?.workLocation)
+                          ? 'bg-amber-50 text-amber-800 border-amber-300 font-bold'
+                          : emp.internship?.workLocation === 'remote'
+                          ? 'bg-sky-50 text-sky-800 border-sky-200'
+                          : 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
                     }`}>
-                      {isIntern ? 'Intern' : 'Staff'}
+                      {isIntern
+                        ? (emp.internship?.workLocation === 'branch' || !emp.internship?.workLocation)
+                          ? '🏢 Branch Intern'
+                          : emp.internship?.workLocation === 'remote'
+                          ? '🏠 Remote'
+                          : '🔄 Hybrid'
+                        : 'Staff'}
                     </span>
                     {isAdmin && (
                       <button
@@ -822,7 +848,13 @@ export default function TeamHub({ isManagerView = false }) {
                     ? 'bg-amber-400 text-slate-900 border-amber-300'
                     : 'bg-blue-400 text-slate-900 border-blue-300'
                 }`}>
-                  {selectedEmployee.employmentType === 'intern' ? '🎓 INTERN' : '💼 PERMANENT STAFF'}
+                  {selectedEmployee.employmentType === 'intern'
+                    ? (selectedEmployee.internship?.workLocation === 'branch' || !selectedEmployee.internship?.workLocation)
+                      ? '🏢 ON-SITE BRANCH INTERN (RAXWO)'
+                      : selectedEmployee.internship?.workLocation === 'remote'
+                      ? '🏠 REMOTE INTERN'
+                      : '🔄 HYBRID INTERN'
+                    : '💼 PERMANENT STAFF'}
                 </span>
                 <span className="text-xs text-slate-300 font-mono">#{selectedEmployee.employeeNo || 'EMP'}</span>
               </div>
@@ -945,6 +977,16 @@ export default function TeamHub({ isManagerView = false }) {
                   </div>
                   {selectedEmployee.employmentType === 'intern' && (
                     <>
+                      <div className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-slate-400">Work Setup / Location</span>
+                        <span className="font-bold text-slate-800">
+                          {(selectedEmployee.internship?.workLocation === 'branch' || !selectedEmployee.internship?.workLocation)
+                            ? '🏢 On-Site (Raxwo Branch Office)'
+                            : selectedEmployee.internship?.workLocation === 'remote'
+                            ? '🏠 Remote Intern'
+                            : '🔄 Hybrid'}
+                        </span>
+                      </div>
                       <div className="flex justify-between py-2 border-b border-slate-100">
                         <span className="text-slate-400">University</span>
                         <span className="font-medium text-slate-700">{selectedEmployee.internship?.university || '—'}</span>
@@ -2234,7 +2276,7 @@ export default function TeamHub({ isManagerView = false }) {
                     </div>
 
                     {/* Leaders List */}
-                    <div className="max-h-40 overflow-y-auto divide-y divide-slate-100 bg-white border border-slate-200 rounded-lg">
+                    <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 bg-white border border-slate-200 rounded-xl shadow-xs">
                       {/* Unassign Option */}
                       <button
                         type="button"

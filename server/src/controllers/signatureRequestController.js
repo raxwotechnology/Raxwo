@@ -45,9 +45,9 @@ exports.createRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Please upload a document file' });
     }
 
-    // Save Data URI directly if using unifiedStorage, or relative path if disk storage
-    const rawPath = req.file.path || req.file.filename || ''
-    const docPath = rawPath.startsWith('data:') ? rawPath : `/uploads/documents/${req.file.filename}`
+    // Save Cloudinary / Data URI directly, or relative path if disk storage
+    const rawPath = req.file.path || req.file.filename || '';
+    const docPath = (rawPath.startsWith('data:') || rawPath.startsWith('http://') || rawPath.startsWith('https://')) ? rawPath : `/uploads/documents/${req.file.filename}`;
 
     // Resolve employee / requester details
     const loggedEmp = await Employee.findOne({ userId: req.user._id }).populate('userId', 'name email phone');
@@ -144,8 +144,8 @@ exports.createRequest = async (req, res, next) => {
 function repairUploadUrl(url) {
   if (!url || typeof url !== 'string') return url;
 
-  // 1. If already a blob URI, return directly
-  if (url.startsWith('blob:')) return url;
+  // 1. If already a blob URI or remote HTTP(S) URI, return directly
+  if (url.startsWith('blob:') || url.startsWith('http://') || url.startsWith('https://')) return url;
 
   // 2. Normalize and fix Data URIs
   if (url.startsWith('data:')) {
@@ -439,7 +439,7 @@ exports.signAndFinalize = async (req, res, next) => {
     let finalSignedUrl = signedDocUrl;
     if (req.file) {
       const rawPath = req.file.path || req.file.filename || '';
-      finalSignedUrl = rawPath.startsWith('data:') ? rawPath : `/uploads/documents/${req.file.filename}`;
+      finalSignedUrl = (rawPath.startsWith('data:') || rawPath.startsWith('http://') || rawPath.startsWith('https://')) ? rawPath : `/uploads/documents/${req.file.filename}`;
     }
 
     if (!finalSignedUrl) {
@@ -830,7 +830,7 @@ exports.updateRequest = async (req, res, next) => {
     // Replace original document file if uploaded
     if (req.file) {
       const rawPath = req.file.path || req.file.filename || '';
-      sigReq.originalDocUrl = rawPath.startsWith('data:') ? rawPath : `/uploads/documents/${req.file.filename}`;
+      sigReq.originalDocUrl = (rawPath.startsWith('data:') || rawPath.startsWith('http://') || rawPath.startsWith('https://')) ? rawPath : `/uploads/documents/${req.file.filename}`;
     }
 
     await sigReq.save();

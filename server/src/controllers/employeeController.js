@@ -15,6 +15,7 @@ const { sendSms } = require('../services/smsService');
 const { ASSIGNED_STATUSES, INACTIVE_STATUSES } = require('../utils/employeeFilters');
 const { isTopManagerOrAdmin } = require('../utils/userPermissions');
 const { getManagerScope } = require('../utils/managerScope');
+const { uploadDataUri } = require('../services/cloudinaryService');
 
 function syncEmploymentTypeFromStatus(body) {
   const status = body.status;
@@ -258,8 +259,30 @@ exports.createEmployee = async (req, res, next) => {
       await user.save({ validateBeforeSave: false });
     }
 
-    if (profilePhoto && user) {
-      user.avatar = profilePhoto;
+    // Process any Base64 uploads to Cloudinary
+    let finalProfilePhoto = profilePhoto;
+    if (finalProfilePhoto && finalProfilePhoto.startsWith('data:')) {
+      finalProfilePhoto = await uploadDataUri(finalProfilePhoto);
+    }
+    let finalNicPhotoUrl = nicPhotoUrl;
+    if (finalNicPhotoUrl && finalNicPhotoUrl.startsWith('data:')) {
+      finalNicPhotoUrl = await uploadDataUri(finalNicPhotoUrl);
+    }
+    let finalNicPhotoBackUrl = nicPhotoBackUrl;
+    if (finalNicPhotoBackUrl && finalNicPhotoBackUrl.startsWith('data:')) {
+      finalNicPhotoBackUrl = await uploadDataUri(finalNicPhotoBackUrl);
+    }
+    let finalAgreementUrl = agreementUrl;
+    if (finalAgreementUrl && finalAgreementUrl.startsWith('data:')) {
+      finalAgreementUrl = await uploadDataUri(finalAgreementUrl);
+    }
+    let finalCvUrl = cvUrl;
+    if (finalCvUrl && finalCvUrl.startsWith('data:')) {
+      finalCvUrl = await uploadDataUri(finalCvUrl);
+    }
+
+    if (finalProfilePhoto && user) {
+      user.avatar = finalProfilePhoto;
       await user.save({ validateBeforeSave: false });
     }
 
@@ -298,10 +321,11 @@ exports.createEmployee = async (req, res, next) => {
       skills: skills ? skills.split(',').map(s => s.trim()) : [],
       manager: (req.user && !isTopManagerOrAdmin(req.user)) ? req.user._id : (manager || (req.user?.role === 'manager' ? req.user._id : undefined)),
       // uploaded file URLs
-      ...(profilePhoto   && { profilePhoto }),
-      ...(nicPhotoUrl    && { nicPhotoUrl }),
-      ...(nicPhotoBackUrl && { nicPhotoBackUrl }),
-      ...(agreementUrl   && { agreementUrl }),
+      ...(finalProfilePhoto   && { profilePhoto: finalProfilePhoto }),
+      ...(finalNicPhotoUrl    && { nicPhotoUrl: finalNicPhotoUrl }),
+      ...(finalNicPhotoBackUrl && { nicPhotoBackUrl: finalNicPhotoBackUrl }),
+      ...(finalAgreementUrl   && { agreementUrl: finalAgreementUrl }),
+      cvUrl: finalCvUrl || cvUrl || '',
       // employment extras
       ...(employmentType  && { employmentType }),
       ...(branch          && { branch }),
@@ -414,7 +438,10 @@ exports.updateEmployee = async (req, res, next) => {
     }
 
     if (payload.profilePhoto && typeof payload.profilePhoto === 'string' && payload.profilePhoto.trim()) {
-      const photo = payload.profilePhoto.trim();
+      let photo = payload.profilePhoto.trim();
+      if (photo.startsWith('data:')) {
+        photo = await uploadDataUri(photo);
+      }
       payload.profilePhoto = photo;
       await User.findByIdAndUpdate(employeeBefore.userId, { avatar: photo });
     } else if (payload.removeProfilePhoto) {
@@ -422,6 +449,18 @@ exports.updateEmployee = async (req, res, next) => {
       await User.findByIdAndUpdate(employeeBefore.userId, { avatar: '' });
     } else {
       delete payload.profilePhoto;
+    }
+    if (payload.cvUrl && payload.cvUrl.startsWith('data:')) {
+      payload.cvUrl = await uploadDataUri(payload.cvUrl);
+    }
+    if (payload.agreementUrl && payload.agreementUrl.startsWith('data:')) {
+      payload.agreementUrl = await uploadDataUri(payload.agreementUrl);
+    }
+    if (payload.nicPhotoUrl && payload.nicPhotoUrl.startsWith('data:')) {
+      payload.nicPhotoUrl = await uploadDataUri(payload.nicPhotoUrl);
+    }
+    if (payload.nicPhotoBackUrl && payload.nicPhotoBackUrl.startsWith('data:')) {
+      payload.nicPhotoBackUrl = await uploadDataUri(payload.nicPhotoBackUrl);
     }
     const employee = await Employee.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true })
       .populate('userId', 'name email phone avatar role');

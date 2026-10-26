@@ -45,6 +45,13 @@ function SearchableLeaderSelect({ managers = [], value, onChange }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Auto scroll into view when suggestions open so they are never hidden or cut off
+  useEffect(() => {
+    if (open && containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }, [open])
+
   const filteredList = useMemo(() => {
     const q = search.toLowerCase().trim()
     return activeManagers
@@ -114,12 +121,15 @@ function SearchableLeaderSelect({ managers = [], value, onChange }) {
         )}
       </div>
 
-      {/* Instant Suggestions Dropdown as user types */}
+      {/* Suggestions Box (in-flow so it never overflows or gets cut off at bottom) */}
       {open && (
-        <div className="absolute top-full left-0 right-0 mt-1 p-3 bg-white rounded-xl border border-slate-200 shadow-2xl space-y-2 z-50 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Suggestions ({filteredList.length})
+        <div className="mt-2 p-3 bg-white rounded-xl border border-secondary/30 shadow-md space-y-2 relative z-20 animate-fade-in">
+          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
+            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🎯 Leader Suggestions</span>
+              <span className="px-1.5 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold">
+                {filteredList.length}
+              </span>
             </span>
             <div className="flex gap-1">
               {[
@@ -131,8 +141,8 @@ function SearchableLeaderSelect({ managers = [], value, onChange }) {
                   key={t.id}
                   type="button"
                   onClick={() => setFilterType(t.id)}
-                  className={`text-[9px] px-2 py-0.5 rounded-full font-semibold transition-colors ${
-                    filterType === t.id ? 'bg-secondary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  className={`text-[9px] px-2.5 py-0.5 rounded-full font-bold transition-colors ${
+                    filterType === t.id ? 'bg-secondary text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
                   {t.label}
@@ -141,7 +151,7 @@ function SearchableLeaderSelect({ managers = [], value, onChange }) {
             </div>
           </div>
 
-          <div className="max-h-52 overflow-y-auto divide-y divide-slate-100 border border-slate-100 rounded-lg">
+          <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-xl bg-white">
             {/* Option to clear / mark as independent */}
             <button
               type="button"
@@ -291,7 +301,7 @@ function FileUploadField({
 }
 
 export default function EmployeeFormModal({
-  editing, branches, managers = [], register, setValue, errors,
+  editing, branches = [], managers = [], register, setValue, watch, errors,
   watchedType, watchedStatus, watchedEpfEnrolled, watchedManager,
   cvFile, setCvFile, agreementFile, setAgreementFile,
   nicFile, setNicFile, nicBackFile, setNicBackFile,
@@ -586,15 +596,105 @@ export default function EmployeeFormModal({
               </div>
 
               {watchedType === 'intern' && (
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/80 space-y-3">
-                  <p className="text-xs font-extrabold text-amber-800 uppercase tracking-wider">🎓 Internship Details</p>
+                <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <span>🎓 Internship &amp; Work Location</span>
+                    </p>
+                    <span className="text-[10px] bg-amber-200/80 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                      Raxwo Company Intern
+                    </span>
+                  </div>
+
+                  {/* Work Location Options: On-site at Raxwo Branch vs Remote vs Hybrid */}
+                  <div className="bg-white p-3.5 rounded-xl border border-amber-200/90 space-y-2.5">
+                    <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                      <span>Internship Work Location / Mode *</span>
+                      <span className="text-[10px] text-amber-700 font-semibold">Choose reporting setup</span>
+                    </label>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        (!watch || watch('internship.workLocation') === 'branch' || !watch('internship.workLocation'))
+                          ? 'border-secondary bg-secondary/5 font-bold text-secondary shadow-xs'
+                          : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      }`}>
+                        <input
+                          type="radio"
+                          value="branch"
+                          {...register('internship.workLocation')}
+                          className="mt-0.5 text-secondary focus:ring-secondary"
+                        />
+                        <div className="min-w-0 text-xs">
+                          <p className="font-bold text-slate-900">🏢 On-Site (Branch)</p>
+                          <p className="text-[10px] text-slate-500 font-normal">Works at Raxwo branch</p>
+                        </div>
+                      </label>
+
+                      <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        (watch && watch('internship.workLocation') === 'remote')
+                          ? 'border-secondary bg-secondary/5 font-bold text-secondary shadow-xs'
+                          : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      }`}>
+                        <input
+                          type="radio"
+                          value="remote"
+                          {...register('internship.workLocation')}
+                          className="mt-0.5 text-secondary focus:ring-secondary"
+                        />
+                        <div className="min-w-0 text-xs">
+                          <p className="font-bold text-slate-900">🏠 Remote Intern</p>
+                          <p className="text-[10px] text-slate-500 font-normal">Works from home</p>
+                        </div>
+                      </label>
+
+                      <label className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        (watch && watch('internship.workLocation') === 'hybrid')
+                          ? 'border-secondary bg-secondary/5 font-bold text-secondary shadow-xs'
+                          : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                      }`}>
+                        <input
+                          type="radio"
+                          value="hybrid"
+                          {...register('internship.workLocation')}
+                          className="mt-0.5 text-secondary focus:ring-secondary"
+                        />
+                        <div className="min-w-0 text-xs">
+                          <p className="font-bold text-slate-900">🔄 Hybrid</p>
+                          <p className="text-[10px] text-slate-500 font-normal">Branch + Remote</p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {(!watch || watch('internship.workLocation') === 'branch' || !watch('internship.workLocation') || watch('internship.workLocation') === 'hybrid') && (
+                      <div className="pt-2 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700">Assigned Branch Office</label>
+                          <select {...register('branch')} className="form-select !py-1.5 !text-xs w-full mt-1">
+                            <option value="">Raxwo Head Office / Main Branch</option>
+                            {(branches || []).map((b) => (
+                              <option key={b._id} value={b._id}>{b.name} ({b.city || 'Branch'})</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-semibold text-slate-700">Company Placement</label>
+                          <div className="mt-1 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 flex items-center justify-between">
+                            <span>Raxwo (Pvt) Ltd</span>
+                            <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">In-Office</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div><label className="form-label text-xs">Start Date</label><input {...register('internship.startDate')} type="date" className="form-input" /></div>
                     <div><label className="form-label text-xs">End Date</label><input {...register('internship.endDate')} type="date" className="form-input" /></div>
                     <div><label className="form-label text-xs">Duration (Weeks)</label><input {...register('internship.durationWeeks', { valueAsNumber: true })} type="number" className="form-input" /></div>
-                    <div><label className="form-label text-xs">University / Institute</label><input {...register('internship.university')} className="form-input" placeholder="e.g. SLIIT / IIT" /></div>
+                    <div><label className="form-label text-xs">University / Institute</label><input {...register('internship.university')} className="form-input" placeholder="e.g. SLIIT / IIT / UCSC" /></div>
                   </div>
-                  <div><label className="form-label text-xs">Academic Supervisor</label><input {...register('internship.supervisorName')} className="form-input" /></div>
+                  <div><label className="form-label text-xs">Academic Supervisor</label><input {...register('internship.supervisorName')} className="form-input" placeholder="Supervisor Name & Designation" /></div>
                 </div>
               )}
 

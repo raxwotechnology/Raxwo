@@ -10,12 +10,11 @@ const { relativeUploadPath } = require('../utils/uploadsPath');
 exports.uploadImageFile = async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No image uploaded' });
-    let imageUrl;
-    if (req.file.filename && req.file.filename.startsWith('data:')) {
-      imageUrl = req.file.filename;
-    } else {
+    let imageUrl = req.file.secure_url || req.file.url || req.file.path || req.file.filename;
+
+    if (!imageUrl || (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:'))) {
       const isSvg = req.file.mimetype === 'image/svg+xml';
-      if (!isSvg && sharp) {
+      if (!isSvg && sharp && req.file.buffer) {
         try {
           const optimized = await sharp(req.file.buffer)
             .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
@@ -26,11 +25,12 @@ exports.uploadImageFile = async (req, res, next) => {
           const b64 = Buffer.from(req.file.buffer).toString('base64');
           imageUrl = `data:${req.file.mimetype};base64,${b64}`;
         }
-      } else {
+      } else if (req.file.buffer) {
         const b64 = Buffer.from(req.file.buffer).toString('base64');
         imageUrl = `data:${req.file.mimetype};base64,${b64}`;
       }
     }
+
     res.status(201).json({ success: true, imageUrl });
   } catch (err) { next(err); }
 };

@@ -47,6 +47,7 @@ function toRelativeUploadUrl(urlOrPath, subdir = 'avatars') {
   let trimmed = urlOrPath.trim();
   if (!trimmed) return '';
   if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return trimmed;
+  if (trimmed.includes('cloudinary.com') || trimmed.includes('res.cloudinary')) return trimmed;
 
   trimmed = trimmed.replace(/\\/g, '/');
 
@@ -56,6 +57,7 @@ function toRelativeUploadUrl(urlOrPath, subdir = 'avatars') {
       if (u.pathname.includes('/uploads/')) {
         return u.pathname.substring(u.pathname.indexOf('/uploads/'));
       }
+      return trimmed;
     }
   } catch {
     /* ignore */
@@ -72,7 +74,10 @@ function toRelativeUploadUrl(urlOrPath, subdir = 'avatars') {
 }
 
 function relativeUploadPath(subdir, filename) {
-  if (filename && filename.startsWith('data:')) return filename;
+  if (!filename) return '';
+  if (filename.startsWith('data:') || filename.startsWith('blob:') || filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
+  }
   return `/uploads/${subdir}/${filename}`;
 }
 

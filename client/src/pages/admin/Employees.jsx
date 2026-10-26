@@ -80,7 +80,7 @@ export default function AdminEmployees() {
   const [deletePendingEmp, setDeletePendingEmp] = useState(null)
   const [deletePassword, setDeletePassword] = useState('')
   const [verifying, setVerifying] = useState(false)
-  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm()
+  const { register, handleSubmit, reset, setValue, watch, control, formState: { errors } } = useForm()
   const watchedType = useWatch({ control, name: 'employmentType', defaultValue: 'permanent' })
   const watchedStatus = useWatch({ control, name: 'status', defaultValue: 'active' })
   const watchedEpfEnrolled = useWatch({ control, name: 'epfEtfEnrolled', defaultValue: false })
@@ -206,6 +206,7 @@ export default function AdminEmployees() {
       department: 'Engineering',
       designation: '',
       employmentType: 'permanent',
+      internship: { workLocation: 'branch' },
       status: 'active',
       joinedDate: new Date().toISOString().slice(0, 10),
       gender: 'male',
@@ -261,6 +262,7 @@ export default function AdminEmployees() {
       setValue('internship.durationWeeks', full.internship.durationWeeks || '')
       setValue('internship.university', full.internship.university || '')
       setValue('internship.supervisorName', full.internship.supervisorName || '')
+      setValue('internship.workLocation', full.internship.workLocation || 'branch')
     }
     if (full.contract) {
       setValue('contract.startDate', full.contract.startDate?.split('T')[0] || '')
@@ -614,6 +616,7 @@ export default function AdminEmployees() {
                 managers={leadersList}
                 register={register}
                 setValue={setValue}
+                watch={watch}
                 errors={errors}
                 watchedType={watchedType}
                 watchedStatus={watchedStatus}

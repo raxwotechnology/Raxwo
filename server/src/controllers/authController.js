@@ -1,3 +1,4 @@
+const { uploadDataUri } = require('../services/cloudinaryService');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 const Branch = require('../models/Branch');
@@ -121,9 +122,16 @@ exports.updateProfile = async (req, res, next) => {
     if (name != null) updates.name = name;
     if (phone != null) updates.phone = phone;
     if (Object.prototype.hasOwnProperty.call(req.body, 'avatar')) {
-      updates.avatar = avatar != null && String(avatar).trim() !== ''
-        ? toRelativeUploadUrl(avatar)
-        : '';
+      if (avatar != null && String(avatar).trim() !== '') {
+        const strAvatar = String(avatar).trim();
+        if (strAvatar.startsWith('data:')) {
+          updates.avatar = await uploadDataUri(strAvatar);
+        } else {
+          updates.avatar = toRelativeUploadUrl(strAvatar);
+        }
+      } else {
+        updates.avatar = '';
+      }
     }
     const user = await User.findByIdAndUpdate(
       req.user._id,

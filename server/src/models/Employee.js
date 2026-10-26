@@ -75,6 +75,12 @@ const employeeSchema = new mongoose.Schema({
     convertedAt: Date,
     convertedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     removalReason: String,
+    workLocation: {
+      type: String,
+      enum: ['branch', 'remote', 'hybrid'],
+      default: 'branch',
+    },
+    branchLocation: { type: String, default: 'Raxwo Head Office / Branch' },
   },
 
   // ── Contract ──────────────────────────────────────────────────────────────
