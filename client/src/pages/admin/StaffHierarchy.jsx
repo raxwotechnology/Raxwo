@@ -356,7 +356,7 @@ export default function StaffHierarchy() {
             }`}>
               <div className="w-full h-full rounded-[14px] overflow-hidden bg-white flex items-center justify-center">
                 <UserAvatar
-                  user={{ name: emp.userId?.name, avatar: photo }}
+                  user={{ name: emp.userId?.name || emp.name || 'Staff', avatar: photo }}
                   className="w-full h-full"
                   imgClassName="w-full h-full object-cover object-top"
                 />
@@ -607,23 +607,28 @@ export default function StaffHierarchy() {
               <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-600 via-secondary to-purple-600" />
               
               <div className="relative z-10 flex flex-col items-center">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-secondary p-0.5 shadow-sm mb-3">
-                  <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center p-1.5 overflow-hidden">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-tr from-indigo-600 via-secondary to-purple-600 p-[2px] shadow-lg mb-3.5 group-hover:scale-105 transition-transform duration-300">
+                  <div className="w-full h-full bg-[#0A0F1C] rounded-[14px] flex items-center justify-center p-2.5 overflow-hidden shadow-inner relative">
                     <img
-                      src={logoSrc || '/logo.png'}
+                      src="https://res.cloudinary.com/r3e3ltny/image/upload/v1793001057/raxwo/branding/raxwo_corporate_avatar.png"
                       alt={siteName || 'Raxwo'}
                       className="w-full h-full object-contain"
                       onError={(e) => {
                         if (!e.currentTarget.dataset.fallbackTried) {
                           e.currentTarget.dataset.fallbackTried = '1';
-                          e.currentTarget.src = '/raxwo-logo.png';
+                          e.currentTarget.src = logoSrc || '/favicon.png';
+                        } else if (e.currentTarget.dataset.fallbackTried === '1') {
+                          e.currentTarget.dataset.fallbackTried = '2';
+                          e.currentTarget.src = '/favicon.png';
                         } else {
                           e.currentTarget.style.display = 'none';
                           if (e.currentTarget.nextSibling) e.currentTarget.nextSibling.style.display = 'flex';
                         }
                       }}
                     />
-                    <div className="hidden w-full h-full items-center justify-center text-indigo-600 font-extrabold text-xl">R</div>
+                    <div className="hidden w-full h-full items-center justify-center text-secondary font-black text-2xl font-heading">
+                      R
+                    </div>
                   </div>
                 </div>
                 
@@ -991,7 +996,7 @@ export default function StaffHierarchy() {
                     <div className="w-full h-full rounded-[14px] overflow-hidden bg-white flex items-center justify-center">
                       <UserAvatar
                         user={{
-                          name: selectedMember.userId?.name,
+                          name: selectedMember.userId?.name || selectedMember.name || 'Staff',
                           avatar: selectedMember.profilePhoto || selectedMember.userId?.avatar
                         }}
                         className="w-full h-full"
