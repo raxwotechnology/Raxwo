@@ -104,7 +104,7 @@ export default function TeamHub({ isManagerView = false }) {
   })
 
   const leaders = useMemo(() => {
-    return (leadersSummaryData?.leaders || []).filter(l => l.leader && l.leader.isActive !== false)
+    return (leadersSummaryData?.leaders || []).filter(l => l.leader && l.leader.isActive !== false && (l.totalMembers || 0) > 0)
   }, [leadersSummaryData])
 
   const potentialLeaders = useMemo(() => {

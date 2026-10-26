@@ -380,6 +380,7 @@ exports.getRequests = async (req, res, next) => {
     }
 
     const requests = await SignatureRequest.find(query)
+      .allowDiskUse(true)
       .select('_id requestRef title documentType reason urgency status requester employeeId employeeName employeeEmail employeePhone employeeType clientId clientName clientEmail signedBy signedByName signedByRole signedAt rejectionReason createdAt updatedAt')
       .sort({ createdAt: -1 })
       .populate('requester', 'name email role')

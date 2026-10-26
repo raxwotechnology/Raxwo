@@ -992,6 +992,8 @@ exports.getManagerDashboard = async (req, res, next) => {
         .limit(10)
         .lean(),
       SignatureRequest.find({ employeeId: { $in: pendingScopeIds }, status: 'pending' })
+        .allowDiskUse(true)
+        .select('_id requestRef title documentType urgency status requester employeeId employeeName employeeEmail createdAt')
         .sort({ createdAt: -1 })
         .limit(10)
         .lean(),

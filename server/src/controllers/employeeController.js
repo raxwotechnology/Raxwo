@@ -907,7 +907,7 @@ exports.getLeadersSummary = async (req, res, next) => {
     const potentialLeaders = Array.from(potentialLeadersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
     
     // Only return leaders who are active and have at least 1 member or have admin/manager role
-    const leaders = Object.values(managerMap).filter(l => l.leader && l.leader.isActive !== false);
+    const leaders = Object.values(managerMap).filter(l => l.leader && l.leader.isActive !== false && l.totalMembers > 0);
 
     res.json({
       success: true,
