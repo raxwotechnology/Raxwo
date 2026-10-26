@@ -303,6 +303,10 @@ export default function AdminSubscriptions() {
         toast.success('Agreement uploaded and synced to CRM ✓')
         setSelectedSub(data.subscription)
         setAgreementForm({ title: '', type: 'service', validFrom: '', validUntil: '', notes: '', file: null })
+      } else if (showPaymentForm) {
+        toast.success('Payment recorded & automated receipt sent via Email and SMS ✓')
+        setShowForm(false); setShowPaymentForm(false); setShowAgreementForm(false)
+        setSelectedSub(null)
       } else {
         toast.success('Saved successfully')
         setShowForm(false); setShowPaymentForm(false); setShowAgreementForm(false)
@@ -1382,6 +1386,10 @@ export default function AdminSubscriptions() {
               <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-1">
                 <p className="text-slate-500">Subscription: <span className="font-semibold text-slate-800">{selectedSub.title}</span></p>
                 <p className="text-slate-500">Remaining Balance: <span className="font-bold text-red-500">LKR {selectedSub.remainingBalance?.toLocaleString()}</span></p>
+              </div>
+              <div className="p-3 bg-emerald-50/90 border border-emerald-200 rounded-xl flex items-center gap-2.5 text-xs text-emerald-800 font-medium">
+                <FiSend size={15} className="shrink-0 text-emerald-600" />
+                <span>An automated <strong>Email receipt</strong> and <strong>SMS receipt</strong> will be sent to the customer upon recording this payment.</span>
               </div>
               <div>
                 <label className="form-label flex items-center justify-between">

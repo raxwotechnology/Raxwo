@@ -101,6 +101,19 @@ function computeSubscriptionBilling(sub, now = new Date()) {
   let cycleAmountDue = 0;
   let dynamicBilled = Number(sub.totalBilled || 0);
 
+  // When a subscription is on HOLD, PAUSED, CANCELLED, or EXPIRED:
+  // Payments must not accumulate while on hold until active again!
+  if (['hold', 'paused', 'cancelled', 'expired'].includes(sub.status)) {
+    return {
+      totalPaid,
+      dynamicBilled: totalPaid,
+      remainingBalance: 0,
+      overdueDays: 0,
+      status: sub.status,
+      cycleAmountDue: 0,
+    };
+  }
+
   if (sub.nextDueDate) {
     const dueMidnight = new Date(sub.nextDueDate);
     dueMidnight.setHours(0, 0, 0, 0);
@@ -362,6 +375,34 @@ exports.updateSubscription = async (req, res, next) => {
     });
     if (updates.reminderDaysBefore === 0) updates.reminderDaysBefore = null;
 
+    // Handle HOLD status logic: Stop payment accumulation while on hold until active again
+    if (updates.status === 'hold') {
+      updates.overdueDays = 0;
+      const currentPaid = (existing.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      updates.totalPaid = currentPaid;
+      updates.totalBilled = currentPaid;
+    } else if (existing.status === 'hold' && updates.status === 'active') {
+      // Resumed from hold! Restart nextDueDate from today so hold period payments are NOT accumulated
+      const now = new Date();
+      let restartDue = new Date(now);
+      const bDay = updates.billingDay || existing.billingDay || 1;
+      const maxDays = new Date(restartDue.getFullYear(), restartDue.getMonth() + 1, 0).getDate();
+      restartDue.setDate(Math.min(bDay, maxDays));
+      if (restartDue < now) {
+        restartDue = advanceDueDate(restartDue, updates.billingFrequency || existing.billingFrequency || 'monthly');
+        const maxDaysNext = new Date(restartDue.getFullYear(), restartDue.getMonth() + 1, 0).getDate();
+        restartDue.setDate(Math.min(bDay, maxDaysNext));
+      }
+      restartDue.setHours(12, 0, 0, 0);
+      updates.nextDueDate = restartDue;
+      updates.overdueDays = 0;
+
+      const currentPaid = (existing.payments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+      const cycleAmount = Number(updates.amount !== undefined ? updates.amount : existing.amount) || 0;
+      updates.totalPaid = currentPaid;
+      updates.totalBilled = currentPaid + cycleAmount;
+    }
+
     if (updates.nextDueDate) {
       const nd = new Date(updates.nextDueDate);
       if (!Number.isNaN(nd.getTime())) {
@@ -518,14 +559,34 @@ exports.recordPayment = async (req, res, next) => {
     });
 
     const populatedSub = await Subscription.findById(sub._id).populate('client', 'name email phone');
-    if (populatedSub?.client?.email) {
-      const { sendSubscriptionPaymentReceiptEmail } = require('../services/emailService');
-      sendSubscriptionPaymentReceiptEmail(populatedSub.client.email, populatedSub.client.name, populatedSub, {
-        amount: Number(amount),
-        date: paymentDate,
-        method: m,
-        reference: reference || ''
-      }).catch(err => console.warn('[subscription recordPayment] Receipt email failed:', err.message));
+    if (populatedSub?.client) {
+      const client = populatedSub.client;
+
+      // 1. Send Automated Email Receipt
+      if (client.email) {
+        const { sendSubscriptionPaymentReceiptEmail } = require('../services/emailService');
+        sendSubscriptionPaymentReceiptEmail(client.email, client.name, populatedSub, {
+          amount: Number(amount),
+          date: paymentDate,
+          method: m,
+          reference: reference || ''
+        }).catch(err => console.warn('[subscription recordPayment] Receipt email failed:', err.message));
+      }
+
+      // 2. Send Automated SMS Receipt
+      let clientPhone = client.phone;
+      if (!clientPhone && client._id) {
+        const ClientProfile = require('../models/ClientProfile');
+        const cp = await ClientProfile.findOne({ userId: client._id });
+        clientPhone = cp?.phone || cp?.mobile;
+      }
+
+      if (clientPhone) {
+        const { sendSubscriptionPaymentReceiptSms } = require('../services/smsService');
+        sendSubscriptionPaymentReceiptSms(clientPhone, client.name, populatedSub.title, Number(amount), populatedSub.nextDueDate)
+          .then(ok => console.log('[subscription recordPayment] Receipt SMS sent:', ok))
+          .catch(err => console.warn('[subscription recordPayment] Receipt SMS failed:', err.message));
+      }
     }
 
     res.json({ success: true, subscription: sub });

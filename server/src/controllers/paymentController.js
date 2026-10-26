@@ -163,27 +163,53 @@ exports.payhereNotify = async (req, res, next) => {
         }
       } else if (itemType === 'subscription') {
         const Subscription = require('../models/Subscription');
-        const sub = await Subscription.findById(targetId);
+        const sub = await Subscription.findById(targetId).populate('client', 'name email phone');
         if (sub) {
-          sub.totalPaid += Number(payhere_amount);
+          const amt = Number(payhere_amount);
+          sub.totalPaid += amt;
           if (sub.totalPaid >= sub.totalBilled) {
             sub.status = 'active';
             sub.overdueDays = 0;
-            // Advance due date if they paid off balance
             const moment = require('moment');
             let nextDue = moment(sub.nextDueDate);
-            if (nextDue.isBefore(moment())) nextDue = moment(); // Or proper logic
+            if (nextDue.isBefore(moment())) nextDue = moment();
+            sub.nextDueDate = nextDue.toDate();
           }
           sub.payments.push({
-            amount: Number(payhere_amount),
+            amount: amt,
             method: 'payhere',
             reference: payment_id,
             note: `PayHere automatic payment`,
+            paidAt: new Date(),
           });
           await sub.save();
-          clientId = sub.client;
+          clientId = sub.client?._id || sub.client;
           title = 'Subscription Payment Completed';
-          msg = `Payment of LKR ${payhere_amount} received for subscription ${sub.subscriptionNo}.`;
+          msg = `Payment of LKR ${amt.toLocaleString()} received for subscription ${sub.subscriptionNo}.`;
+
+          // Automated Email Receipt
+          if (sub.client?.email) {
+            const { sendSubscriptionPaymentReceiptEmail } = require('../services/emailService');
+            sendSubscriptionPaymentReceiptEmail(sub.client.email, sub.client.name, sub, {
+              amount: amt,
+              date: new Date(),
+              method: 'payhere',
+              reference: payment_id,
+            }).catch(e => console.warn('[PayHere Subscription Receipt Email Failed]:', e.message));
+          }
+
+          // Automated SMS Receipt
+          let clientPhone = sub.client?.phone;
+          if (!clientPhone && sub.client?._id) {
+            const ClientProfile = require('../models/ClientProfile');
+            const cp = await ClientProfile.findOne({ userId: sub.client._id });
+            clientPhone = cp?.phone || cp?.mobile;
+          }
+          if (clientPhone) {
+            const { sendSubscriptionPaymentReceiptSms } = require('../services/smsService');
+            sendSubscriptionPaymentReceiptSms(clientPhone, sub.client.name, sub.title, amt, sub.nextDueDate)
+              .catch(e => console.warn('[PayHere Subscription Receipt SMS Failed]:', e.message));
+          }
         }
       } else if (itemType === 'project') {
         const Project = require('../models/Project');

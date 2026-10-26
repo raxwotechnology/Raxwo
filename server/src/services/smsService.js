@@ -103,6 +103,12 @@ exports.sendPayslipSms = async (phone, name, monthName, netSalary, billUrl) => {
   return sendSms(phone, msg, name, 'payroll');
 };
 
+exports.sendSubscriptionPaymentReceiptSms = async (phone, name, subTitle, amount, nextDueDate) => {
+  const dueStr = nextDueDate ? ` Next due: ${new Date(nextDueDate).toLocaleDateString('en-LK')}.` : '';
+  const msg = `Dear ${name}, we have received your payment of LKR ${Number(amount).toLocaleString()} for subscription "${subTitle}".${dueStr} Thank you! - Raxwo`;
+  return sendSms(phone, msg, name, 'payment');
+};
+
 exports.sendSubscriptionHistorySms = async (phone, name, subTitle, totalPaid) => {
   const msg = `Hi ${name}, payment history for your subscription "${subTitle}" has been generated. Total paid: LKR ${Number(totalPaid || 0).toLocaleString()}. View details in your portal.`;
   return sendSms(phone, msg, name, 'subscription');
