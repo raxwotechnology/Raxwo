@@ -41,6 +41,12 @@ exports.uploadImageLocal = multer({
   limits: { fileSize: 8 * 1024 * 1024 }
 }).single('image');
 
+exports.uploadImagesLocal = multer({
+  storage: unifiedStorage,
+  fileFilter: imageFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }
+}).array('images', 10);
+
 const agreementFilter = (req, file, cb) => {
   const allowed = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
   const ext = path.extname(file.originalname).toLowerCase();

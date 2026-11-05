@@ -197,7 +197,7 @@ export default function Services() {
             <h1 className="text-3xl sm:text-5xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl">
               Software <span className="text-[#20b2f5]">Products &amp; Engineering Services</span>
             </h1>
-            <p className="text-white/80 max-w-2xl mx-auto text-base sm:text-xl leading-relaxed font-normal">
+            <p className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal">
               Explore bespoke software engineering services and ready-to-deploy enterprise SaaS &amp; ERP platforms built for your business.
             </p>
           </motion.div>

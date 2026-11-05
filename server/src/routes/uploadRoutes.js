@@ -1,9 +1,16 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth');
-const { uploadImageLocal, uploadFile } = require('../middleware/upload');
-const { uploadImageFile } = require('../controllers/uploadController');
+const { uploadImageLocal, uploadImagesLocal, uploadFile } = require('../middleware/upload');
+const { uploadImageFile, uploadMultipleImages } = require('../controllers/uploadController');
 const { relativeUploadPath } = require('../utils/uploadsPath');
+
+router.post('/images', protect, (req, res, next) => {
+  uploadImagesLocal(req, res, (err) => {
+    if (err) return next(err);
+    return uploadMultipleImages(req, res, next);
+  });
+});
 
 router.post('/image', protect, (req, res, next) => {
   uploadImageLocal(req, res, (err) => {

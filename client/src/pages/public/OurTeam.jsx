@@ -379,7 +379,7 @@ export default function OurTeam() {
             <h1 className="text-3xl lg:text-5xl font-bold text-white font-heading leading-tight mb-4 tracking-tight">
               Meet Our <span className="text-[#20b2f5]">Team</span>
             </h1>
-            <p className="text-white/80 max-w-2xl mx-auto text-base md:text-lg leading-relaxed font-normal mb-6">
+            <p className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal mb-6">
               The passionate innovators, architects, and specialists driving digital transformation at Raxwo Technology.
             </p>
             <div className="flex items-center justify-center gap-2 text-white/80 text-sm font-medium">
@@ -537,7 +537,7 @@ export default function OurTeam() {
               {staff.length > 0 && (
                 <div>
                   <SectionHeader level="employee" count={staff.length} />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {staff.map((emp, i) => (
                       <MemberCard key={emp._id} emp={emp} level="employee" index={i} onClick={setSelectedMember} />
                     ))}
@@ -556,7 +556,7 @@ export default function OurTeam() {
                   {totalFiltered} {totalFiltered === 1 ? 'member' : 'members'}
                 </span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredEmployees.map((emp, i) => {
                   const role = (emp.userId?.role || '').toLowerCase()
                   const desig = (emp.designation || '').toLowerCase()

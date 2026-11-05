@@ -62,6 +62,9 @@ exports.updateService = async (req, res, next) => {
           ? body.features
           : String(body.features || '').split(',').map((s) => s.trim()).filter(Boolean),
       } : {}),
+      ...(body.screenshots !== undefined ? {
+        screenshots: Array.isArray(body.screenshots) ? body.screenshots.filter(Boolean) : []
+      } : {}),
     };
     const service = await Service.findByIdAndUpdate(req.params.id, payload, { new: true, runValidators: true });
     if (!service) return res.status(404).json({ success: false, message: 'Item not found' });

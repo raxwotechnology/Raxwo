@@ -35,6 +35,7 @@ const EMPTY_SERVICE = {
   whatsappNumber: '',
   imageUrl: '',
   logoUrl: '',
+  screenshots: [],
   active: true,
   order: 0
 }
@@ -49,6 +50,37 @@ export default function AdminServices() {
   const [showModal, setShowModal] = useState(false)
   const [step, setStep] = useState(1) // 1, 2, 3, 4
   const [isDragOver, setIsDragOver] = useState(false)
+  const [uploadingScreenshots, setUploadingScreenshots] = useState(false)
+
+  const handleUploadScreenshots = async (files) => {
+    if (!files || files.length === 0) return
+    const fd = new FormData()
+    Array.from(files).forEach(f => fd.append('images', f))
+    setUploadingScreenshots(true)
+    try {
+      const { data: res } = await api.post('/uploads/images', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      if (res?.imageUrls) {
+        setForm(prev => ({
+          ...prev,
+          screenshots: [...(prev.screenshots || []), ...res.imageUrls]
+        }))
+        toast.success(`Uploaded ${res.imageUrls.length} screenshot(s)`)
+      }
+    } catch (e) {
+      toast.error('Screenshot upload failed')
+    } finally {
+      setUploadingScreenshots(false)
+    }
+  }
+
+  const handleRemoveScreenshot = (idxToRemove) => {
+    setForm(prev => ({
+      ...prev,
+      screenshots: (prev.screenshots || []).filter((_, idx) => idx !== idxToRemove)
+    }))
+  }
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['admin-services'],
@@ -147,6 +179,7 @@ export default function AdminServices() {
       whatsappNumber: s.whatsappNumber || '',
       imageUrl: s.imageUrl || '',
       logoUrl: s.logoUrl || s.imageUrl || '',
+      screenshots: Array.isArray(s.screenshots) ? s.screenshots : [],
       active: s.active !== undefined ? s.active : true,
       order: s.order || 0
     })
@@ -163,6 +196,7 @@ export default function AdminServices() {
         ...form,
         logoUrl,
         imageUrl: logoUrl,
+        screenshots: (form.screenshots || []).filter(Boolean),
         topHighlights: form.topHighlights.filter(Boolean),
         categorizedFeatures: form.categorizedFeatures.map(cat => ({
           categoryName: cat.categoryName,
@@ -521,6 +555,74 @@ export default function AdminServices() {
                             className="w-10 h-10 object-contain rounded-lg bg-white p-1"
                           />
                           <span className="text-xs font-semibold text-slate-700">Logo Preview</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product Showcase Screenshots Upload */}
+                    <div className="pt-2 border-t border-slate-200/70">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-slate-700 block">
+                          Product Showcase Screenshots (2-4 Preview Images for Detail Page)
+                        </label>
+                        <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                          {(form.screenshots || []).length} uploaded
+                        </span>
+                      </div>
+
+                      <div className="p-4 border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:bg-slate-100/80 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          id="screenshots-file-input"
+                          onChange={e => e.target.files && handleUploadScreenshots(e.target.files)}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="screenshots-file-input"
+                          className="cursor-pointer flex flex-col items-center justify-center gap-1.5 text-center"
+                        >
+                          {uploadingScreenshots ? (
+                            <div className="flex items-center gap-2 text-xs font-bold text-blue-600">
+                              <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              Uploading Screenshots to Cloudinary...
+                            </div>
+                          ) : (
+                            <>
+                              <FiUpload size={20} className="text-slate-400" />
+                              <span className="text-xs font-bold text-slate-700">
+                                Click to Upload Showcase Screenshots (Multiple)
+                              </span>
+                              <span className="text-[10px] text-slate-400">PNG, JPG, WebP up to 10MB each</span>
+                            </>
+                          )}
+                        </label>
+                      </div>
+
+                      {/* Thumbnails of current screenshots */}
+                      {(form.screenshots || []).length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {form.screenshots.map((shot, sIdx) => (
+                            <div
+                              key={sIdx}
+                              className="group relative rounded-xl overflow-hidden border border-slate-200 bg-white aspect-[16/10] shadow-xs flex items-center justify-center"
+                            >
+                              <img
+                                src={mediaUrl(shot)}
+                                alt={`Screenshot ${sIdx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveScreenshot(sIdx)}
+                                className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-red-600/90 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 shadow-sm cursor-pointer"
+                                title="Remove screenshot"
+                              >
+                                <FiTrash2 size={12} />
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

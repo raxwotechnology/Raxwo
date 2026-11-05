@@ -11,6 +11,7 @@ import {
 } from 'react-icons/fi'
 import api from '../../lib/api'
 import { mediaUrl } from '../../lib/media'
+import { resolveProductImage, resolveProductScreenshots } from '../../lib/productBrandLogos'
 import QuoteModal from '../../components/showcase/QuoteModal'
 import FeedbackModal from '../../components/showcase/FeedbackModal'
 import SEO from '../../components/common/SEO'
@@ -80,6 +81,28 @@ const STATIC_SHOWCASE_ITEMS = [
   }
 ]
 
+
+function formatOverviewParagraphs(desc) {
+  if (!desc) return []
+  const rawParts = desc.split(/\n\s*\n|\n/).map(s => s.trim()).filter(Boolean)
+  if (rawParts.length >= 2) return rawParts
+  const sentences = desc.match(/[^.!?]+[.!?]+(\s+|$)/g) || [desc]
+  if (sentences.length <= 2) return [desc]
+  const mid = Math.ceil(sentences.length / 2)
+  const p1 = sentences.slice(0, mid).join('').trim()
+  const p2 = sentences.slice(mid).join('').trim()
+  return [p1, p2].filter(Boolean)
+}
+
+const FEATURE_COLORS = [
+  { border: 'border-blue-100 hover:border-blue-300 bg-blue-50/20', accent: 'bg-blue-600', checkBg: 'bg-blue-100 text-blue-600' },
+  { border: 'border-emerald-100 hover:border-emerald-300 bg-emerald-50/20', accent: 'bg-emerald-600', checkBg: 'bg-emerald-100 text-emerald-600' },
+  { border: 'border-indigo-100 hover:border-indigo-300 bg-indigo-50/20', accent: 'bg-indigo-600', checkBg: 'bg-indigo-100 text-indigo-600' },
+  { border: 'border-purple-100 hover:border-purple-300 bg-purple-50/20', accent: 'bg-purple-600', checkBg: 'bg-purple-100 text-purple-600' },
+  { border: 'border-amber-100 hover:border-amber-300 bg-amber-50/20', accent: 'bg-amber-600', checkBg: 'bg-amber-100 text-amber-600' },
+  { border: 'border-cyan-100 hover:border-cyan-300 bg-cyan-50/20', accent: 'bg-cyan-600', checkBg: 'bg-cyan-100 text-cyan-600' },
+]
+
 function stripHtml(html) {
   if (!html) return ''
   try {
@@ -108,6 +131,7 @@ export default function ShowcaseDetailPage() {
   const [showQuoteModal, setShowQuoteModal] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [hoveredFeature, setHoveredFeature] = useState(null)
+  const [selectedScreenshot, setSelectedScreenshot] = useState(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['showcase-item', id],
@@ -187,7 +211,8 @@ export default function ShowcaseDetailPage() {
   }
 
   const IconComp = ICON_MAP[item.icon] || FiLayers
-  const logoSrc = item.logoUrl || item.imageUrl
+  const logoSrc = resolveProductImage(item, "logo", "black") || item.logoUrl || item.imageUrl
+  const screenshots = resolveProductScreenshots(item)
   const accentFrom = item.colorFrom || '#2563eb'
   const accentTo = item.colorTo || '#4f46e5'
 
@@ -463,12 +488,61 @@ export default function ShowcaseDetailPage() {
                 <p className="text-xs text-slate-400 font-medium">Architecture, benefits & operational scope</p>
               </div>
             </div>
-            <div className="px-8 py-6">
-              <p className="text-slate-600 text-sm leading-relaxed">
-                {cleanDescription}
-              </p>
+            <div className="px-8 py-6 space-y-4">
+              {formatOverviewParagraphs(cleanDescription).map((para, pIdx) => (
+                <p key={pIdx} className="text-slate-600 text-sm md:text-[15px] leading-relaxed">
+                  {para}
+                </p>
+              ))}
             </div>
           </motion.div>
+
+          {/* Product Showcase & Interface Gallery */}
+          {screenshots.length > 0 && (
+            <motion.div
+              variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0}
+              className="bg-white border border-slate-200/70 rounded-3xl overflow-hidden shadow-sm"
+            >
+              <div className="flex items-center gap-4 px-8 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
+                  <FiLayers size={20} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">System Screenshots &amp; Interface Preview</h2>
+                  <p className="text-xs text-slate-400 font-medium">Real-world operational dashboards &amp; production screens</p>
+                </div>
+                <span className="ml-auto text-[11px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1 rounded-full">
+                  {screenshots.length} Preview {screenshots.length === 1 ? 'Screen' : 'Screens'}
+                </span>
+              </div>
+              <div className="p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {screenshots.map((imgSrc, sIdx) => (
+                    <div
+                      key={sIdx}
+                      onClick={() => setSelectedScreenshot(imgSrc)}
+                      className="group cursor-pointer rounded-2xl overflow-hidden border border-slate-200 shadow-xs hover:shadow-xl hover:border-blue-400 transition-all duration-300 bg-slate-50 relative aspect-[16/10] flex items-center justify-center"
+                    >
+                      <img
+                        src={mediaUrl(imgSrc)}
+                        alt={`${item.title} Preview ${sIdx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <FiExternalLink size={13} /> Click to Enlarge Preview
+                        </span>
+                        <span className="text-[10px] font-semibold text-white/80 uppercase tracking-wider">
+                          Preview #{sIdx + 1}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
 
           {/* Feature Breakdown */}
           <motion.div
@@ -490,36 +564,35 @@ export default function ShowcaseDetailPage() {
 
             <div className="p-8">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                {categorizedFeatures.map((cat, idx) => (
-                  <motion.div
-                    key={idx}
-                    variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={idx * 0.5}
-                    onMouseEnter={() => setHoveredFeature(idx)}
-                    onMouseLeave={() => setHoveredFeature(null)}
-                    className={`rounded-2xl border p-5 space-y-3 transition-all duration-200 cursor-default
-                      ${hoveredFeature === idx
-                        ? 'border-blue-300 bg-blue-50/50 shadow-md shadow-blue-100'
-                        : 'border-slate-200/70 bg-slate-50/60 hover:border-slate-300'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-slate-900">{cat.categoryName}</h3>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors
-                        ${hoveredFeature === idx ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                        {cat.items?.length || 0}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {(cat.items || []).map((feat, fIdx) => (
-                        <div key={fIdx} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
-                          <div className="w-4 h-4 rounded-md bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
-                            <FiCheck size={10} className="text-emerald-600" />
+                {categorizedFeatures.map((cat, idx) => {
+                  const color = FEATURE_COLORS[idx % FEATURE_COLORS.length]
+                  return (
+                    <motion.div
+                      key={idx}
+                      variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }} custom={idx * 0.5}
+                      onMouseEnter={() => setHoveredFeature(idx)}
+                      onMouseLeave={() => setHoveredFeature(null)}
+                      className={`rounded-2xl border p-5 space-y-3.5 transition-all duration-300 cursor-default shadow-2xs ${color.border} ${color.bg} ${
+                        hoveredFeature === idx ? 'shadow-md scale-[1.01]' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 pb-2 border-b border-slate-200/60">
+                        <div className={`w-2.5 h-2.5 rounded-full ${color.accent}`} />
+                        <h3 className="text-sm font-bold text-slate-900">{cat.categoryName}</h3>
+                      </div>
+                      <div className="space-y-2.5">
+                        {(cat.items || []).map((feat, fIdx) => (
+                          <div key={fIdx} className="flex items-start gap-2.5 text-xs text-slate-700 font-medium">
+                            <div className={`w-4 h-4 rounded-md ${color.checkBg} flex items-center justify-center shrink-0 mt-0.5 shadow-2xs`}>
+                              <FiCheck size={10} />
+                            </div>
+                            <span>{feat}</span>
                           </div>
-                          {feat}
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                ))}
+                        ))}
+                      </div>
+                    </motion.div>
+                  )
+                })}
               </div>
             </div>
           </motion.div>
@@ -638,6 +711,28 @@ export default function ShowcaseDetailPage() {
       {/* Modals */}
       {showQuoteModal && <QuoteModal item={item} onClose={() => setShowQuoteModal(false)} />}
       {showFeedbackModal && <FeedbackModal item={item} onClose={() => setShowFeedbackModal(false)} />}
+
+      {/* Screenshot Lightbox Modal */}
+      {selectedScreenshot && (
+        <div
+          onClick={() => setSelectedScreenshot(null)}
+          className="fixed inset-0 z-[2147483647] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-8"
+        >
+          <div className="relative max-w-5xl max-h-[90vh] bg-white rounded-3xl overflow-hidden shadow-2xl p-2" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setSelectedScreenshot(null)}
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-slate-900/80 hover:bg-slate-900 text-white flex items-center justify-center shadow-lg transition-colors cursor-pointer"
+            >
+              <FiX size={18} />
+            </button>
+            <img
+              src={mediaUrl(selectedScreenshot)}
+              alt="Enlarged screenshot preview"
+              className="w-full h-auto max-h-[82vh] object-contain rounded-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

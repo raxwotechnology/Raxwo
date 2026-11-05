@@ -21,6 +21,7 @@ import useAuthStore from '../../store/authStore'
 import api from '../../lib/api'
 import toast from 'react-hot-toast'
 import { mediaUrl } from '../../lib/media'
+import { resolveProductImage } from '../../lib/productBrandLogos'
 import ContactForm from '../../components/public/ContactForm'
 import SEO from '../../components/common/SEO'
 
@@ -192,25 +193,35 @@ function HomeNav() {
             <FiPackage size={16} /> Software Products <FiChevronDown size={14} className={`transition-transform duration-300 group-hover:rotate-180 ${productsDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
           <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-[130]">
-            <div className="w-[740px] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] border border-slate-200/90 overflow-hidden p-5">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                    <FiPackage size={14} />
+            <div className="w-[960px] max-w-[96vw] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.18)] border border-slate-200/90 overflow-hidden p-6">
+              <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <FiPackage size={16} />
                   </div>
-                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Ready-Made ERP &amp; SaaS Systems</span>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 uppercase tracking-wider block">Ready-Made ERP &amp; SaaS Systems</span>
+                    <span className="text-[11px] text-slate-400">Production-tested software platforms for modern enterprises</span>
+                  </div>
                 </div>
-                <span className="text-[11px] font-semibold text-slate-400">1-Click Auto Login Demos Available</span>
+                <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-full flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> 1-Click Auto Login Demos Available
+                </span>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3.5">
                 {allServices.filter(s => s.type === 'product').slice(0, 8).map(s => {
                   const rawTitle = (s.title || '').replace(/^["'\s]+|["'\s]+$/g, '')
                   const brandName = rawTitle.split(/—|-|\|/)[0].trim() || rawTitle
-                  const logoSrc = s.logoUrl || s.imageUrl
+                  const logoSrc = resolveProductImage(s, 'icon', 'black') || s.logoUrl || s.imageUrl
 
                   return (
-                    <Link key={s._id} to="/software-products" className="group/item flex items-center gap-3 p-2 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50 transition-all text-left">
-                      <div className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-xl bg-white border border-slate-200/80 p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-xs group-hover/item:border-blue-300 group-hover/item:scale-105 transition-all">
+                    <Link
+                      key={s._id}
+                      to={`/software-products/${s._id}`}
+                      onClick={() => setProductsDropdownOpen(false)}
+                      className="group/item flex items-center gap-3.5 p-3 rounded-xl border border-slate-100 hover:border-blue-200 hover:bg-slate-50/80 transition-all text-left"
+                    >
+                      <div className="w-14 h-14 min-w-[56px] min-h-[56px] max-w-[56px] max-h-[56px] rounded-xl bg-slate-50 border border-slate-200/80 p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs group-hover/item:border-blue-300 group-hover/item:scale-105 group-hover/item:bg-white transition-all">
                         {logoSrc ? (
                           <img
                             src={mediaUrl(logoSrc)}
@@ -222,13 +233,13 @@ function HomeNav() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="text-xs font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors line-clamp-1 block">{brandName}</span>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-[13px] font-bold text-slate-800 group-hover/item:text-[#20b2f5] transition-colors line-clamp-1 block">{brandName}</span>
                           {(s.badge || s.category) && (
                             <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 shrink-0">{s.badge || s.category}</span>
                           )}
                         </div>
-                        <span className="text-[11px] text-slate-500 line-clamp-1 block">
+                        <span className="text-[11px] text-slate-500 line-clamp-2 leading-snug block">
                           {s.tagline || (rawTitle !== brandName ? rawTitle : 'Enterprise Management Solution')}
                         </span>
                       </div>
@@ -358,8 +369,8 @@ function HomeNav() {
                     {mobileProductsOpen && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden bg-emerald-500/5">
                         <div className="px-4 py-3 flex flex-col gap-2">
-                          {allServices.filter(s => s.type === 'product').slice(0, 4).map(s => (
-                            <Link key={s._id} to={`/software-products`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-white/70 hover:text-emerald-400 transition-colors relative">
+                          {allServices.filter(s => s.type === 'product').slice(0, 6).map(s => (
+                            <Link key={s._id} to={`/software-products/${s._id}`} onClick={() => setMobileOpen(false)} className="pl-14 py-2 text-sm font-bold text-white/70 hover:text-emerald-400 transition-colors relative">
                               <div className="absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-white/20" />
                               {s.title}
                             </Link>
@@ -681,7 +692,7 @@ export default function Home() {
 
           {/* All Products Logo + Name Grid (Same theme cards) */}
           {displayProducts.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {displayProducts.map((p, i) => (
                 <motion.div
                   key={p._id}
@@ -697,7 +708,7 @@ export default function Home() {
                       <div className="w-full h-36 bg-white flex items-center justify-center p-5 relative overflow-hidden border-b border-slate-100 group-hover:bg-slate-50/50 transition-colors">
                         {(p.logoUrl || p.imageUrl) ? (
                           <img
-                            src={mediaUrl(p.logoUrl || p.imageUrl)}
+                            src={mediaUrl(resolveProductImage(p, "logo", "black") || p.logoUrl || p.imageUrl)}
                             alt={p.title}
                             className="max-h-20 w-auto max-w-[85%] object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500"
                           />
@@ -735,7 +746,7 @@ export default function Home() {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[...Array(4)].map((_, i) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-100 p-6 animate-pulse">
                   <div className="w-full h-36 bg-slate-100 rounded-2xl mb-4" />
@@ -764,7 +775,7 @@ export default function Home() {
               Our off-the-shelf ERP and management systems — customizable for your business needs.
             </p>
           </motion.div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 lg:gap-14">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
             {HOME_PRODUCTS.map((s, i) => {
               return (
                 <motion.div key={s._id} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="group cursor-pointer h-full">

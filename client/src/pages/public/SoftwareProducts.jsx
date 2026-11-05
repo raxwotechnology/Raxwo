@@ -194,7 +194,7 @@ export default function SoftwareProducts() {
             <h1 className="text-3xl sm:text-5xl font-bold text-white font-heading mb-6 tracking-tight drop-shadow-2xl">
               Corporate <span className="text-[#20b2f5]">Software Products</span> &amp; ERP Systems
             </h1>
-            <p className="text-white/80 max-w-2xl mx-auto text-base sm:text-xl leading-relaxed font-normal">
+            <p className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal">
               High-performance, ready-to-deploy ERP and SaaS management systems built for Sri Lankan businesses with instant 1-Click Auto Login Demos.
             </p>
           </motion.div>

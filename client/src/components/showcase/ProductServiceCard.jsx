@@ -6,6 +6,7 @@ import {
   FiDatabase, FiTrendingUp, FiUsers, FiPackage, FiArrowRight, FiStar
 } from 'react-icons/fi'
 import { mediaUrl } from '../../lib/media'
+import { resolveProductImage } from '../../lib/productBrandLogos'
 
 const ICON_MAP = {
   FiCode, FiSmartphone, FiCloud, FiShield, FiTrendingUp,
@@ -92,7 +93,7 @@ export default function ProductServiceCard({ item, onViewFeatures, onGetQuote, o
   const IconComp = ICON_MAP[item.icon] || FiLayers
 
   // Logo URL
-  const logoSrc = item.logoUrl || item.imageUrl
+  const logoSrc = resolveProductImage(item, "logo", "black") || item.logoUrl || item.imageUrl
 
   // Clean summary text without HTML tags
   const rawSummary = item.tagline || stripHtml(item.description)

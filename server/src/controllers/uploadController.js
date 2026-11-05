@@ -34,3 +34,12 @@ exports.uploadImageFile = async (req, res, next) => {
     res.status(201).json({ success: true, imageUrl });
   } catch (err) { next(err); }
 };
+
+
+exports.uploadMultipleImages = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, message: 'No images uploaded' });
+    const imageUrls = req.files.map(f => f.secure_url || f.url || f.path || f.filename);
+    res.status(201).json({ success: true, imageUrls });
+  } catch (err) { next(err); }
+};

@@ -108,7 +108,7 @@ export default function Portfolio() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
-              className="text-white/80 max-w-2xl mx-auto text-xl md:text-2xl leading-relaxed font-normal"
+              className="text-white/80 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed font-normal"
             >
               Real projects, real results — see how we've transformed businesses across Sri Lanka and beyond.
             </motion.p>
