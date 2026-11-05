@@ -29,7 +29,7 @@ exports.submitRequest = async (req, res, next) => {
       approvalChain: [{ role: 'employee', action: 'approved', approvedBy: req.user._id, approvedAt: new Date(), note: 'Submitted' }],
     });
 
-    // Notify managers via in-app + email
+    // Notify managers via in-app only (no SMS or email)
     const managers = await User.find({ role: 'manager', isActive: true }).select('_id email');
     for (const mgr of managers) {
       await createNotification({
@@ -38,12 +38,9 @@ exports.submitRequest = async (req, res, next) => {
         message: `${req.user.name} submitted a ${type || 'general'} request: "${subject}"`,
         type: 'system',
         link: '/manager/requests',
+        sendSmsNotification: false,
       }).catch(() => {});
     }
-    // Email managers
-    const managerEmails = managers.map(m => m.email).filter(Boolean);
-    emailService.sendRequestSubmittedEmail(managerEmails, req.user.name, subject, type || 'general')
-      .catch((err) => console.warn('[request] notification email failed:', err.message));
 
     res.status(201).json({ success: true, request });
   } catch (err) { next(err); }

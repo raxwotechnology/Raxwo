@@ -333,17 +333,8 @@ exports.sendPayslipReadyEmail = async (employeeEmail, employeeName, details) => 
 };
 
 exports.sendLeaveSubmittedEmail = async (employeeEmail, employeeName, leaveDetails) => {
-  const html = await buildEmailHTML('Leave Request Submitted', `
-    <p>Hi <strong>${employeeName}</strong>,</p>
-    <p>Your leave request has been submitted to your manager.</p>
-    ${infoBoxHtml([
-      { label: 'Leave Type', value: leaveDetails.leaveType },
-      { label: 'Duration', value: `${leaveDetails.days} day(s)` },
-      { label: 'Start Date', value: new Date(leaveDetails.startDate).toLocaleDateString() }
-    ])}
-    ${btnHtml('View Request', `${APP_URL}/developer/leaves`)}
-  `);
-  await sendLoggedMail({ to: employeeEmail, subject: `Leave Request Submitted — ${leaveDetails.leaveType}`, html }, 'leave');
+  // Disabled: do not send automated submission emails on leave request
+  return;
 };
 
 exports.sendLeaveDecisionEmail = async (employeeEmail, employeeName, leaveDetails) => {
@@ -384,20 +375,8 @@ exports.sendToolRevokedEmail = async (employeeEmail, employeeName, toolName) => 
 
 /* ─── Work Logs & Employee Requests ─────────────────────────────────────────── */
 exports.sendWorkLogSubmittedEmail = async (managerEmails, employeeName, logDate, taskCount = 0) => {
-  const emails = (Array.isArray(managerEmails) ? managerEmails : [managerEmails]).filter(Boolean);
-  if (!emails.length) return;
-  const dateStr = logDate ? new Date(logDate).toLocaleDateString('en-LK') : 'today';
-  const html = await buildEmailHTML('Daily Work Log Submitted', `
-    <p><strong>${employeeName || 'An employee'}</strong> submitted a daily work log for <strong>${dateStr}</strong>.</p>
-    ${infoBoxHtml([
-      { label: 'Tasks logged', value: String(taskCount) },
-      { label: 'Date', value: dateStr },
-    ])}
-    ${btnHtml('Review Work Logs', `${APP_URL}/manager/work-logs`)}
-  `);
-  for (const to of emails) {
-    await sendLoggedMail({ to, subject: `Work Log: ${employeeName} — ${dateStr}`, html }, 'work-logs');
-  }
+  // Disabled: do not send email notifications to managers on work log submission
+  return;
 };
 
 exports.sendWorkLogApprovedEmail = async (employeeEmail, employeeName, logDate, note = '') => {
@@ -413,19 +392,8 @@ exports.sendWorkLogApprovedEmail = async (employeeEmail, employeeName, logDate, 
 };
 
 exports.sendRequestSubmittedEmail = async (managerEmails, employeeName, subject, type = 'general') => {
-  const emails = (Array.isArray(managerEmails) ? managerEmails : [managerEmails]).filter(Boolean);
-  if (!emails.length) return;
-  const html = await buildEmailHTML('New Employee Request', `
-    <p><strong>${employeeName || 'An employee'}</strong> submitted a new request.</p>
-    ${infoBoxHtml([
-      { label: 'Type', value: String(type).replace(/_/g, ' ') },
-      { label: 'Subject', value: subject || '—' },
-    ])}
-    ${btnHtml('Review Requests', `${APP_URL}/manager/requests`)}
-  `);
-  for (const to of emails) {
-    await sendLoggedMail({ to, subject: `New Request: ${subject || type}`, html }, 'requests');
-  }
+  // Disabled: do not send email notifications to managers on request submission
+  return;
 };
 
 exports.sendRequestDecisionEmail = async (employeeEmail, employeeName, subject, status, note = '') => {

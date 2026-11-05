@@ -77,7 +77,7 @@ exports.submitWorkLog = async (req, res, next) => {
       approvalStatus: 'pending',
     });
 
-    // Notify managers (in-app)
+    // Notify managers (in-app only, no SMS or email)
     const managers = await User.find({ role: { $in: ['manager', 'admin'] }, isActive: true }).select('email').limit(5);
     for (const mgr of managers.filter((m) => m._id)) {
       await createNotification({
@@ -86,14 +86,11 @@ exports.submitWorkLog = async (req, res, next) => {
         message: `${req.user.name} submitted a work log for ${logDate.toLocaleDateString('en-LK')}`,
         type: 'system',
         link: '/manager/work-logs',
+        sendSmsNotification: false,
       }).catch(() => {});
     }
 
     res.status(201).json({ success: true, workLog });
-
-    const managerEmails = managers.map((m) => m.email).filter(Boolean);
-    emailService.sendWorkLogSubmittedEmail(managerEmails, req.user.name, logDate, parsedTasks.length)
-      .catch((err) => console.warn('[work-log] notification email failed:', err.message));
   } catch (err) {
     console.error('[work-log] submit failed:', err.message);
     if (err.name === 'ValidationError' || err.message?.includes('Cast to ObjectId')) {
